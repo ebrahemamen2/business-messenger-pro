@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Copy, CheckCircle, Shield, Webhook, Key, Phone, Building2 } from 'lucide-react';
+import { Copy, CheckCircle, Shield, Webhook, Key, Phone, Building2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+
+const SUPABASE_PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'mhbmxvgcdzhqwpznmgei';
 
 const Settings = () => {
   const { toast } = useToast();
@@ -15,24 +18,83 @@ const Settings = () => {
   const [verifyToken, setVerifyToken] = useState('');
   const [autoReply, setAutoReply] = useState(true);
   const [notifications, setNotifications] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const webhookUrl = 'https://your-domain.com/api/webhook';
+  const webhookUrl = `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/whatsapp-webhook`;
 
-  const handleSave = () => {
-    localStorage.setItem(
-      'wa_config',
-      JSON.stringify({ token, phoneId, businessId, verifyToken })
-    );
-    toast({
-      title: '✅ تم الحفظ',
-      description: 'تم حفظ إعدادات الربط بنجاح',
-    });
+  // Load config from DB
+  useEffect(() => {
+    const loadConfig = async () => {
+      const { data } = await supabase
+        .from('wa_config')
+        .select('*')
+        .limit(1)
+        .single();
+
+      if (data) {
+        setToken(data.access_token || '');
+        setPhoneId(data.phone_number_id || '');
+        setBusinessId(data.business_account_id || '');
+        setVerifyToken(data.verify_token || '');
+        setAutoReply(data.welcome_enabled ?? true);
+      }
+      setLoading(false);
+    };
+    loadConfig();
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      // Check if config exists
+      const { data: existing } = await supabase
+        .from('wa_config')
+        .select('id')
+        .limit(1)
+        .single();
+
+      const configData = {
+        access_token: token,
+        phone_number_id: phoneId,
+        business_account_id: businessId,
+        verify_token: verifyToken,
+        welcome_enabled: autoReply,
+      };
+
+      if (existing) {
+        await supabase.from('wa_config').update(configData).eq('id', existing.id);
+      } else {
+        await supabase.from('wa_config').insert(configData);
+      }
+
+      toast({
+        title: '✅ تم الحفظ',
+        description: 'تم حفظ إعدادات الربط بنجاح في قاعدة البيانات',
+      });
+    } catch (err) {
+      toast({
+        title: '❌ خطأ',
+        description: 'حدث خطأ أثناء حفظ الإعدادات',
+        variant: 'destructive',
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const copyWebhook = () => {
     navigator.clipboard.writeText(webhookUrl);
     toast({ title: 'تم النسخ', description: 'تم نسخ رابط الـ Webhook' });
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6 overflow-y-auto h-full">
@@ -116,7 +178,7 @@ const Settings = () => {
               <Input
                 value={webhookUrl}
                 readOnly
-                className="flex-1 bg-secondary border-0 text-muted-foreground"
+                className="flex-1 bg-secondary border-0 text-muted-foreground text-xs"
                 dir="ltr"
               />
               <Button variant="outline" onClick={copyWebhook} className="gap-2">
@@ -130,8 +192,16 @@ const Settings = () => {
           </div>
         </div>
 
-        <Button onClick={handleSave} className="w-full mt-6 bg-primary text-primary-foreground hover:bg-primary/90">
-          <CheckCircle className="w-4 h-4 ml-2" />
+        <Button
+          onClick={handleSave}
+          disabled={saving}
+          className="w-full mt-6 bg-primary text-primary-foreground hover:bg-primary/90"
+        >
+          {saving ? (
+            <Loader2 className="w-4 h-4 ml-2 animate-spin" />
+          ) : (
+            <CheckCircle className="w-4 h-4 ml-2" />
+          )}
           حفظ الإعدادات
         </Button>
       </Card>
