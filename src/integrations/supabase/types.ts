@@ -14,7 +14,144 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      auto_reply_rules: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean | null
+          response_text: string
+          trigger_keyword: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          response_text: string
+          trigger_keyword: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          response_text?: string
+          trigger_keyword?: string
+        }
+        Relationships: []
+      }
+      contacts: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          name: string | null
+          notes: string | null
+          phone: string
+          tags: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string | null
+          notes?: string | null
+          phone: string
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string | null
+          notes?: string | null
+          phone?: string
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      messages: {
+        Row: {
+          body: string
+          contact_name: string | null
+          contact_phone: string
+          created_at: string
+          direction: string
+          id: string
+          media_type: string | null
+          media_url: string | null
+          status: string | null
+          wa_message_id: string | null
+        }
+        Insert: {
+          body: string
+          contact_name?: string | null
+          contact_phone: string
+          created_at?: string
+          direction: string
+          id?: string
+          media_type?: string | null
+          media_url?: string | null
+          status?: string | null
+          wa_message_id?: string | null
+        }
+        Update: {
+          body?: string
+          contact_name?: string | null
+          contact_phone?: string
+          created_at?: string
+          direction?: string
+          id?: string
+          media_type?: string | null
+          media_url?: string | null
+          status?: string | null
+          wa_message_id?: string | null
+        }
+        Relationships: []
+      }
+      wa_config: {
+        Row: {
+          access_token: string | null
+          away_enabled: boolean | null
+          away_message: string | null
+          business_account_id: string | null
+          created_at: string
+          id: string
+          phone_number_id: string | null
+          updated_at: string
+          verify_token: string | null
+          welcome_enabled: boolean | null
+          welcome_message: string | null
+        }
+        Insert: {
+          access_token?: string | null
+          away_enabled?: boolean | null
+          away_message?: string | null
+          business_account_id?: string | null
+          created_at?: string
+          id?: string
+          phone_number_id?: string | null
+          updated_at?: string
+          verify_token?: string | null
+          welcome_enabled?: boolean | null
+          welcome_message?: string | null
+        }
+        Update: {
+          access_token?: string | null
+          away_enabled?: boolean | null
+          away_message?: string | null
+          business_account_id?: string | null
+          created_at?: string
+          id?: string
+          phone_number_id?: string | null
+          updated_at?: string
+          verify_token?: string | null
+          welcome_enabled?: boolean | null
+          welcome_message?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
