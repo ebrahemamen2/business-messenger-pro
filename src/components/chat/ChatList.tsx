@@ -1,30 +1,21 @@
 import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useState } from 'react';
-import type { Conversation } from '@/data/mockData';
+import type { ChatConversation } from '@/hooks/useConversations';
 
 interface ChatListProps {
-  conversations: Conversation[];
+  conversations: ChatConversation[];
   selectedId: string | null;
   onSelect: (id: string) => void;
 }
 
-const statusLabels: Record<string, string> = {
-  all: 'الكل',
-  active: 'نشط',
-  pending: 'معلق',
-  resolved: 'مكتمل',
-};
-
 const ChatList = ({ conversations, selectedId, onSelect }: ChatListProps) => {
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('all');
 
   const filtered = conversations.filter((c) => {
-    const matchSearch =
-      c.contact.name.includes(search) || c.contact.phone.includes(search);
-    const matchFilter = filter === 'all' || c.status === filter;
-    return matchSearch && matchFilter;
+    return (
+      c.contact.name.includes(search) || c.contact.phone.includes(search)
+    );
   });
 
   return (
@@ -46,21 +37,6 @@ const ChatList = ({ conversations, selectedId, onSelect }: ChatListProps) => {
             className="pl-9 bg-secondary border-0 text-sm"
           />
         </div>
-        <div className="flex gap-1.5 mt-3">
-          {Object.entries(statusLabels).map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => setFilter(key)}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 ${
-                filter === key
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'bg-secondary text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* List */}
@@ -75,25 +51,13 @@ const ChatList = ({ conversations, selectedId, onSelect }: ChatListProps) => {
                 : 'hover:bg-secondary/40'
             }`}
           >
-            {/* Avatar */}
             <div className="relative flex-shrink-0">
               <div className="w-11 h-11 rounded-full bg-primary/15 flex items-center justify-center">
                 <span className="text-sm font-bold text-primary">
                   {conv.contact.name.charAt(0)}
                 </span>
               </div>
-              <div
-                className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card ${
-                  conv.status === 'active'
-                    ? 'bg-status-active'
-                    : conv.status === 'pending'
-                    ? 'bg-status-pending'
-                    : 'bg-status-resolved'
-                }`}
-              />
             </div>
-
-            {/* Content */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-sm text-foreground truncate">
@@ -103,16 +67,9 @@ const ChatList = ({ conversations, selectedId, onSelect }: ChatListProps) => {
                   {conv.lastMessageTime}
                 </span>
               </div>
-              <div className="flex items-center justify-between mt-0.5">
-                <p className="text-xs text-muted-foreground truncate max-w-[200px]">
-                  {conv.lastMessage}
-                </p>
-                {conv.unreadCount > 0 && (
-                  <span className="min-w-[20px] h-5 rounded-full bg-primary text-primary-foreground text-[11px] font-bold flex items-center justify-center flex-shrink-0 px-1.5">
-                    {conv.unreadCount}
-                  </span>
-                )}
-              </div>
+              <p className="text-xs text-muted-foreground truncate max-w-[200px] mt-0.5">
+                {conv.lastMessage}
+              </p>
             </div>
           </button>
         ))}

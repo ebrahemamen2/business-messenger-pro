@@ -1,40 +1,49 @@
-import { Send, Paperclip, Smile, Phone, UserCircle, MoreVertical, CheckCheck, Check, Image } from 'lucide-react';
+import { Send, Paperclip, Smile, Phone, UserCircle, MoreVertical, CheckCheck, Check } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useState, useEffect, useRef } from 'react';
-import type { Conversation, Message } from '@/data/mockData';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import type { ChatConversation, ChatMessage } from '@/hooks/useConversations';
 
 interface ChatWindowProps {
-  conversation: Conversation;
+  conversation: ChatConversation;
   onToggleContact: () => void;
 }
 
+const SUPABASE_PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'mhbmxvgcdzhqwpznmgei';
+
 const ChatWindow = ({ conversation, onToggleContact }: ChatWindowProps) => {
   const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState<Message[]>(conversation.messages);
+  const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setMessages(conversation.messages);
-  }, [conversation.id]);
+  const { toast } = useToast();
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [conversation.messages]);
 
-  const handleSend = () => {
-    if (!message.trim()) return;
-    const newMsg: Message = {
-      id: `new-${Date.now()}`,
-      text: message,
-      timestamp: new Date().toLocaleTimeString('ar-EG', {
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-      sender: 'agent',
-      status: 'sent',
-    };
-    setMessages((prev) => [...prev, newMsg]);
-    setMessage('');
+  const handleSend = async () => {
+    if (!message.trim() || sending) return;
+    setSending(true);
+    try {
+      const res = await fetch(
+        `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/send-message`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: conversation.contact.phone,
+            message: message.trim(),
+          }),
+        }
+      );
+      if (!res.ok) throw new Error('Failed to send');
+      setMessage('');
+    } catch (err) {
+      toast({ title: '❌ خطأ', description: 'فشل إرسال الرسالة', variant: 'destructive' });
+    } finally {
+      setSending(false);
+    }
   };
 
   const renderStatus = (status?: string) => {
@@ -81,20 +90,17 @@ const ChatWindow = ({ conversation, onToggleContact }: ChatWindowProps) => {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-5 space-y-3 bg-background">
-        {/* Date separator */}
-        <div className="flex items-center justify-center mb-4">
-          <span className="text-[11px] text-muted-foreground bg-card px-3 py-1 rounded-full">
-            اليوم
-          </span>
-        </div>
-
-        {messages.map((msg, i) => (
+        {conversation.messages.length === 0 && (
+          <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+            لا توجد رسائل بعد
+          </div>
+        )}
+        {conversation.messages.map((msg, i) => (
           <div
             key={msg.id}
             className={`flex ${
               msg.sender === 'agent' ? 'justify-end' : 'justify-start'
             } animate-fade-in`}
-            style={{ animationDelay: `${i * 30}ms` }}
           >
             <div
               className={`max-w-[65%] px-4 py-2.5 ${
@@ -127,9 +133,6 @@ const ChatWindow = ({ conversation, onToggleContact }: ChatWindowProps) => {
           <button className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-secondary">
             <Paperclip className="w-5 h-5" />
           </button>
-          <button className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-secondary">
-            <Image className="w-5 h-5" />
-          </button>
           <Input
             value={message}
             onChange={(e) => setMessage(e.target.value)}
@@ -139,7 +142,7 @@ const ChatWindow = ({ conversation, onToggleContact }: ChatWindowProps) => {
           />
           <button
             onClick={handleSend}
-            disabled={!message.trim()}
+            disabled={!message.trim() || sending}
             className="p-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Send className="w-5 h-5" />

@@ -1,17 +1,24 @@
 import { useState } from 'react';
-import { conversations } from '@/data/mockData';
+import { useConversations } from '@/hooks/useConversations';
 import ChatList from '@/components/chat/ChatList';
 import ChatWindow from '@/components/chat/ChatWindow';
 import ContactPanel from '@/components/chat/ContactPanel';
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, Loader2 } from 'lucide-react';
 
 const Index = () => {
-  const [selectedId, setSelectedId] = useState<string | null>(
-    conversations[0]?.id || null
-  );
+  const { conversations, loading } = useConversations();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showContact, setShowContact] = useState(false);
 
   const selected = conversations.find((c) => c.id === selectedId);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full">
@@ -40,7 +47,11 @@ const Index = () => {
           </div>
           <div className="text-center">
             <p className="font-semibold text-foreground text-lg">واتساب CRM</p>
-            <p className="text-sm mt-1">اختر محادثة من القائمة للبدء</p>
+            <p className="text-sm mt-1">
+              {conversations.length === 0
+                ? 'لا توجد محادثات بعد - ابدأ بإرسال رسالة على رقم الواتساب'
+                : 'اختر محادثة من القائمة للبدء'}
+            </p>
           </div>
         </div>
       )}
