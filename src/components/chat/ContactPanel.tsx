@@ -1,5 +1,5 @@
 import { Mail, Phone, Tag, FileText, X } from 'lucide-react';
-import type { Contact } from '@/data/mockData';
+import type { ChatContact as Contact } from '@/hooks/useConversations';
 
 interface ContactPanelProps {
   contact: Contact;
