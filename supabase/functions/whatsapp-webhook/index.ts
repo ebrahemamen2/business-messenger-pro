@@ -44,111 +44,129 @@ Deno.serve(async (req) => {
       const body = await req.json();
       console.log("Webhook received:", JSON.stringify(body));
 
-      const entry = body?.entry?.[0];
-      const changes = entry?.changes?.[0];
-      const value = changes?.value;
+      const entries = Array.isArray(body?.entry) ? body.entry : [];
 
-      if (!value?.messages) {
-        // Status update or other non-message event
-        return new Response(JSON.stringify({ status: "ok" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const message = value.messages[0];
-      const contact = value.contacts?.[0];
-      const contactPhone = message.from;
-      const contactName = contact?.profile?.name || contactPhone;
-
-      // Save message to DB
-      await supabase.from("messages").insert({
-        wa_message_id: message.id,
-        contact_phone: contactPhone,
-        contact_name: contactName,
-        direction: "inbound",
-        body: message.text?.body || "[media]",
-        status: "delivered",
-      });
-
-      // Upsert contact
-      await supabase.from("contacts").upsert(
-        { phone: contactPhone, name: contactName },
-        { onConflict: "phone" }
-      );
-
-      // Check auto-reply rules
+      // Load config and rules once per request
       const { data: config } = await supabase
         .from("wa_config")
         .select("*")
         .limit(1)
         .single();
 
+      let rules: Array<{ trigger_keyword: string; response_text: string }> = [];
       if (config?.access_token && config?.phone_number_id) {
-        // Check keyword rules
-        const { data: rules } = await supabase
+        const { data } = await supabase
           .from("auto_reply_rules")
-          .select("*")
+          .select("trigger_keyword, response_text")
           .eq("is_active", true);
+        rules = data || [];
+      }
 
-        const msgText = (message.text?.body || "").toLowerCase();
-        let autoResponse: string | null = null;
+      let processedMessages = 0;
 
-        // Check keyword matches
-        for (const rule of rules || []) {
-          if (msgText.includes(rule.trigger_keyword.toLowerCase())) {
-            autoResponse = rule.response_text;
-            break;
+      for (const entry of entries) {
+        const changes = Array.isArray(entry?.changes) ? entry.changes : [];
+
+        for (const change of changes) {
+          const value = change?.value;
+          const incomingMessages = Array.isArray(value?.messages)
+            ? value.messages
+            : [];
+
+          // Skip non-message events (statuses, etc.)
+          if (!incomingMessages.length) continue;
+
+          const contact = value?.contacts?.[0];
+
+          for (const message of incomingMessages) {
+            const contactPhone = message?.from;
+            if (!contactPhone) continue;
+
+            const contactName = contact?.profile?.name || contactPhone;
+
+            // Save inbound message
+            await supabase.from("messages").insert({
+              wa_message_id: message.id,
+              contact_phone: contactPhone,
+              contact_name: contactName,
+              direction: "inbound",
+              body: message.text?.body || "[media]",
+              status: "delivered",
+            });
+
+            // Upsert contact
+            await supabase.from("contacts").upsert(
+              { phone: contactPhone, name: contactName },
+              { onConflict: "phone" }
+            );
+
+            processedMessages += 1;
+
+            // Auto-reply logic
+            if (config?.access_token && config?.phone_number_id) {
+              const msgText = (message.text?.body || "").toLowerCase();
+              let autoResponse: string | null = null;
+
+              // Keyword rules
+              for (const rule of rules) {
+                if (msgText.includes(rule.trigger_keyword.toLowerCase())) {
+                  autoResponse = rule.response_text;
+                  break;
+                }
+              }
+
+              // Welcome message for first-time contacts
+              if (!autoResponse && config.welcome_enabled) {
+                const { count } = await supabase
+                  .from("messages")
+                  .select("*", { count: "exact", head: true })
+                  .eq("contact_phone", contactPhone)
+                  .eq("direction", "inbound");
+
+                if (count === 1) {
+                  autoResponse = config.welcome_message;
+                }
+              }
+
+              if (autoResponse) {
+                const waUrl = `https://graph.facebook.com/v21.0/${config.phone_number_id}/messages`;
+                const res = await fetch(waUrl, {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${config.access_token}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    messaging_product: "whatsapp",
+                    to: contactPhone,
+                    type: "text",
+                    text: { body: autoResponse },
+                  }),
+                });
+
+                const waResult = await res.json();
+                console.log("Auto-reply sent:", JSON.stringify(waResult));
+
+                await supabase.from("messages").insert({
+                  wa_message_id: waResult.messages?.[0]?.id,
+                  contact_phone: contactPhone,
+                  contact_name: contactName,
+                  direction: "outbound",
+                  body: autoResponse,
+                  status: "sent",
+                });
+              }
+            }
           }
-        }
-
-        // Welcome message for first-time contacts
-        if (!autoResponse && config.welcome_enabled) {
-          const { count } = await supabase
-            .from("messages")
-            .select("*", { count: "exact", head: true })
-            .eq("contact_phone", contactPhone)
-            .eq("direction", "inbound");
-
-          if (count === 1) {
-            autoResponse = config.welcome_message;
-          }
-        }
-
-        // Send auto-reply if matched
-        if (autoResponse) {
-          const waUrl = `https://graph.facebook.com/v21.0/${config.phone_number_id}/messages`;
-          const res = await fetch(waUrl, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${config.access_token}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              messaging_product: "whatsapp",
-              to: contactPhone,
-              type: "text",
-              text: { body: autoResponse },
-            }),
-          });
-
-          const waResult = await res.json();
-          console.log("Auto-reply sent:", JSON.stringify(waResult));
-
-          // Save outbound message
-          await supabase.from("messages").insert({
-            wa_message_id: waResult.messages?.[0]?.id,
-            contact_phone: contactPhone,
-            contact_name: contactName,
-            direction: "outbound",
-            body: autoResponse,
-            status: "sent",
-          });
         }
       }
 
-      return new Response(JSON.stringify({ status: "ok" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ status: "ok", processed_messages: processedMessages }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     } catch (error) {
       console.error("Webhook error:", error);
       return new Response(JSON.stringify({ error: "Internal error" }), {
