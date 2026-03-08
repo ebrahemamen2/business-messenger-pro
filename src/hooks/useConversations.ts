@@ -51,17 +51,25 @@ function mapDbMessage(m: any): ChatMessage {
   };
 }
 
-export function useConversations() {
+export function useConversations(tenantId?: string | null) {
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [loading, setLoading] = useState(true);
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
 
   const loadData = useCallback(async () => {
-    const { data: contacts } = await supabase.from('contacts').select('*');
-    const { data: messages } = await supabase
+    let contactsQuery = supabase.from('contacts').select('*');
+    let messagesQuery = supabase
       .from('messages')
       .select('*')
       .order('created_at', { ascending: true });
+
+    if (tenantId) {
+      contactsQuery = contactsQuery.eq('tenant_id', tenantId);
+      messagesQuery = messagesQuery.eq('tenant_id', tenantId);
+    }
+
+    const { data: contacts } = await contactsQuery;
+    const { data: messages } = await messagesQuery;
 
     if (!contacts || !messages) {
       setLoading(false);
@@ -131,7 +139,7 @@ export function useConversations() {
 
     setConversations(convs);
     setLoading(false);
-  }, []);
+  }, [tenantId]);
 
   useEffect(() => {
     loadData();

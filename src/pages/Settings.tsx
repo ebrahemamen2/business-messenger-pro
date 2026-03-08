@@ -7,12 +7,14 @@ import { Switch } from '@/components/ui/switch';
 import { Copy, CheckCircle, Shield, Webhook, Key, Phone, Building2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useTenantContext } from '@/contexts/TenantContext';
 import WebhookDiagnostics from '@/components/settings/WebhookDiagnostics';
 
 const SUPABASE_PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'mhbmxvgcdzhqwpznmgei';
 
 const Settings = () => {
   const { toast } = useToast();
+  const { currentTenant } = useTenantContext();
   const [token, setToken] = useState('');
   const [phoneId, setPhoneId] = useState('');
   const [businessId, setBusinessId] = useState('');
@@ -24,15 +26,20 @@ const Settings = () => {
 
   const webhookUrl = `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/whatsapp-webhook`;
 
-  // Load config from DB
   useEffect(() => {
     const loadConfig = async () => {
-      const { data } = await supabase
+      setLoading(true);
+      let query = supabase
         .from('wa_config')
         .select('*')
         .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(1);
+
+      if (currentTenant?.id) {
+        query = query.eq('tenant_id', currentTenant.id);
+      }
+
+      const { data } = await query.maybeSingle();
 
       if (data) {
         setToken(data.access_token || '');
@@ -40,30 +47,44 @@ const Settings = () => {
         setBusinessId(data.business_account_id || '');
         setVerifyToken(data.verify_token || '');
         setAutoReply(data.welcome_enabled ?? true);
+      } else {
+        setToken('');
+        setPhoneId('');
+        setBusinessId('');
+        setVerifyToken('');
+        setAutoReply(true);
       }
       setLoading(false);
     };
     loadConfig();
-  }, []);
+  }, [currentTenant?.id]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Check if config exists
-      const { data: existing } = await supabase
+      let existingQuery = supabase
         .from('wa_config')
         .select('id')
         .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(1);
 
-      const configData = {
+      if (currentTenant?.id) {
+        existingQuery = existingQuery.eq('tenant_id', currentTenant.id);
+      }
+
+      const { data: existing } = await existingQuery.maybeSingle();
+
+      const configData: any = {
         access_token: token,
         phone_number_id: phoneId,
         business_account_id: businessId,
         verify_token: verifyToken,
         welcome_enabled: autoReply,
       };
+
+      if (currentTenant?.id) {
+        configData.tenant_id = currentTenant.id;
+      }
 
       if (existing) {
         await supabase.from('wa_config').update(configData).eq('id', existing.id);
@@ -115,7 +136,9 @@ const Settings = () => {
     <div className="p-6 max-w-3xl mx-auto space-y-6 overflow-y-auto h-full">
       <div>
         <h1 className="text-2xl font-bold text-foreground">الإعدادات</h1>
-        <p className="text-sm text-muted-foreground mt-1">إدارة إعدادات الربط والتكامل</p>
+        <p className="text-sm text-muted-foreground mt-1">
+          إعدادات {currentTenant?.name || 'البراند'}
+        </p>
       </div>
 
       {/* API Connection */}

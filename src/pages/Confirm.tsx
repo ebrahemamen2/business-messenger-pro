@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useConversations } from '@/hooks/useConversations';
+import { useTenantContext } from '@/contexts/TenantContext';
 import ChatList from '@/components/chat/ChatList';
 import ChatWindow from '@/components/chat/ChatWindow';
 import ContactPanel from '@/components/chat/ContactPanel';
 import { CheckCircle, Loader2 } from 'lucide-react';
 
 const Confirm = () => {
-  const { conversations, loading } = useConversations();
+  const { currentTenant } = useTenantContext();
+  const { conversations, loading } = useConversations(currentTenant?.id);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showContact, setShowContact] = useState(false);
 
@@ -43,8 +45,8 @@ const Confirm = () => {
         </>
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-4">
-          <div className="w-20 h-20 rounded-2xl bg-green-500/10 flex items-center justify-center">
-            <CheckCircle className="w-10 h-10 text-green-400" />
+          <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center">
+            <CheckCircle className="w-10 h-10 text-primary" />
           </div>
           <div className="text-center">
             <p className="font-semibold text-foreground text-lg">قسم التأكيد</p>

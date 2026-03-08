@@ -1,10 +1,11 @@
 import { 
   MessageSquare, LayoutDashboard, Settings, Users, Bot, LogOut, 
-  CheckCircle, Truck, Shield, ChevronDown 
+  CheckCircle, Truck, Shield, Building2, ChevronDown
 } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTenantContext } from '@/contexts/TenantContext';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,6 +24,7 @@ const mainNav = [
 const AppSidebar = () => {
   const location = useLocation();
   const { signOut, isSuperAdmin } = useAuth();
+  const { tenants, currentTenant, selectTenant } = useTenantContext();
 
   const navItems = isSuperAdmin
     ? [...mainNav, { icon: Shield, label: 'إدارة المنصة', path: '/admin' }]
@@ -30,10 +32,41 @@ const AppSidebar = () => {
 
   return (
     <div className="w-[72px] h-screen bg-card border-r border-border flex flex-col items-center py-4 flex-shrink-0">
-      {/* Logo */}
-      <div className="w-11 h-11 rounded-xl bg-primary flex items-center justify-center mb-8">
-        <MessageSquare className="w-5 h-5 text-primary-foreground" />
-      </div>
+      {/* Tenant Selector */}
+      {tenants.length > 0 ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="w-11 h-11 rounded-xl bg-primary flex items-center justify-center mb-2 hover:bg-primary/90 transition-colors" title={currentTenant?.name}>
+              <span className="text-sm font-bold text-primary-foreground">
+                {currentTenant?.name?.charAt(0) || 'B'}
+              </span>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="right" align="start" className="min-w-[180px]">
+            {tenants.map((t) => (
+              <DropdownMenuItem
+                key={t.id}
+                onClick={() => selectTenant(t)}
+                className={`gap-2 ${t.id === currentTenant?.id ? 'bg-secondary' : ''}`}
+              >
+                <Building2 className="w-4 h-4 text-primary" />
+                <span className="font-medium">{t.name}</span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        <div className="w-11 h-11 rounded-xl bg-primary flex items-center justify-center mb-2">
+          <MessageSquare className="w-5 h-5 text-primary-foreground" />
+        </div>
+      )}
+
+      {/* Tenant name */}
+      {currentTenant && (
+        <p className="text-[9px] text-muted-foreground text-center mb-4 max-w-[60px] truncate">
+          {currentTenant.name}
+        </p>
+      )}
 
       {/* Navigation */}
       <nav className="flex-1 flex flex-col gap-1">
