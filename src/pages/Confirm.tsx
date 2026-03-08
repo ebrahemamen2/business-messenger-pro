@@ -11,7 +11,7 @@ import ConfirmAutoReply from '@/components/confirm/ConfirmAutoReply';
 
 const Confirm = () => {
   const { currentTenant } = useTenantContext();
-  const { conversations, loading } = useConversations(currentTenant?.id);
+  const { conversations, loading, reload } = useConversations(currentTenant?.id);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showContact, setShowContact] = useState(false);
 
@@ -58,11 +58,15 @@ const Confirm = () => {
                 <ChatWindow
                   conversation={selected}
                   onToggleContact={() => setShowContact(!showContact)}
+                  module="confirm"
+                  tenantId={currentTenant?.id}
                 />
                 {showContact && (
                   <ContactPanel
                     contact={selected.contact}
                     onClose={() => setShowContact(false)}
+                    tenantId={currentTenant?.id}
+                    onContactUpdate={reload}
                   />
                 )}
               </>

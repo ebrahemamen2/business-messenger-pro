@@ -14,8 +14,12 @@ export interface ChatMessage {
   id: string;
   text: string;
   timestamp: string;
+  rawTimestamp: string;
   sender: 'customer' | 'agent' | 'store';
   status?: string;
+  mediaUrl?: string | null;
+  mediaType?: string | null;
+  replyToId?: string | null;
 }
 
 export interface ChatConversation {
@@ -50,8 +54,12 @@ function mapDbMessage(m: any): ChatMessage {
     id: m.id,
     text: m.body,
     timestamp: formatTime(m.created_at),
+    rawTimestamp: m.created_at,
     sender,
     status: m.status || undefined,
+    mediaUrl: m.media_url || undefined,
+    mediaType: m.media_type || undefined,
+    replyToId: m.reply_to_message_id || undefined,
   };
 }
 
