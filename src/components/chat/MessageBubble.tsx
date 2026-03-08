@@ -14,6 +14,7 @@ const MessageBubble = ({ message, onReply, allMessages = [] }: MessageBubbleProp
   const isStore = message.sender === 'store';
   const isAgent = message.sender === 'agent';
   const [imgLoaded, setImgLoaded] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [audioPlaying, setAudioPlaying] = useState(false);
   const [audioDuration, setAudioDuration] = useState('0:00');
