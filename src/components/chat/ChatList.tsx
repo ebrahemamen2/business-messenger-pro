@@ -39,7 +39,7 @@ const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادث
     <div className="w-[340px] h-full border-r border-border flex flex-col bg-card flex-shrink-0">
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-bold text-foreground">المحادثات</h2>
+          <h2 className="text-lg font-bold text-foreground">{title}</h2>
           <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded-full">
             {conversations.length}
           </span>

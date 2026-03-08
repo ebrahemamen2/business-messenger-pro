@@ -17,8 +17,6 @@ const Admin = () => {
   const [newSlug, setNewSlug] = useState('');
   const [creating, setCreating] = useState(false);
 
-  if (!isSuperAdmin) return <Navigate to="/dashboard" replace />;
-
   const loadTenants = async () => {
     const { data } = await supabase.from('tenants').select('*, tenant_members(count)');
     setTenants(data || []);
@@ -26,6 +24,8 @@ const Admin = () => {
   };
 
   useEffect(() => { loadTenants(); }, []);
+
+  if (!isSuperAdmin) return <Navigate to="/dashboard" replace />;
 
   const createTenant = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,7 +58,6 @@ const Admin = () => {
         </div>
       </div>
 
-      {/* Create Tenant */}
       <Card className="border-border">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
@@ -92,7 +91,6 @@ const Admin = () => {
         </CardContent>
       </Card>
 
-      {/* Tenants List */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {loading ? (
           <div className="col-span-full flex justify-center py-8">
@@ -119,7 +117,7 @@ const Admin = () => {
                   <Users className="w-3.5 h-3.5" />
                   <span>{t.tenant_members?.[0]?.count || 0} أعضاء</span>
                   <span className={`mr-auto px-2 py-0.5 rounded-full text-[10px] ${
-                    t.is_active ? 'bg-green-500/15 text-green-400' : 'bg-red-500/15 text-red-400'
+                    t.is_active ? 'bg-primary/15 text-primary' : 'bg-destructive/15 text-destructive'
                   }`}>
                     {t.is_active ? 'نشط' : 'معطل'}
                   </span>
