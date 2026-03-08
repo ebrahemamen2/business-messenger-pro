@@ -1,6 +1,7 @@
 import { CheckCheck, Check, Clock, Store, Reply, FileText, Download, Mic } from 'lucide-react';
 import type { ChatMessage } from '@/hooks/useConversations';
 import { useState, useRef } from 'react';
+import ImageLightbox from './ImageLightbox';
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -13,6 +14,7 @@ const MessageBubble = ({ message, onReply, allMessages = [] }: MessageBubbleProp
   const isStore = message.sender === 'store';
   const isAgent = message.sender === 'agent';
   const [imgLoaded, setImgLoaded] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [audioPlaying, setAudioPlaying] = useState(false);
   const [audioDuration, setAudioDuration] = useState('0:00');
@@ -66,30 +68,32 @@ const MessageBubble = ({ message, onReply, allMessages = [] }: MessageBubbleProp
     // Image
     if (type.startsWith('image') || type === 'webp') {
       return (
-        <a
-          href={message.mediaUrl!}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block rounded-xl overflow-hidden relative group/img"
-        >
-          {!imgLoaded && (
-            <div className="w-[260px] h-[180px] bg-muted/30 animate-pulse rounded-xl" />
+        <>
+          <div
+            onClick={() => setLightboxOpen(true)}
+            className="block rounded-xl overflow-hidden relative group/img cursor-pointer"
+          >
+            {!imgLoaded && (
+              <div className="w-[260px] h-[180px] bg-muted/30 animate-pulse rounded-xl" />
+            )}
+            <img
+              src={message.mediaUrl!}
+              alt=""
+              className={`w-full max-w-[280px] h-auto object-cover rounded-xl transition-opacity ${imgLoaded ? 'opacity-100' : 'opacity-0 absolute inset-0'}`}
+              loading="lazy"
+              onLoad={() => setImgLoaded(true)}
+            />
+            {isMediaOnly && imgLoaded && (
+              <div className="absolute bottom-2 right-2 flex items-center gap-1 bg-black/50 backdrop-blur-sm px-2 py-0.5 rounded-full">
+                <span className="text-[10px] text-white/90">{message.timestamp}</span>
+                {isAgent && <span className="text-white/80">{renderStatus(message.status)}</span>}
+              </div>
+            )}
+          </div>
+          {lightboxOpen && (
+            <ImageLightbox src={message.mediaUrl!} onClose={() => setLightboxOpen(false)} />
           )}
-          <img
-            src={message.mediaUrl!}
-            alt=""
-            className={`w-full max-w-[280px] h-auto object-cover rounded-xl transition-opacity ${imgLoaded ? 'opacity-100' : 'opacity-0 absolute inset-0'}`}
-            loading="lazy"
-            onLoad={() => setImgLoaded(true)}
-          />
-          {/* Overlay timestamp on image-only messages */}
-          {isMediaOnly && imgLoaded && (
-            <div className="absolute bottom-2 right-2 flex items-center gap-1 bg-black/50 backdrop-blur-sm px-2 py-0.5 rounded-full">
-              <span className="text-[10px] text-white/90">{message.timestamp}</span>
-              {isAgent && <span className="text-white/80">{renderStatus(message.status)}</span>}
-            </div>
-          )}
-        </a>
+        </>
       );
     }
 
