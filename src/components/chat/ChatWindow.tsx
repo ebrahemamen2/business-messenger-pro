@@ -515,7 +515,7 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
                 <Send className="w-5 h-5" />
               </button>
             ) : (
-              <VoiceRecorder onRecordComplete={handleVoiceRecordComplete} disabled={uploading} />
+              <VoiceRecorder onRecordComplete={handleVoiceRecordComplete} onError={handleVoiceRecordError} disabled={uploading} />
             )}
           </div>
         </div>
