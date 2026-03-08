@@ -10,7 +10,7 @@ interface MessageSearchProps {
   onQueryChange?: (query: string) => void;
 }
 
-const MessageSearch = ({ messages, onClose, onHighlight }: MessageSearchProps) => {
+const MessageSearch = ({ messages, onClose, onHighlight, onQueryChange }: MessageSearchProps) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<string[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
