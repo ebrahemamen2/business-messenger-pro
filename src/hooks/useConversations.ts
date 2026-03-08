@@ -308,6 +308,9 @@ export function useConversations(tenantId?: string | null, module: string = 'con
             }
           : c
       );
+
+      next.sort((a, b) => toTimestamp(b.lastMessageTime) - toTimestamp(a.lastMessageTime));
+
       conversationsRef.current = next;
       return next;
     });
