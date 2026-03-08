@@ -36,6 +36,7 @@ export interface ChatConversation {
   lastMessage: string;
   lastMessageTime: string;
   unreadCount: number;
+  lastMessageDirection: 'inbound' | 'outbound' | null;
   status: 'open' | 'pending' | 'resolved';
   assignedTo?: string | null;
   labels: ConversationLabel[];
