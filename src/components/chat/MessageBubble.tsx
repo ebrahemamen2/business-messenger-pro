@@ -210,8 +210,8 @@ const MessageBubble = ({ message, onReply, allMessages = [], highlight, isHighli
   const paddingClass = isMediaOnly ? 'p-1.5' : 'px-3 py-2';
 
   return (
-    <div className={`group flex ${isCustomer ? 'justify-start' : 'justify-end'} animate-fade-in mb-0.5`}>
-      <div className={`${bubbleClass} ${paddingClass}`}>
+    <div className={`group flex ${isCustomer ? 'justify-start' : 'justify-end'} animate-fade-in mb-0.5 ${isHighlighted ? 'scroll-mt-20' : ''}`} id={`msg-${message.id}`}>
+      <div className={`${bubbleClass} ${paddingClass} ${isHighlighted ? 'ring-2 ring-primary/50 transition-all duration-500' : ''}`}>
         {/* Reply button on hover */}
         {onReply && (
           <button
