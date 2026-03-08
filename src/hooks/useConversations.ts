@@ -252,22 +252,23 @@ export function useConversations(tenantId?: string | null, module: string = 'con
   const loadMessages = useCallback(async (phone: string, markAsRead: boolean = false) => {
     const normalizedPhone = normalizePhone(phone);
 
-    // Query messages by the exact phone and also try normalized variant
-    const phonesToQuery = [phone, normalizedPhone];
+    // Query messages بجميع نسخ الرقم (local/international) لتجنب فقدان الرسائل
+    const phonesToQuery = new Set<string>(getPhoneVariants(phone));
+
     // Add original format from conversations
     const conv = conversationsRef.current.find((c) => c.id === normalizedPhone);
-    if (conv && !phonesToQuery.includes(conv.contact.phone)) {
-      phonesToQuery.push(conv.contact.phone);
+    if (conv) {
+      getPhoneVariants(conv.contact.phone).forEach((p) => phonesToQuery.add(p));
     }
 
     let msgQuery = supabase
       .from('messages')
       .select('*')
-      .in('contact_phone', [...new Set(phonesToQuery)])
+      .in('contact_phone', [...phonesToQuery])
       .order('created_at', { ascending: false })
       .limit(100); // Load last 100 messages for speed
 
-    if (tenantId) msgQuery = msgQuery.eq('tenant_id', tenantId);
+    if (tenantId) msgQuery = msgQuery.or(`tenant_id.eq.${tenantId},tenant_id.is.null`);
 
     const { data: rawMsgs } = await msgQuery;
     if (!rawMsgs) return;
