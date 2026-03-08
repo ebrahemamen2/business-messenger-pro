@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface ChatContact {
@@ -19,13 +19,21 @@ export interface ChatMessage {
 }
 
 export interface ChatConversation {
-  id: string; // phone number as ID
+  id: string;
   contact: ChatContact;
   messages: ChatMessage[];
   lastMessage: string;
   lastMessageTime: string;
   unreadCount: number;
   status: 'active' | 'pending' | 'resolved';
+}
+
+/** Normalize phone to consistent format (remove leading 0, ensure country code) */
+function normalizePhone(phone: string): string {
+  let p = phone.replace(/[\s\-\+]/g, '');
+  if (/^0\d{10}$/.test(p)) p = '2' + p;
+  if (/^200\d{9}$/.test(p)) p = '20' + p.slice(3);
+  return p;
 }
 
 function formatTime(dateStr: string) {
@@ -46,11 +54,10 @@ function mapDbMessage(m: any): ChatMessage {
 export function useConversations() {
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const intervalRef = useRef<ReturnType<typeof setInterval>>();
 
-  const loadData = async () => {
-    // Get all contacts
+  const loadData = useCallback(async () => {
     const { data: contacts } = await supabase.from('contacts').select('*');
-    // Get all messages ordered by time
     const { data: messages } = await supabase
       .from('messages')
       .select('*')
@@ -61,24 +68,24 @@ export function useConversations() {
       return;
     }
 
-    // Group messages by contact_phone
+    // Group messages by normalized phone
     const msgByPhone: Record<string, any[]> = {};
     for (const m of messages) {
-      if (!msgByPhone[m.contact_phone]) msgByPhone[m.contact_phone] = [];
-      msgByPhone[m.contact_phone].push(m);
+      const phone = normalizePhone(m.contact_phone);
+      if (!msgByPhone[phone]) msgByPhone[phone] = [];
+      msgByPhone[phone].push(m);
     }
 
-    // Build conversations
     const convs: ChatConversation[] = [];
     const processedPhones = new Set<string>();
 
-    // From contacts
     for (const c of contacts) {
-      processedPhones.add(c.phone);
-      const msgs = msgByPhone[c.phone] || [];
+      const phone = normalizePhone(c.phone);
+      processedPhones.add(phone);
+      const msgs = msgByPhone[phone] || [];
       const lastMsg = msgs[msgs.length - 1];
       convs.push({
-        id: c.phone,
+        id: phone,
         contact: {
           id: c.id,
           name: c.name || c.phone,
@@ -116,7 +123,6 @@ export function useConversations() {
       });
     }
 
-    // Sort by last message time (most recent first)
     convs.sort((a, b) => {
       const aTime = msgByPhone[a.id]?.[msgByPhone[a.id].length - 1]?.created_at || '';
       const bTime = msgByPhone[b.id]?.[msgByPhone[b.id].length - 1]?.created_at || '';
@@ -125,27 +131,29 @@ export function useConversations() {
 
     setConversations(convs);
     setLoading(false);
-  };
+  }, []);
 
   useEffect(() => {
     loadData();
 
-    // Realtime subscription for new messages
+    // Realtime subscription
     const channel = supabase
       .channel('messages-realtime')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages' },
-        () => {
-          loadData(); // Reload all data on new message
-        }
+        () => loadData()
       )
       .subscribe();
 
+    // Fallback polling every 20s
+    intervalRef.current = setInterval(loadData, 20000);
+
     return () => {
       supabase.removeChannel(channel);
+      if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, []);
+  }, [loadData]);
 
   return { conversations, loading, reload: loadData };
 }

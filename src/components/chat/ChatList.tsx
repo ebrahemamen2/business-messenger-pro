@@ -1,6 +1,6 @@
 import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { ChatConversation } from '@/hooks/useConversations';
 
 interface ChatListProps {
@@ -9,18 +9,33 @@ interface ChatListProps {
   onSelect: (id: string) => void;
 }
 
+/** Normalize for search: match both local and international formats */
+function normalizeForSearch(text: string): string {
+  return text.replace(/[\s\-\+]/g, '').replace(/^0/, '').replace(/^20/, '');
+}
+
 const ChatList = ({ conversations, selectedId, onSelect }: ChatListProps) => {
   const [search, setSearch] = useState('');
 
+  // Auto-select first conversation if none selected
+  useEffect(() => {
+    if (!selectedId && conversations.length > 0) {
+      onSelect(conversations[0].id);
+    }
+  }, [selectedId, conversations, onSelect]);
+
   const filtered = conversations.filter((c) => {
+    if (!search) return true;
+    const q = normalizeForSearch(search.toLowerCase());
     return (
-      c.contact.name.includes(search) || c.contact.phone.includes(search)
+      c.contact.name.toLowerCase().includes(search.toLowerCase()) ||
+      normalizeForSearch(c.contact.phone).includes(q) ||
+      c.contact.phone.includes(search)
     );
   });
 
   return (
     <div className="w-[340px] h-full border-r border-border flex flex-col bg-card flex-shrink-0">
-      {/* Header */}
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-bold text-foreground">المحادثات</h2>
@@ -39,7 +54,6 @@ const ChatList = ({ conversations, selectedId, onSelect }: ChatListProps) => {
         </div>
       </div>
 
-      {/* List */}
       <div className="flex-1 overflow-y-auto">
         {filtered.map((conv) => (
           <button
