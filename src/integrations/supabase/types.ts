@@ -52,6 +52,38 @@ export type Database = {
           },
         ]
       }
+      chat_notes: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_notes_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contacts: {
         Row: {
           created_at: string
@@ -96,6 +128,121 @@ export type Database = {
           },
         ]
       }
+      conversation_label_assignments: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          id: string
+          label_id: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          id?: string
+          label_id: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          label_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_label_assignments_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_label_assignments_label_id_fkey"
+            columns: ["label_id"]
+            isOneToOne: false
+            referencedRelation: "conversation_labels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversation_labels: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          name: string
+          tenant_id: string | null
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          name: string
+          tenant_id?: string | null
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_labels_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversations: {
+        Row: {
+          assigned_to: string | null
+          contact_phone: string
+          created_at: string
+          id: string
+          last_message_at: string | null
+          module: string
+          status: string
+          tenant_id: string | null
+          unread_count: number
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          contact_phone: string
+          created_at?: string
+          id?: string
+          last_message_at?: string | null
+          module?: string
+          status?: string
+          tenant_id?: string | null
+          unread_count?: number
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          contact_phone?: string
+          created_at?: string
+          id?: string
+          last_message_at?: string | null
+          module?: string
+          status?: string
+          tenant_id?: string | null
+          unread_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           body: string
@@ -106,6 +253,7 @@ export type Database = {
           id: string
           media_type: string | null
           media_url: string | null
+          reply_to_message_id: string | null
           status: string | null
           tenant_id: string | null
           wa_message_id: string | null
@@ -119,6 +267,7 @@ export type Database = {
           id?: string
           media_type?: string | null
           media_url?: string | null
+          reply_to_message_id?: string | null
           status?: string | null
           tenant_id?: string | null
           wa_message_id?: string | null
@@ -132,11 +281,19 @@ export type Database = {
           id?: string
           media_type?: string | null
           media_url?: string | null
+          reply_to_message_id?: string | null
           status?: string | null
           tenant_id?: string | null
           wa_message_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "messages_reply_to_message_id_fkey"
+            columns: ["reply_to_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "messages_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -169,6 +326,44 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      quick_replies: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          module: string
+          shortcut: string
+          tenant_id: string | null
+          title: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          module?: string
+          shortcut: string
+          tenant_id?: string | null
+          title: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          module?: string
+          shortcut?: string
+          tenant_id?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quick_replies_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tenant_members: {
         Row: {
