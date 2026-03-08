@@ -227,6 +227,9 @@ const Settings = () => {
           <Switch checked={notifications} onCheckedChange={setNotifications} />
         </div>
       </Card>
+
+      {/* Webhook Diagnostics */}
+      <WebhookDiagnostics />
     </div>
   );
 };
