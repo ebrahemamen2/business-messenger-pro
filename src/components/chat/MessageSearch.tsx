@@ -7,6 +7,7 @@ interface MessageSearchProps {
   messages: ChatMessage[];
   onClose: () => void;
   onHighlight: (messageId: string | null, index: number, total: number) => void;
+  onQueryChange?: (query: string) => void;
 }
 
 const MessageSearch = ({ messages, onClose, onHighlight }: MessageSearchProps) => {
