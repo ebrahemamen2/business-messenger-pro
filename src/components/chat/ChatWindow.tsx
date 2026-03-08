@@ -62,6 +62,15 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [allMessages.length]);
+
+  // Clear optimistic messages when real messages update
+  useEffect(() => {
+    if (conversation.messages.length > 0) {
+      setOptimisticMessages((prev) =>
+        prev.filter((om) => !conversation.messages.some((m) => m.text === om.text && m.sender === 'agent'))
+      );
+    }
   }, [conversation.messages]);
 
   const sendToWhatsApp = async (opts: { message?: string; mediaUrl?: string; mediaType?: string; replyToMessageId?: string }) => {
