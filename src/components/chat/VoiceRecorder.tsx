@@ -133,7 +133,8 @@ const VoiceRecorder = ({ onRecordComplete, onError, disabled }: VoiceRecorderPro
 
       const pcm16 = floatTo16BitPCM(merged);
       const mp3Bytes = encodeMp3FromPcm(pcm16, sampleRate);
-      const mp3Blob = new Blob([mp3Bytes], { type: 'audio/mpeg' });
+      const mp3Buffer = mp3Bytes.buffer.slice(mp3Bytes.byteOffset, mp3Bytes.byteOffset + mp3Bytes.byteLength);
+      const mp3Blob = new Blob([mp3Buffer], { type: 'audio/mpeg' });
       const mp3File = new File([mp3Blob], `voice-${Date.now()}.mp3`, { type: 'audio/mpeg' });
 
       onRecordComplete(mp3File);
