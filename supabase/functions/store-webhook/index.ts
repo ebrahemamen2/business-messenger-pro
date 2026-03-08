@@ -51,8 +51,7 @@ Deno.serve(async (req) => {
       return json({ error: "Invalid API key" }, 401);
     }
 
-    // --- Parse body ---
-    const body = await req.json();
+    // --- Parse body fields ---
     const {
       event,
       timestamp,
