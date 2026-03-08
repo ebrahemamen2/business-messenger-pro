@@ -292,7 +292,6 @@ export function useConversations(tenantId?: string | null, module: string = 'con
   // Select a conversation and load its messages
   const selectConversation = useCallback((phone: string | null) => {
     const normalized = phone ? normalizePhone(phone) : null;
-    setSelectedPhone(normalized);
     selectedPhoneRef.current = normalized;
 
     if (normalized) {
