@@ -54,8 +54,12 @@ function mapDbMessage(m: any): ChatMessage {
     id: m.id,
     text: m.body,
     timestamp: formatTime(m.created_at),
+    rawTimestamp: m.created_at,
     sender,
     status: m.status || undefined,
+    mediaUrl: m.media_url || undefined,
+    mediaType: m.media_type || undefined,
+    replyToId: m.reply_to_message_id || undefined,
   };
 }
 
