@@ -6,6 +6,52 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+const json = (data: unknown, status = 200) =>
+  new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+
+async function convertAudioIfNeeded(params: {
+  supabaseUrl: string;
+  serviceKey: string;
+  mediaUrl: string;
+  baseAudioMime: string;
+}) {
+  const { supabaseUrl, serviceKey, mediaUrl, baseAudioMime } = params;
+
+  if (baseAudioMime === "audio/ogg") {
+    return { url: mediaUrl, mimeType: "audio/ogg", converted: false };
+  }
+
+  try {
+    const res = await fetch(`${supabaseUrl}/functions/v1/convert-audio`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${serviceKey}`,
+        apikey: serviceKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ sourceUrl: mediaUrl, sourceMime: baseAudioMime }),
+    });
+
+    const payload = await res.json().catch(() => null);
+    if (!res.ok || !payload?.url) {
+      console.warn("convert-audio failed, fallback to original:", payload);
+      return { url: mediaUrl, mimeType: baseAudioMime, converted: false };
+    }
+
+    return {
+      url: payload.url as string,
+      mimeType: (payload.mimeType as string) || "audio/ogg",
+      converted: true,
+    };
+  } catch (error) {
+    console.warn("convert-audio exception, fallback to original:", error);
+    return { url: mediaUrl, mimeType: baseAudioMime, converted: false };
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -19,13 +65,9 @@ Deno.serve(async (req) => {
     const { to, message, mediaUrl, mediaType, replyToMessageId, tenantId, module, conversationId } = await req.json();
 
     if (!to || (!message && !mediaUrl)) {
-      return new Response(
-        JSON.stringify({ error: "Missing 'to' or 'message'/'mediaUrl'" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return json({ error: "Missing 'to' or 'message'/'mediaUrl'" }, 400);
     }
 
-    // Get config (prefer tenant/module-specific row, fallback to latest row)
     let configQuery = supabase
       .from("wa_config")
       .select("access_token, phone_number_id, tenant_id, module")
@@ -48,10 +90,7 @@ Deno.serve(async (req) => {
     }
 
     if (!config?.access_token || !config?.phone_number_id) {
-      return new Response(
-        JSON.stringify({ error: "WhatsApp API not configured" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return json({ error: "WhatsApp API not configured" }, 400);
     }
 
     const waUrl = `https://graph.facebook.com/v21.0/${config.phone_number_id}/messages`;
@@ -67,17 +106,15 @@ Deno.serve(async (req) => {
       "audio/amr": "amr",
       "audio/mp4": "m4a",
       "audio/aac": "aac",
+      "audio/webm": "webm",
     };
 
-    // Build WhatsApp message payload
     let waPayload: any = {
       messaging_product: "whatsapp",
       to,
     };
 
-    // Add context for replies
     if (replyToMessageId) {
-      // Look up the wa_message_id for the reply
       const { data: replyMsg } = await supabase
         .from("messages")
         .select("wa_message_id")
@@ -88,10 +125,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Determine message type based on media
     if (mediaUrl && mediaType) {
       const mimeType = mediaType.toLowerCase();
-      
+
       if (mimeType.startsWith("image")) {
         waPayload.type = "image";
         waPayload.image = { link: mediaUrl, caption: message || undefined };
@@ -99,36 +135,44 @@ Deno.serve(async (req) => {
         waPayload.type = "video";
         waPayload.video = { link: mediaUrl, caption: message || undefined };
       } else if (mimeType.startsWith("audio")) {
-        const supportedAudioTypes = ["audio/ogg", "audio/mpeg", "audio/amr", "audio/mp4", "audio/aac"];
         const baseAudioMime = mimeType.split(";")[0].trim();
-        const isSupportedAudio = supportedAudioTypes.includes(baseAudioMime);
+
+        const convertResult = await convertAudioIfNeeded({
+          supabaseUrl,
+          serviceKey,
+          mediaUrl,
+          baseAudioMime,
+        });
+
+        const finalAudioMime = convertResult.mimeType;
+        const finalAudioUrl = convertResult.url;
+
+        const supportedAudioTypes = ["audio/ogg", "audio/mpeg", "audio/amr", "audio/mp4", "audio/aac"];
+        const isSupportedAudio = supportedAudioTypes.includes(finalAudioMime);
 
         if (!isSupportedAudio) {
-          return new Response(
-            JSON.stringify({
+          return json(
+            {
               error: "Unsupported audio format",
-              details: `WhatsApp does not support this audio format (${mediaType}). Supported: audio/ogg;codecs=opus, audio/mpeg, audio/amr, audio/mp4, audio/aac`,
-            }),
-            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+              details:
+                `Audio format (${finalAudioMime}) غير مدعوم بعد التحويل. Supported: audio/ogg;codecs=opus, audio/mpeg, audio/amr, audio/mp4, audio/aac`,
+            },
+            400,
           );
         }
 
-        // Upload audio as media object first (more reliable than URL link fetch for voice notes)
-        const audioRes = await fetch(mediaUrl);
+        const audioRes = await fetch(finalAudioUrl);
         if (!audioRes.ok) {
-          return new Response(
-            JSON.stringify({ error: "Failed to fetch audio file", details: await audioRes.text() }),
-            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
+          return json({ error: "Failed to fetch audio file", details: await audioRes.text() }, 400);
         }
 
         const audioBuffer = await audioRes.arrayBuffer();
-        const ext = audioExtByMime[baseAudioMime] || "bin";
+        const ext = audioExtByMime[finalAudioMime] || "bin";
         const formData = new FormData();
         formData.append("messaging_product", "whatsapp");
         formData.append(
           "file",
-          new File([audioBuffer], `voice-${Date.now()}.${ext}`, { type: baseAudioMime })
+          new File([audioBuffer], `voice-${Date.now()}.${ext}`, { type: finalAudioMime }),
         );
 
         const uploadRes = await fetch(mediaUploadUrl, {
@@ -139,21 +183,16 @@ Deno.serve(async (req) => {
 
         const uploadResult = await uploadRes.json();
         if (!uploadRes.ok || !uploadResult?.id) {
-          return new Response(
-            JSON.stringify({ error: "WhatsApp media upload error", details: uploadResult }),
-            { status: uploadRes.status || 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
+          return json({ error: "WhatsApp media upload error", details: uploadResult }, uploadRes.status || 400);
         }
 
         waPayload.type = "audio";
         waPayload.audio = { id: uploadResult.id };
       } else {
-        // Document (PDF, DOCX, etc.)
         waPayload.type = "document";
         waPayload.document = { link: mediaUrl, caption: message || undefined };
       }
     } else {
-      // Text-only message
       waPayload.type = "text";
       waPayload.text = { body: message };
     }
@@ -168,13 +207,9 @@ Deno.serve(async (req) => {
 
     if (!res.ok) {
       console.error("WhatsApp API error:", JSON.stringify(waResult));
-      return new Response(
-        JSON.stringify({ error: "WhatsApp API error", details: waResult }),
-        { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return json({ error: "WhatsApp API error", details: waResult }, res.status);
     }
 
-    // Save outbound message
     const nowIso = new Date().toISOString();
 
     await supabase.from("messages").insert({
@@ -190,7 +225,6 @@ Deno.serve(async (req) => {
       created_at: nowIso,
     });
 
-    // Keep conversation metadata in sync so ordering/unread updates immediately
     if (conversationId) {
       await supabase
         .from("conversations")
@@ -202,15 +236,10 @@ Deno.serve(async (req) => {
         .eq("id", conversationId);
     }
 
-    return new Response(JSON.stringify({ success: true, data: waResult }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ success: true, data: waResult });
   } catch (error) {
     console.error("Send message error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ error: errorMessage }, 500);
   }
 });

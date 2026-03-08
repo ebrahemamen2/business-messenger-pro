@@ -7,84 +7,18 @@ interface VoiceRecorderProps {
   disabled?: boolean;
 }
 
-const AUDIO_MIME_CANDIDATES = [
-  'audio/webm;codecs=opus',
-  'audio/ogg;codecs=opus',
-  'audio/webm',
-  'audio/ogg',
-];
-
-const getSupportedMimeType = () => {
+const getPreferredMimeType = () => {
   if (typeof MediaRecorder === 'undefined') return '';
-  return AUDIO_MIME_CANDIDATES.find((type) => MediaRecorder.isTypeSupported(type)) || '';
+  if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) return 'audio/ogg;codecs=opus';
+  if (MediaRecorder.isTypeSupported('audio/mp4')) return 'audio/mp4';
+  return '';
 };
 
-const floatTo16BitPCM = (input: Float32Array) => {
-  const output = new Int16Array(input.length);
-  for (let i = 0; i < input.length; i++) {
-    const s = Math.max(-1, Math.min(1, input[i]));
-    output[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
-  }
-  return output;
-};
-
-const encodeMp3FromInt16 = async (samples: Int16Array, sampleRate: number) => {
-  const lameModule = await import('lamejs');
-  const Mp3Encoder = (lameModule as any).Mp3Encoder || (lameModule as any).default?.Mp3Encoder;
-
-  if (!Mp3Encoder) throw new Error('Mp3Encoder unavailable');
-
-  const encoder = new Mp3Encoder(1, Math.round(sampleRate), 96);
-  const blockSize = 1152;
-  const mp3Bytes: number[] = [];
-
-  for (let i = 0; i < samples.length; i += blockSize) {
-    const block = samples.subarray(i, i + blockSize);
-    const encoded = encoder.encodeBuffer(block) as Int8Array;
-    if (encoded?.length) mp3Bytes.push(...Array.from(encoded));
-  }
-
-  const end = encoder.flush() as Int8Array;
-  if (end?.length) mp3Bytes.push(...Array.from(end));
-
-  return new Blob([new Uint8Array(mp3Bytes)], { type: 'audio/mpeg' });
-};
-
-const transcodeToMp3 = async (blob: Blob): Promise<File> => {
-  const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-  if (!AudioCtx) throw new Error('AudioContext unavailable');
-
-  const audioContext: AudioContext = new AudioCtx();
-
-  try {
-    const arrayBuffer = await blob.arrayBuffer();
-    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
-
-    const channelCount = audioBuffer.numberOfChannels;
-    const length = audioBuffer.length;
-    const monoData = new Float32Array(length);
-
-    for (let ch = 0; ch < channelCount; ch++) {
-      const channel = audioBuffer.getChannelData(ch);
-      for (let i = 0; i < length; i++) {
-        monoData[i] += channel[i] / channelCount;
-      }
-    }
-
-    const pcm16 = floatTo16BitPCM(monoData);
-    const mp3Blob = await encodeMp3FromInt16(pcm16, audioBuffer.sampleRate);
-
-    if (mp3Blob.size < 1024) throw new Error('Encoded MP3 too small');
-
-    return new File([mp3Blob], `voice-${Date.now()}.mp3`, { type: 'audio/mpeg' });
-  } finally {
-    await audioContext.close().catch(() => undefined);
-  }
-};
-
-const fileExtensionByMime = (mimeType: string) => {
-  if (mimeType.includes('ogg')) return 'ogg';
-  if (mimeType.includes('webm')) return 'webm';
+const getFileExtension = (mimeType: string) => {
+  const normalized = mimeType.toLowerCase();
+  if (normalized.includes('ogg')) return 'ogg';
+  if (normalized.includes('mp4')) return 'm4a';
+  if (normalized.includes('webm')) return 'webm';
   return 'dat';
 };
 
@@ -95,6 +29,7 @@ const VoiceRecorder = ({ onRecordComplete, onError, disabled }: VoiceRecorderPro
   const timerRef = useRef<ReturnType<typeof setInterval>>();
   const streamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const selectedMimeTypeRef = useRef<string>('');
   const recordedChunksRef = useRef<BlobPart[]>([]);
 
   const cleanupStream = () => {
@@ -106,7 +41,7 @@ const VoiceRecorder = ({ onRecordComplete, onError, disabled }: VoiceRecorderPro
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       if (mediaRecorderRef.current?.state !== 'inactive') {
-        mediaRecorderRef.current?.stop();
+        mediaRecorderRef.current.stop();
       }
       cleanupStream();
     };
@@ -114,6 +49,7 @@ const VoiceRecorder = ({ onRecordComplete, onError, disabled }: VoiceRecorderPro
 
   const startRecording = async () => {
     try {
+      // Must stay directly inside user click handler for browser permissions.
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -122,10 +58,14 @@ const VoiceRecorder = ({ onRecordComplete, onError, disabled }: VoiceRecorderPro
         },
       });
 
-      const mimeType = getSupportedMimeType();
-      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      const preferredMimeType = getPreferredMimeType();
+      const recorder = preferredMimeType
+        ? new MediaRecorder(stream, { mimeType: preferredMimeType })
+        : new MediaRecorder(stream);
 
+      selectedMimeTypeRef.current = preferredMimeType;
       recordedChunksRef.current = [];
+
       recorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) recordedChunksRef.current.push(event.data);
       };
@@ -149,9 +89,9 @@ const VoiceRecorder = ({ onRecordComplete, onError, disabled }: VoiceRecorderPro
     setRecording(false);
     if (timerRef.current) clearInterval(timerRef.current);
 
-    recorder.onstop = async () => {
+    recorder.onstop = () => {
       try {
-        const mimeType = recorder.mimeType || 'audio/webm';
+        const mimeType = recorder.mimeType || selectedMimeTypeRef.current || 'audio/webm';
         const rawBlob = new Blob(recordedChunksRef.current, { type: mimeType });
 
         if (rawBlob.size < 1024) {
@@ -159,25 +99,16 @@ const VoiceRecorder = ({ onRecordComplete, onError, disabled }: VoiceRecorderPro
           return;
         }
 
-        // Primary path: MP3 for best delivery compatibility.
-        try {
-          const mp3File = await transcodeToMp3(rawBlob);
-          onRecordComplete(mp3File);
-          return;
-        } catch (mp3Error) {
-          console.error('MP3 transcode failed, fallback to raw audio:', mp3Error);
-        }
-
-        // Fallback path: keep user flow working even if transcoding fails.
-        const ext = fileExtensionByMime(mimeType);
-        const fallbackFile = new File([rawBlob], `voice-${Date.now()}.${ext}`, { type: mimeType });
-        onRecordComplete(fallbackFile);
+        const ext = getFileExtension(mimeType);
+        const voiceFile = new File([rawBlob], `voice-${Date.now()}.${ext}`, { type: mimeType });
+        onRecordComplete(voiceFile);
       } catch (error) {
         console.error('Voice prepare failed:', error);
         onError?.('فشل تجهيز الفويس للإرسال، جرّب مرة أخرى.');
       } finally {
         recordedChunksRef.current = [];
         mediaRecorderRef.current = null;
+        selectedMimeTypeRef.current = '';
         cleanupStream();
       }
     };
