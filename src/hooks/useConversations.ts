@@ -161,12 +161,15 @@ export function useConversations(tenantId?: string | null, module: string = 'con
 
       if (lastMsgs) {
         const messagesByPhone: Record<string, typeof lastMsgs> = {};
+        const lastDirByPhone: Record<string, string> = {};
 
         for (const m of lastMsgs) {
           const p = normalizePhone(m.contact_phone);
-          if (!lastByPhone[p]) lastByPhone[p] = m.body;
+          if (!lastByPhone[p]) {
+            lastByPhone[p] = m.body;
+            lastDirByPhone[p] = m.direction;
+          }
           if (!messagesByPhone[p]) messagesByPhone[p] = [];
-          // Only keep first 20 per phone for unread calculation
           if (messagesByPhone[p].length < 20) {
             messagesByPhone[p].push(m);
           }
@@ -181,11 +184,17 @@ export function useConversations(tenantId?: string | null, module: string = 'con
           }
           unreadByPhone[p] = count;
         }
-      }
 
-      for (const conv of convs) {
-        conv.lastMessage = lastByPhone[conv.id] || '';
-        conv.unreadCount = unreadByPhone[conv.id] || 0;
+        for (const conv of convs) {
+          conv.lastMessage = lastByPhone[conv.id] || '';
+          conv.unreadCount = unreadByPhone[conv.id] || 0;
+          conv.lastMessageDirection = (lastDirByPhone[conv.id] as any) || null;
+        }
+      } else {
+        for (const conv of convs) {
+          conv.lastMessage = lastByPhone[conv.id] || '';
+          conv.unreadCount = unreadByPhone[conv.id] || 0;
+        }
       }
     }
 
