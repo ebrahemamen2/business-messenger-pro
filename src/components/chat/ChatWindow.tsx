@@ -1,4 +1,4 @@
-import { Send, Paperclip, Smile, Phone, UserCircle, MoreVertical, StickyNote, Reply, X, Loader2, Ban, CheckCircle, Clock, Copy } from 'lucide-react';
+import { Send, Paperclip, Smile, Phone, UserCircle, MoreVertical, StickyNote, Reply, X, Loader2, Ban, CheckCircle, Clock, Copy, Search } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,6 +9,9 @@ import DateSeparator from './DateSeparator';
 import QuickReplies from './QuickReplies';
 import ChatNotes from './ChatNotes';
 import EmojiPicker from './EmojiPicker';
+import VoiceRecorder from './VoiceRecorder';
+import MessageSearch from './MessageSearch';
+import ScrollToBottom from './ScrollToBottom';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +27,7 @@ interface ChatWindowProps {
   tenantId?: string | null;
   conversationDbId?: string | null;
   onStatusChange?: (dbId: string, status: string) => void;
+  onLoadOlder?: (phone: string) => Promise<boolean>;
 }
 
 const SUPABASE_PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'mhbmxvgcdzhqwpznmgei';
@@ -38,7 +42,7 @@ function getDateLabel(dateStr: string): string {
   return d.toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
-const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantId, conversationDbId, onStatusChange }: ChatWindowProps) => {
+const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantId, conversationDbId, onStatusChange, onLoadOlder }: ChatWindowProps) => {
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [showQuickReplies, setShowQuickReplies] = useState(false);
@@ -46,25 +50,34 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [showNotes, setShowNotes] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [attachmentPreview, setAttachmentPreview] = useState<{ url: string; file: File } | null>(null);
   const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
+  const [highlightedMsgId, setHighlightedMsgId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [hasOlder, setHasOlder] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  // Combine real messages with optimistic ones, remove optimistic when real ones arrive
   const allMessages = [
     ...conversation.messages,
     ...optimisticMessages.filter((om) => !conversation.messages.some((m) => m.text === om.text && m.sender === 'agent' && m.rawTimestamp >= om.rawTimestamp)),
   ];
 
-  useEffect(() => {
+  const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
+
+  useEffect(() => {
+    scrollToBottom();
   }, [allMessages.length]);
 
-  // Clear optimistic messages when real messages update
   useEffect(() => {
     if (conversation.messages.length > 0) {
       setOptimisticMessages((prev) =>
@@ -72,6 +85,26 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
       );
     }
   }, [conversation.messages]);
+
+  // Show/hide scroll-to-bottom button
+  useEffect(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    const handleScroll = () => {
+      const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      setShowScrollBtn(distFromBottom > 200);
+    };
+    el.addEventListener('scroll', handleScroll);
+    return () => el.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Reset state on conversation change
+  useEffect(() => {
+    setHasOlder(true);
+    setShowSearch(false);
+    setHighlightedMsgId(null);
+    setSearchQuery('');
+  }, [conversation.id]);
 
   const sendToWhatsApp = async (opts: { message?: string; mediaUrl?: string; mediaType?: string; replyToMessageId?: string }) => {
     const res = await fetch(
@@ -103,7 +136,6 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
     setReplyTo(null);
     setShowQuickReplies(false);
 
-    // Optimistic: add message to UI immediately
     const optimisticMsg: ChatMessage = {
       id: `optimistic-${Date.now()}`,
       text,
@@ -117,7 +149,7 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
 
     try {
       await sendToWhatsApp({ message: text, replyToMessageId: replyId });
-    } catch (err) {
+    } catch {
       toast({ title: '❌ خطأ', description: 'فشل إرسال الرسالة', variant: 'destructive' });
       setOptimisticMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
       setMessage(text);
@@ -167,33 +199,63 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
     setAttachmentPreview({ url: previewUrl, file });
   };
 
-  const uploadAndSendAttachment = async () => {
-    if (!attachmentPreview) return;
+  const uploadAndSendFile = async (file: File, caption?: string) => {
     setUploading(true);
     try {
-      const file = attachmentPreview.file;
       const ext = file.name.split('.').pop();
       const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
       const { error: uploadError } = await supabase.storage.from('chat-attachments').upload(path, file);
       if (uploadError) throw uploadError;
       const { data: { publicUrl } } = supabase.storage.from('chat-attachments').getPublicUrl(path);
-      
+
       await sendToWhatsApp({
-        message: message.trim() || undefined,
+        message: caption || undefined,
         mediaUrl: publicUrl,
         mediaType: file.type,
         replyToMessageId: replyTo?.id || undefined,
       });
-      
+
       setMessage('');
       setReplyTo(null);
       setAttachmentPreview(null);
-      toast({ title: '✅ تم إرسال المرفق' });
-    } catch (err) {
+      toast({ title: '✅ تم الإرسال' });
+    } catch {
       toast({ title: '❌ خطأ', description: 'فشل رفع الملف', variant: 'destructive' });
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleVoiceRecordComplete = (file: File) => {
+    uploadAndSendFile(file);
+  };
+
+  const handleSearchHighlight = useCallback((msgId: string | null, _idx: number, _total: number) => {
+    setHighlightedMsgId(msgId);
+    if (msgId) {
+      setSearchQuery(
+        (document.querySelector('.message-search-input input') as HTMLInputElement)?.value || ''
+      );
+      setTimeout(() => {
+        document.getElementById(`msg-${msgId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 50);
+    } else {
+      setSearchQuery('');
+    }
+  }, []);
+
+  const handleLoadOlder = async () => {
+    if (!onLoadOlder || loadingOlder) return;
+    setLoadingOlder(true);
+    const el = messagesContainerRef.current;
+    const prevHeight = el?.scrollHeight || 0;
+    const hasMore = await onLoadOlder(conversation.contact.phone);
+    setHasOlder(hasMore);
+    // Preserve scroll position after older messages load
+    requestAnimationFrame(() => {
+      if (el) el.scrollTop = el.scrollHeight - prevHeight;
+    });
+    setLoadingOlder(false);
   };
 
   const copyPhone = () => {
@@ -220,7 +282,6 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
     messagesWithDates.push(msg);
   }
 
-  // Status badge
   const statusConfig: Record<string, { label: string; cssVar: string }> = {
     open: { label: 'مفتوح', cssVar: '--status-active' },
     pending: { label: 'قيد المعالجة', cssVar: '--status-pending' },
@@ -255,24 +316,23 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
           </div>
           <div className="flex items-center gap-1">
             <button
+              onClick={() => setShowSearch(!showSearch)}
+              className={`p-2.5 rounded-lg transition-colors ${showSearch ? 'bg-primary/15 text-primary' : 'hover:bg-secondary text-muted-foreground'}`}
+              title="بحث في الرسائل"
+            >
+              <Search className="w-4 h-4" />
+            </button>
+            <button
               onClick={() => setShowNotes(!showNotes)}
               className={`p-2.5 rounded-lg transition-colors ${showNotes ? 'bg-primary/15 text-primary' : 'hover:bg-secondary text-muted-foreground'}`}
               title="ملاحظات داخلية"
             >
               <StickyNote className="w-4 h-4" />
             </button>
-            <button
-              onClick={copyPhone}
-              className="p-2.5 rounded-lg hover:bg-secondary text-muted-foreground transition-colors"
-              title="نسخ رقم الهاتف"
-            >
+            <button onClick={copyPhone} className="p-2.5 rounded-lg hover:bg-secondary text-muted-foreground transition-colors" title="نسخ رقم الهاتف">
               <Phone className="w-4 h-4" />
             </button>
-            <button
-              onClick={onToggleContact}
-              className="p-2.5 rounded-lg hover:bg-secondary text-muted-foreground transition-colors"
-              title="معلومات العميل"
-            >
+            <button onClick={onToggleContact} className="p-2.5 rounded-lg hover:bg-secondary text-muted-foreground transition-colors" title="معلومات العميل">
               <UserCircle className="w-4 h-4" />
             </button>
             <DropdownMenu>
@@ -283,29 +343,49 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem onClick={() => handleMarkStatus('open')} className="gap-2">
-                  <CheckCircle className="w-3.5 h-3.5 text-[hsl(var(--status-active))]" />
-                  تحديد كمفتوح
+                  <CheckCircle className="w-3.5 h-3.5 text-[hsl(var(--status-active))]" /> تحديد كمفتوح
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleMarkStatus('pending')} className="gap-2">
-                  <Clock className="w-3.5 h-3.5 text-[hsl(var(--status-pending))]" />
-                  قيد المعالجة
+                  <Clock className="w-3.5 h-3.5 text-[hsl(var(--status-pending))]" /> قيد المعالجة
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleMarkStatus('resolved')} className="gap-2">
-                  <Ban className="w-3.5 h-3.5 text-[hsl(var(--status-resolved))]" />
-                  إغلاق المحادثة
+                  <Ban className="w-3.5 h-3.5 text-[hsl(var(--status-resolved))]" /> إغلاق المحادثة
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={copyPhone} className="gap-2">
-                  <Copy className="w-3.5 h-3.5" />
-                  نسخ رقم الهاتف
+                  <Copy className="w-3.5 h-3.5" /> نسخ رقم الهاتف
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
 
+        {/* Search bar */}
+        {showSearch && (
+          <div className="message-search-input">
+            <MessageSearch
+              messages={allMessages}
+              onClose={() => { setShowSearch(false); setHighlightedMsgId(null); setSearchQuery(''); }}
+              onHighlight={handleSearchHighlight}
+            />
+          </div>
+        )}
+
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-1 bg-background chat-messages">
+        <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-1 bg-background chat-messages relative">
+          {/* Load older */}
+          {hasOlder && onLoadOlder && allMessages.length >= 100 && (
+            <div className="text-center py-2">
+              <button
+                onClick={handleLoadOlder}
+                disabled={loadingOlder}
+                className="text-xs text-primary hover:underline disabled:opacity-50"
+              >
+                {loadingOlder ? <Loader2 className="w-4 h-4 animate-spin inline" /> : 'تحميل رسائل أقدم'}
+              </button>
+            </div>
+          )}
+
           {allMessages.length === 0 && optimisticMessages.length === 0 && (
             <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
               {conversation.messages.length === 0 ? (
@@ -318,9 +398,21 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
               return <DateSeparator key={`date-${i}`} date={item.label} />;
             }
             const msg = item as ChatMessage;
-            return <MessageBubble key={msg.id} message={msg} onReply={handleReply} allMessages={allMessages} />;
+            return (
+              <MessageBubble
+                key={msg.id}
+                message={msg}
+                onReply={handleReply}
+                allMessages={allMessages}
+                highlight={searchQuery}
+                isHighlighted={msg.id === highlightedMsgId}
+              />
+            );
           })}
           <div ref={messagesEndRef} />
+
+          {/* Scroll to bottom */}
+          {showScrollBtn && <ScrollToBottom onClick={scrollToBottom} />}
         </div>
 
         {/* Reply quote bar */}
@@ -392,13 +484,15 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
               rows={1}
             />
             {attachmentPreview ? (
-              <button onClick={uploadAndSendAttachment} disabled={uploading} className="p-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 disabled:opacity-40 mb-0.5">
+              <button onClick={() => uploadAndSendFile(attachmentPreview.file, message.trim())} disabled={uploading} className="p-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 disabled:opacity-40 mb-0.5">
                 {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
               </button>
-            ) : (
-              <button onClick={handleSend} disabled={!message.trim() || sending} className="p-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed mb-0.5">
+            ) : message.trim() ? (
+              <button onClick={handleSend} disabled={sending} className="p-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed mb-0.5">
                 <Send className="w-5 h-5" />
               </button>
+            ) : (
+              <VoiceRecorder onRecordComplete={handleVoiceRecordComplete} disabled={uploading} />
             )}
           </div>
         </div>
