@@ -34,10 +34,11 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    // --- Validate API key from header ---
-    const apiKey = req.headers.get("x-store-api-key");
+    // --- Validate API key from header OR body ---
+    const body = await req.json();
+    const apiKey = req.headers.get("x-store-api-key") || body.store_id || body.api_key;
     if (!apiKey) {
-      return json({ error: "Missing X-Store-API-Key header" }, 401);
+      return json({ error: "Missing API key (X-Store-API-Key header or store_id in body)" }, 401);
     }
 
     const { data: config, error: configErr } = await supabase
@@ -50,8 +51,7 @@ Deno.serve(async (req) => {
       return json({ error: "Invalid API key" }, 401);
     }
 
-    // --- Parse body ---
-    const body = await req.json();
+    // --- Parse body fields ---
     const {
       event,
       timestamp,
