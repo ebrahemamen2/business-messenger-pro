@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { TenantProvider } from "@/contexts/TenantContext";
 import AppSidebar from "./components/layout/AppSidebar";
 import Auth from "./pages/Auth";
 import MainDashboard from "./pages/MainDashboard";
@@ -32,22 +33,24 @@ const ProtectedLayout = () => {
   if (!user) return <Navigate to="/auth" replace />;
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <AppSidebar />
-      <main className="flex-1 overflow-hidden">
-        <Routes>
-          <Route path="/dashboard" element={<MainDashboard />} />
-          <Route path="/confirm" element={<Confirm />} />
-          <Route path="/follow-up" element={<FollowUp />} />
-          <Route path="/contacts" element={<Contacts />} />
-          <Route path="/auto-reply" element={<AutoReply />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/admin" element={<Admin />} />
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </main>
-    </div>
+    <TenantProvider>
+      <div className="flex h-screen overflow-hidden">
+        <AppSidebar />
+        <main className="flex-1 overflow-hidden">
+          <Routes>
+            <Route path="/dashboard" element={<MainDashboard />} />
+            <Route path="/confirm" element={<Confirm />} />
+            <Route path="/follow-up" element={<FollowUp />} />
+            <Route path="/contacts" element={<Contacts />} />
+            <Route path="/auto-reply" element={<AutoReply />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/admin" element={<Admin />} />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </main>
+      </div>
+    </TenantProvider>
   );
 };
 
