@@ -9,9 +9,10 @@ interface VoiceRecorderProps {
 
 const WHATSAPP_AUDIO_MIME_TYPES = [
   'audio/ogg;codecs=opus',
-  'audio/mp4',
-  'audio/aac',
+  'audio/mp4;codecs=mp4a.40.2',
   'audio/mpeg',
+  'audio/aac',
+  'audio/mp4',
   'audio/amr',
 ] as const;
 
