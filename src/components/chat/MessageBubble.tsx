@@ -245,8 +245,8 @@ const MessageBubble = ({ message, onReply, allMessages = [], highlight, isHighli
 
         {/* Text (hide placeholder text like [صورة]) */}
         {showText && (
-          <p className={`text-[13px] leading-relaxed whitespace-pre-wrap ${isMediaOnly ? '' : ''} ${hasMediaContent ? 'mt-1 px-1' : ''}`}>
-            {message.text}
+          <p className={`text-[13px] leading-relaxed whitespace-pre-wrap ${hasMediaContent ? 'mt-1 px-1' : ''}`}>
+            <FormattedText text={message.text!} highlight={highlight} />
           </p>
         )}
 
