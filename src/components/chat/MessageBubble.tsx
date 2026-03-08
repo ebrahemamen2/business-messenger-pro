@@ -1,8 +1,9 @@
-import { CheckCheck, Check, Clock, Store, Reply, FileText, Download, Mic } from 'lucide-react';
+import { CheckCheck, Check, Clock, Store, Reply, FileText, Download } from 'lucide-react';
 import type { ChatMessage } from '@/hooks/useConversations';
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import ImageLightbox from './ImageLightbox';
 import FormattedText from './FormattedText';
+import AudioPlayer from './AudioPlayer';
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -18,10 +19,6 @@ const MessageBubble = ({ message, onReply, allMessages = [], highlight, isHighli
   const isAgent = message.sender === 'agent';
   const [imgLoaded, setImgLoaded] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const [audioPlaying, setAudioPlaying] = useState(false);
-  const [audioDuration, setAudioDuration] = useState('0:00');
-  const [audioProgress, setAudioProgress] = useState(0);
 
   const replyTarget = message.replyToId
     ? allMessages.find((m) => m.id === message.replyToId)
