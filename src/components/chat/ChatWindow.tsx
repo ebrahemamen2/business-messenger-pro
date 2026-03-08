@@ -230,18 +230,18 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
     uploadAndSendFile(file);
   };
 
+  const searchQueryRef = useRef('');
   const handleSearchHighlight = useCallback((msgId: string | null, _idx: number, _total: number) => {
     setHighlightedMsgId(msgId);
     if (msgId) {
-      setSearchQuery(
-        (document.querySelector('.message-search-input input') as HTMLInputElement)?.value || ''
-      );
       setTimeout(() => {
         document.getElementById(`msg-${msgId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 50);
-    } else {
-      setSearchQuery('');
     }
+  }, []);
+
+  const handleSearchQueryChange = useCallback((q: string) => {
+    setSearchQuery(q);
   }, []);
 
   const handleLoadOlder = async () => {
