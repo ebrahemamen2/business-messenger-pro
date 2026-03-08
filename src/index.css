@@ -66,11 +66,26 @@
 @layer components {
   .bubble-agent {
     border-radius: 1rem 1rem 0.25rem 1rem;
+    box-shadow: 0 1px 2px hsl(0 0% 0% / 0.15);
   }
   .bubble-customer {
     border-radius: 1rem 1rem 1rem 0.25rem;
+    box-shadow: 0 1px 2px hsl(0 0% 0% / 0.1);
   }
   .bubble-store {
     border-radius: 1rem 1rem 0.25rem 1rem;
+    box-shadow: 0 1px 2px hsl(0 0% 0% / 0.12);
+  }
+
+  /* Chat scrollbar */
+  .chat-messages::-webkit-scrollbar {
+    width: 5px;
+  }
+  .chat-messages::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .chat-messages::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted));
+    border-radius: 10px;
   }
 }
