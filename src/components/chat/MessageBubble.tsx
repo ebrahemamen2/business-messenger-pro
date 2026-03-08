@@ -12,7 +12,7 @@ interface MessageBubbleProps {
   isHighlighted?: boolean;
 }
 
-const MessageBubble = ({ message, onReply, allMessages = [] }: MessageBubbleProps) => {
+const MessageBubble = ({ message, onReply, allMessages = [], highlight, isHighlighted }: MessageBubbleProps) => {
   const isCustomer = message.sender === 'customer';
   const isStore = message.sender === 'store';
   const isAgent = message.sender === 'agent';
