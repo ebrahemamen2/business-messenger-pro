@@ -74,7 +74,6 @@ function mapDbMessage(m: any): ChatMessage {
 export function useConversations(tenantId?: string | null, module: string = 'confirm') {
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
   const conversationsRef = useRef<ChatConversation[]>([]);
   const selectedPhoneRef = useRef<string | null>(null);
   const openedInboundRef = useRef<Set<string>>(new Set());
