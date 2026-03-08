@@ -15,7 +15,7 @@ function normalizeForSearch(text: string): string {
   return text.replace(/[\s\-\+]/g, '').replace(/^0/, '').replace(/^20/, '');
 }
 
-const ChatList = ({ conversations, selectedId, onSelect }: ChatListProps) => {
+const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادثات' }: ChatListProps) => {
   const [search, setSearch] = useState('');
 
   // Auto-select first conversation if none selected
