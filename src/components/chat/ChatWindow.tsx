@@ -269,7 +269,7 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-3 bg-background">
+        <div className="flex-1 overflow-y-auto p-4 space-y-1 bg-background chat-messages">
           {conversation.messages.length === 0 && (
             <div className="flex items-center justify-center h-full text-muted-foreground text-sm">لا توجد رسائل بعد</div>
           )}
