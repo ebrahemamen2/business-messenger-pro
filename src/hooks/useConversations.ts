@@ -193,11 +193,22 @@ export function useConversations(tenantId?: string | null, module: string = 'con
           conv.lastMessage = lastByPhone[conv.id] || '';
           conv.unreadCount = unreadByPhone[conv.id] || 0;
           conv.lastMessageDirection = (lastDirByPhone[conv.id] as any) || null;
+
+          // If conversation was opened by agent and last message is still inbound,
+          // treat it as read but waiting for reply.
+          if (openedInboundRef.current.has(conv.id)) {
+            if (conv.lastMessageDirection === 'inbound') {
+              conv.unreadCount = 0;
+            } else {
+              openedInboundRef.current.delete(conv.id);
+            }
+          }
         }
       } else {
         for (const conv of convs) {
           conv.lastMessage = lastByPhone[conv.id] || '';
           conv.unreadCount = unreadByPhone[conv.id] || 0;
+          conv.lastMessageDirection = null;
         }
       }
     }
