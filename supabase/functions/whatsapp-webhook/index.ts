@@ -331,6 +331,7 @@ Deno.serve(async (req) => {
                     direction: "outbound",
                     body: autoResponse,
                     status: "sent",
+                    tenant_id: config?.tenant_id || null,
                   });
                 } catch (replyErr) {
                   console.error("Auto-reply error:", replyErr);
