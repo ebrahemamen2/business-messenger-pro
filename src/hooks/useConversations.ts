@@ -227,13 +227,13 @@ export function useConversations(tenantId?: string | null, module: string = 'con
   }, [tenantId, module]);
 
   // Load messages for a specific conversation (by phone)
-  const loadMessages = useCallback(async (phone: string) => {
+  const loadMessages = useCallback(async (phone: string, markAsRead: boolean = false) => {
     const normalizedPhone = normalizePhone(phone);
 
     // Query messages by the exact phone and also try normalized variant
     const phonesToQuery = [phone, normalizedPhone];
     // Add original format from conversations
-    const conv = conversations.find((c) => c.id === normalizedPhone);
+    const conv = conversationsRef.current.find((c) => c.id === normalizedPhone);
     if (conv && !phonesToQuery.includes(conv.contact.phone)) {
       phonesToQuery.push(conv.contact.phone);
     }
@@ -249,26 +249,54 @@ export function useConversations(tenantId?: string | null, module: string = 'con
     const { data: msgs } = await msgQuery;
     if (!msgs) return;
 
-    // Calculate unread
+    // Calculate unread (consecutive inbound from latest)
     let unread = 0;
     for (let i = msgs.length - 1; i >= 0; i--) {
       if (msgs[i].direction === 'inbound') unread++;
       else break;
     }
 
-    setConversations((prev) =>
-      prev.map((c) =>
+    const latest = msgs[msgs.length - 1];
+    const latestDirection = latest?.direction === 'inbound' || latest?.direction === 'outbound'
+      ? latest.direction
+      : null;
+
+    const shouldMarkAsRead = markAsRead || openedInboundRef.current.has(normalizedPhone);
+    if (shouldMarkAsRead && latestDirection === 'inbound') {
+      openedInboundRef.current.add(normalizedPhone);
+    }
+    if (latestDirection && latestDirection !== 'inbound') {
+      openedInboundRef.current.delete(normalizedPhone);
+    }
+
+    setConversations((prev) => {
+      const next = prev.map((c) =>
         c.id === normalizedPhone
-          ? { ...c, messages: msgs.map(mapDbMessage), unreadCount: unread }
+          ? {
+              ...c,
+              messages: msgs.map(mapDbMessage),
+              unreadCount: shouldMarkAsRead ? 0 : unread,
+              lastMessageDirection: latestDirection,
+              lastMessage: latest?.body || c.lastMessage,
+              lastMessageTime: latest?.created_at || c.lastMessageTime,
+            }
           : c
-      )
-    );
-  }, [tenantId, conversations]);
+      );
+      conversationsRef.current = next;
+      return next;
+    });
+  }, [tenantId]);
 
   // Select a conversation and load its messages
   const selectConversation = useCallback((phone: string | null) => {
-    setSelectedPhone(phone);
-    if (phone) loadMessages(phone);
+    const normalized = phone ? normalizePhone(phone) : null;
+    setSelectedPhone(normalized);
+    selectedPhoneRef.current = normalized;
+
+    if (normalized) {
+      openedInboundRef.current.add(normalized);
+      loadMessages(normalized, true);
+    }
   }, [loadMessages]);
 
   const updateStatus = useCallback(async (conversationDbId: string, status: string) => {
@@ -289,21 +317,23 @@ export function useConversations(tenantId?: string | null, module: string = 'con
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
         const newMsg = payload.new as any;
         const phone = normalizePhone(newMsg.contact_phone);
-        // Refresh the list preview
         loadList();
-        // If this message belongs to selected conversation, reload its messages
-        if (phone === selectedPhone) loadMessages(phone);
+        if (phone === selectedPhoneRef.current) loadMessages(phone, true);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => loadList())
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          loadList();
+        }
+      });
 
-    intervalRef.current = setInterval(loadList, 30000);
+    intervalRef.current = setInterval(loadList, 20000);
 
     return () => {
       supabase.removeChannel(channel);
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [loadList, loadMessages, selectedPhone]);
+  }, [loadList, loadMessages]);
 
   return {
     conversations,
