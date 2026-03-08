@@ -172,36 +172,41 @@ export function useConversations(tenantId?: string | null, module: string = 'con
   // Load messages for a specific conversation (by phone)
   const loadMessages = useCallback(async (phone: string) => {
     const normalizedPhone = normalizePhone(phone);
-    // Find the original phone format from conversations
+
+    // Query messages by the exact phone and also try normalized variant
+    const phonesToQuery = [phone, normalizedPhone];
+    // Add original format from conversations
+    const conv = conversations.find((c) => c.id === normalizedPhone);
+    if (conv && !phonesToQuery.includes(conv.contact.phone)) {
+      phonesToQuery.push(conv.contact.phone);
+    }
+
     let msgQuery = supabase
       .from('messages')
       .select('*')
+      .in('contact_phone', [...new Set(phonesToQuery)])
       .order('created_at', { ascending: true });
 
     if (tenantId) msgQuery = msgQuery.eq('tenant_id', tenantId);
 
-    // We need to match by normalized phone - query both formats
     const { data: msgs } = await msgQuery;
     if (!msgs) return;
 
-    // Filter by normalized phone client-side (handles format differences)
-    const filtered = msgs.filter((m) => normalizePhone(m.contact_phone) === normalizedPhone);
-
     // Calculate unread
     let unread = 0;
-    for (let i = filtered.length - 1; i >= 0; i--) {
-      if (filtered[i].direction === 'inbound') unread++;
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      if (msgs[i].direction === 'inbound') unread++;
       else break;
     }
 
     setConversations((prev) =>
-      prev.map((conv) =>
-        conv.id === normalizedPhone
-          ? { ...conv, messages: filtered.map(mapDbMessage), unreadCount: unread }
-          : conv
+      prev.map((c) =>
+        c.id === normalizedPhone
+          ? { ...c, messages: msgs.map(mapDbMessage), unreadCount: unread }
+          : c
       )
     );
-  }, [tenantId]);
+  }, [tenantId, conversations]);
 
   // Select a conversation and load its messages
   const selectConversation = useCallback((phone: string | null) => {
