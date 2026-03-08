@@ -45,21 +45,20 @@ async function transcodeBlobToMp3(blob: Blob): Promise<File> {
       mono = mixed;
     }
 
-    const samples = floatTo16BitPCM(mono);
     const mp3Encoder = new lamejs.Mp3Encoder(1, sampleRate, 96);
     const blockSize = 1152;
-    const mp3Chunks: Uint8Array[] = [];
+    const mp3Bytes: number[] = [];
 
     for (let i = 0; i < samples.length; i += blockSize) {
       const chunk = samples.subarray(i, i + blockSize);
       const encoded = mp3Encoder.encodeBuffer(chunk);
-      if (encoded.length > 0) mp3Chunks.push(new Uint8Array(encoded));
+      if (encoded.length > 0) mp3Bytes.push(...Array.from(encoded));
     }
 
     const end = mp3Encoder.flush();
-    if (end.length > 0) mp3Chunks.push(new Uint8Array(end));
+    if (end.length > 0) mp3Bytes.push(...Array.from(end));
 
-    const mp3Blob = new Blob(mp3Chunks, { type: 'audio/mpeg' });
+    const mp3Blob = new Blob([new Uint8Array(mp3Bytes)], { type: 'audio/mpeg' });
     return new File([mp3Blob], `voice-${Date.now()}.mp3`, { type: 'audio/mpeg' });
   } finally {
     await audioContext.close();
