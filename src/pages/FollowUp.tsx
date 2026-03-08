@@ -9,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 const FollowUp = () => {
   const { currentTenant } = useTenantContext();
-  const { conversations, loading, reload } = useConversations(currentTenant?.id);
+  const { conversations, loading, reload, updateStatus, updateAssignment } = useConversations(currentTenant?.id, 'followup');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showContact, setShowContact] = useState(false);
 
@@ -58,13 +58,19 @@ const FollowUp = () => {
                   onToggleContact={() => setShowContact(!showContact)}
                   module="followup"
                   tenantId={currentTenant?.id}
+                  conversationDbId={selected.dbId}
+                  onStatusChange={updateStatus}
                 />
                 {showContact && (
                   <ContactPanel
                     contact={selected.contact}
                     onClose={() => setShowContact(false)}
                     tenantId={currentTenant?.id}
+                    conversationDbId={selected.dbId}
+                    conversationStatus={selected.status}
+                    labels={selected.labels}
                     onContactUpdate={reload}
+                    onStatusChange={updateStatus}
                   />
                 )}
               </>
@@ -76,9 +82,7 @@ const FollowUp = () => {
                 <div className="text-center">
                   <p className="font-semibold text-foreground text-lg">قسم المتابعة</p>
                   <p className="text-sm mt-1">
-                    {conversations.length === 0
-                      ? 'لا توجد محادثات متابعة بعد'
-                      : 'اختر محادثة من القائمة للبدء'}
+                    {conversations.length === 0 ? 'لا توجد محادثات متابعة بعد' : 'اختر محادثة من القائمة للبدء'}
                   </p>
                 </div>
               </div>
@@ -87,15 +91,11 @@ const FollowUp = () => {
         </TabsContent>
 
         <TabsContent value="settings" className="flex-1 m-0 overflow-hidden">
-          <div className="p-8 text-center text-muted-foreground">
-            <p>إعدادات المتابعة - قريباً</p>
-          </div>
+          <div className="p-8 text-center text-muted-foreground"><p>إعدادات المتابعة - قريباً</p></div>
         </TabsContent>
 
         <TabsContent value="auto-reply" className="flex-1 m-0 overflow-hidden">
-          <div className="p-8 text-center text-muted-foreground">
-            <p>الرد التلقائي للمتابعة - قريباً</p>
-          </div>
+          <div className="p-8 text-center text-muted-foreground"><p>الرد التلقائي للمتابعة - قريباً</p></div>
         </TabsContent>
       </Tabs>
     </div>

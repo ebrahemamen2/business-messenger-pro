@@ -2,24 +2,20 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tag, Plus, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-
-interface Label {
-  id: string;
-  name: string;
-  color: string;
-}
+import type { ConversationLabel } from '@/hooks/useConversations';
 
 interface ConversationLabelsProps {
   conversationId: string | null;
   tenantId?: string | null;
-  assignedLabels: Label[];
+  initialLabels?: ConversationLabel[];
   onLabelsChange: () => void;
 }
 
 const PRESET_COLORS = ['#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6', '#ec4899'];
 
-const ConversationLabels = ({ conversationId, tenantId, assignedLabels, onLabelsChange }: ConversationLabelsProps) => {
-  const [allLabels, setAllLabels] = useState<Label[]>([]);
+const ConversationLabels = ({ conversationId, tenantId, initialLabels = [], onLabelsChange }: ConversationLabelsProps) => {
+  const [allLabels, setAllLabels] = useState<ConversationLabel[]>([]);
+  const [assignedLabels, setAssignedLabels] = useState<ConversationLabel[]>(initialLabels);
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState('');
   const [newColor, setNewColor] = useState(PRESET_COLORS[0]);
@@ -28,6 +24,10 @@ const ConversationLabels = ({ conversationId, tenantId, assignedLabels, onLabels
     loadLabels();
   }, [tenantId]);
 
+  useEffect(() => {
+    setAssignedLabels(initialLabels);
+  }, [initialLabels]);
+
   const loadLabels = async () => {
     let q = supabase.from('conversation_labels').select('*');
     if (tenantId) q = q.eq('tenant_id', tenantId);
@@ -35,7 +35,7 @@ const ConversationLabels = ({ conversationId, tenantId, assignedLabels, onLabels
     if (data) setAllLabels(data);
   };
 
-  const toggleLabel = async (label: Label) => {
+  const toggleLabel = async (label: ConversationLabel) => {
     if (!conversationId) return;
     const isAssigned = assignedLabels.some((l) => l.id === label.id);
     if (isAssigned) {
@@ -44,25 +44,27 @@ const ConversationLabels = ({ conversationId, tenantId, assignedLabels, onLabels
         .delete()
         .eq('conversation_id', conversationId)
         .eq('label_id', label.id);
+      setAssignedLabels((prev) => prev.filter((l) => l.id !== label.id));
     } else {
       await supabase.from('conversation_label_assignments').insert({
         conversation_id: conversationId,
         label_id: label.id,
       });
+      setAssignedLabels((prev) => [...prev, label]);
     }
     onLabelsChange();
   };
 
   const createLabel = async () => {
     if (!newName.trim()) return;
-    await supabase.from('conversation_labels').insert({
+    const { data } = await supabase.from('conversation_labels').insert({
       name: newName.trim(),
       color: newColor,
       tenant_id: tenantId || undefined,
-    });
+    }).select().single();
     setNewName('');
     setShowAdd(false);
-    loadLabels();
+    if (data) setAllLabels((prev) => [...prev, data]);
   };
 
   return (
@@ -70,7 +72,7 @@ const ConversationLabels = ({ conversationId, tenantId, assignedLabels, onLabels
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <Tag className="w-3.5 h-3.5 text-muted-foreground" />
-          <span className="text-xs text-muted-foreground font-medium">التصنيفات</span>
+          <span className="text-xs text-muted-foreground font-medium">تصنيفات المحادثة</span>
         </div>
         <button onClick={() => setShowAdd(!showAdd)} className="p-0.5 hover:bg-secondary rounded">
           <Plus className="w-3.5 h-3.5 text-muted-foreground" />
@@ -100,6 +102,9 @@ const ConversationLabels = ({ conversationId, tenantId, assignedLabels, onLabels
       )}
 
       <div className="flex flex-wrap gap-1.5">
+        {allLabels.length === 0 && !showAdd && (
+          <p className="text-[10px] text-muted-foreground">لا توجد تصنيفات - اضغط + لإنشاء</p>
+        )}
         {allLabels.map((label) => {
           const isAssigned = assignedLabels.some((l) => l.id === label.id);
           return (

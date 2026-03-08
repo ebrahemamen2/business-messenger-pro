@@ -11,7 +11,7 @@ import ConfirmAutoReply from '@/components/confirm/ConfirmAutoReply';
 
 const Confirm = () => {
   const { currentTenant } = useTenantContext();
-  const { conversations, loading, reload } = useConversations(currentTenant?.id);
+  const { conversations, loading, reload, updateStatus, updateAssignment } = useConversations(currentTenant?.id, 'confirm');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showContact, setShowContact] = useState(false);
 
@@ -60,13 +60,19 @@ const Confirm = () => {
                   onToggleContact={() => setShowContact(!showContact)}
                   module="confirm"
                   tenantId={currentTenant?.id}
+                  conversationDbId={selected.dbId}
+                  onStatusChange={updateStatus}
                 />
                 {showContact && (
                   <ContactPanel
                     contact={selected.contact}
                     onClose={() => setShowContact(false)}
                     tenantId={currentTenant?.id}
+                    conversationDbId={selected.dbId}
+                    conversationStatus={selected.status}
+                    labels={selected.labels}
                     onContactUpdate={reload}
+                    onStatusChange={updateStatus}
                   />
                 )}
               </>
@@ -78,9 +84,7 @@ const Confirm = () => {
                 <div className="text-center">
                   <p className="font-semibold text-foreground text-lg">قسم التأكيد</p>
                   <p className="text-sm mt-1">
-                    {conversations.length === 0
-                      ? 'لا توجد محادثات تأكيد بعد'
-                      : 'اختر محادثة من القائمة للبدء'}
+                    {conversations.length === 0 ? 'لا توجد محادثات تأكيد بعد' : 'اختر محادثة من القائمة للبدء'}
                   </p>
                 </div>
               </div>
