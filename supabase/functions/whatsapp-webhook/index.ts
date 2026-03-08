@@ -263,6 +263,7 @@ Deno.serve(async (req) => {
               status: "delivered",
               media_url: storedMediaUrl,
               media_type: storedMediaType,
+              tenant_id: config?.tenant_id || null,
             });
 
             if (insertErr) {
