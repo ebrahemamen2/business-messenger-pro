@@ -53,7 +53,7 @@ const FollowUp = () => {
             <ChatList
               conversations={conversations}
               selectedId={selectedId}
-              onSelect={setSelectedId}
+              onSelect={handleSelect}
               title="محادثات المتابعة"
             />
             {selected ? (
