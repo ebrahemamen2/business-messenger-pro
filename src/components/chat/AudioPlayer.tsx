@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, forwardRef } from 'react';
 import { Play, Pause, Mic } from 'lucide-react';
 
 interface AudioPlayerProps {
@@ -13,12 +13,11 @@ const generateWaveform = (src: string, bars: number = 40): number[] => {
     hash = ((hash << 5) - hash) + src.charCodeAt(i);
     hash |= 0;
   }
-  
+
   const heights: number[] = [];
   for (let i = 0; i < bars; i++) {
     const seed = Math.sin(hash * (i + 1)) * 10000;
     const normalized = Math.abs(seed - Math.floor(seed));
-    // Create natural-looking wave pattern
     const baseHeight = 0.2 + normalized * 0.8;
     const wave = Math.sin(i * 0.3) * 0.2 + 0.8;
     heights.push(Math.min(1, baseHeight * wave));
@@ -33,7 +32,7 @@ const formatTime = (seconds: number): string => {
   return `${m}:${s.toString().padStart(2, '0')}`;
 };
 
-const AudioPlayer = ({ src, isAgent = false }: AudioPlayerProps) => {
+const AudioPlayer = forwardRef<HTMLDivElement, AudioPlayerProps>(({ src, isAgent = false }, ref) => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const waveformRef = useRef<HTMLDivElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -105,7 +104,6 @@ const AudioPlayer = ({ src, isAgent = false }: AudioPlayerProps) => {
     setCurrentTime(audio.currentTime);
   }, [duration]);
 
-  // Colors based on sender
   const playedColor = isAgent ? 'bg-primary-foreground' : 'bg-primary';
   const unplayedColor = isAgent ? 'bg-primary-foreground/40' : 'bg-muted-foreground/30';
   const buttonBg = isAgent ? 'bg-primary-foreground/20 hover:bg-primary-foreground/30' : 'bg-primary/15 hover:bg-primary/25';
@@ -113,10 +111,9 @@ const AudioPlayer = ({ src, isAgent = false }: AudioPlayerProps) => {
   const textColor = isAgent ? 'text-primary-foreground/70' : 'text-muted-foreground';
 
   return (
-    <div className="flex items-center gap-3 min-w-[240px] max-w-[300px] select-none">
+    <div ref={ref} className="flex items-center gap-3 min-w-[240px] max-w-[300px] select-none">
       <audio ref={audioRef} src={src} preload="metadata" className="hidden" />
-      
-      {/* Play/Pause button */}
+
       <button
         onClick={togglePlay}
         className={`w-11 h-11 rounded-full ${buttonBg} flex items-center justify-center flex-shrink-0 transition-all duration-200 active:scale-95`}
@@ -128,9 +125,7 @@ const AudioPlayer = ({ src, isAgent = false }: AudioPlayerProps) => {
         )}
       </button>
 
-      {/* Waveform and time */}
       <div className="flex-1 flex flex-col gap-1.5">
-        {/* Interactive waveform */}
         <div
           ref={waveformRef}
           onClick={handleWaveformClick}
@@ -139,7 +134,7 @@ const AudioPlayer = ({ src, isAgent = false }: AudioPlayerProps) => {
           {waveformHeights.map((height, i) => {
             const barProgress = (i / waveformHeights.length) * 100;
             const isPlayed = barProgress < progress;
-            
+
             return (
               <div
                 key={i}
@@ -154,15 +149,13 @@ const AudioPlayer = ({ src, isAgent = false }: AudioPlayerProps) => {
               />
             );
           })}
-          
-          {/* Seek indicator */}
+
           <div
             className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-primary shadow-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
             style={{ left: `${progress}%`, marginLeft: '-6px' }}
           />
         </div>
 
-        {/* Time display */}
         <div className="flex items-center justify-between px-0.5">
           <span className={`text-[11px] font-medium ${textColor} tabular-nums`}>
             {isPlaying || currentTime > 0 ? formatTime(currentTime) : formatTime(duration)}
@@ -179,6 +172,8 @@ const AudioPlayer = ({ src, isAgent = false }: AudioPlayerProps) => {
       </div>
     </div>
   );
-};
+});
+
+AudioPlayer.displayName = 'AudioPlayer';
 
 export default AudioPlayer;
