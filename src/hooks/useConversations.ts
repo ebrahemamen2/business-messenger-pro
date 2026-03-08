@@ -243,12 +243,14 @@ export function useConversations(tenantId?: string | null, module: string = 'con
       .from('messages')
       .select('*')
       .in('contact_phone', [...new Set(phonesToQuery)])
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: false })
+      .limit(100); // Load last 100 messages for speed
 
     if (tenantId) msgQuery = msgQuery.eq('tenant_id', tenantId);
 
-    const { data: msgs } = await msgQuery;
-    if (!msgs) return;
+    const { data: rawMsgs } = await msgQuery;
+    if (!rawMsgs) return;
+    const msgs = rawMsgs.reverse(); // Reverse to chronological order
 
     // Calculate unread (consecutive inbound from latest)
     let unread = 0;

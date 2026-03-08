@@ -48,13 +48,29 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
   const [showEmoji, setShowEmoji] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [attachmentPreview, setAttachmentPreview] = useState<{ url: string; file: File } | null>(null);
+  const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
+  // Combine real messages with optimistic ones, remove optimistic when real ones arrive
+  const allMessages = [
+    ...conversation.messages,
+    ...optimisticMessages.filter((om) => !conversation.messages.some((m) => m.text === om.text && m.sender === 'agent' && m.rawTimestamp >= om.rawTimestamp)),
+  ];
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [allMessages.length]);
+
+  // Clear optimistic messages when real messages update
+  useEffect(() => {
+    if (conversation.messages.length > 0) {
+      setOptimisticMessages((prev) =>
+        prev.filter((om) => !conversation.messages.some((m) => m.text === om.text && m.sender === 'agent'))
+      );
+    }
   }, [conversation.messages]);
 
   const sendToWhatsApp = async (opts: { message?: string; mediaUrl?: string; mediaType?: string; replyToMessageId?: string }) => {
@@ -77,14 +93,31 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
 
   const handleSend = async () => {
     if (!message.trim() || sending) return;
+    const text = message.trim();
+    const replyId = replyTo?.id || undefined;
     setSending(true);
+    setMessage('');
+    setReplyTo(null);
+    setShowQuickReplies(false);
+
+    // Optimistic: add message to UI immediately
+    const optimisticMsg: ChatMessage = {
+      id: `optimistic-${Date.now()}`,
+      text,
+      timestamp: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+      rawTimestamp: new Date().toISOString(),
+      sender: 'agent',
+      status: 'sending',
+      replyToId: replyId,
+    };
+    setOptimisticMessages((prev) => [...prev, optimisticMsg]);
+
     try {
-      await sendToWhatsApp({ message: message.trim(), replyToMessageId: replyTo?.id || undefined });
-      setMessage('');
-      setReplyTo(null);
-      setShowQuickReplies(false);
+      await sendToWhatsApp({ message: text, replyToMessageId: replyId });
     } catch (err) {
       toast({ title: '❌ خطأ', description: 'فشل إرسال الرسالة', variant: 'destructive' });
+      setOptimisticMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
+      setMessage(text);
     } finally {
       setSending(false);
     }
@@ -175,7 +208,7 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
   // Group messages by date
   const messagesWithDates: (ChatMessage | { type: 'date'; label: string })[] = [];
   let lastDate = '';
-  for (const msg of conversation.messages) {
+  for (const msg of allMessages) {
     const dateKey = msg.rawTimestamp ? new Date(msg.rawTimestamp).toDateString() : '';
     if (dateKey && dateKey !== lastDate) {
       lastDate = dateKey;
@@ -270,15 +303,19 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-1 bg-background chat-messages">
-          {conversation.messages.length === 0 && (
-            <div className="flex items-center justify-center h-full text-muted-foreground text-sm">لا توجد رسائل بعد</div>
+          {allMessages.length === 0 && optimisticMessages.length === 0 && (
+            <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+              {conversation.messages.length === 0 ? (
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              ) : 'لا توجد رسائل بعد'}
+            </div>
           )}
           {messagesWithDates.map((item, i) => {
             if ('type' in item && item.type === 'date') {
               return <DateSeparator key={`date-${i}`} date={item.label} />;
             }
             const msg = item as ChatMessage;
-            return <MessageBubble key={msg.id} message={msg} onReply={handleReply} allMessages={conversation.messages} />;
+            return <MessageBubble key={msg.id} message={msg} onReply={handleReply} allMessages={allMessages} />;
           })}
           <div ref={messagesEndRef} />
         </div>
