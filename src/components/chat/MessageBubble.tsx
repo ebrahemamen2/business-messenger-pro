@@ -59,12 +59,13 @@ const MessageBubble = ({ message, onReply, allMessages = [] }: MessageBubbleProp
         </div>
       );
     }
-    // Document
+    // Document - clickable link
+    const fileName = message.text?.replace(/^\[مستند\]\s*/, '') || 'مستند مرفق';
     return (
-      <div className="mb-1.5 flex items-center gap-2 px-3 py-2 rounded-lg bg-background/10">
+      <a href={message.mediaUrl!} target="_blank" rel="noopener noreferrer" className="mb-1.5 flex items-center gap-2 px-3 py-2 rounded-lg bg-background/10 hover:bg-background/20 transition-colors cursor-pointer">
         <FileText className="w-5 h-5" />
-        <span className="text-xs truncate">مستند مرفق</span>
-      </div>
+        <span className="text-xs truncate">{fileName}</span>
+      </a>
     );
   };
 
