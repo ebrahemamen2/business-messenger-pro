@@ -67,6 +67,7 @@ const Confirm = () => {
                   tenantId={currentTenant?.id}
                   conversationDbId={selected.dbId}
                   onStatusChange={updateStatus}
+                  onLoadOlder={loadOlderMessages}
                 />
                 {showContact && (
                   <ContactPanel
