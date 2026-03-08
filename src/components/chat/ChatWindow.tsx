@@ -141,15 +141,16 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
       const { error: uploadError } = await supabase.storage.from('chat-attachments').upload(path, file);
       if (uploadError) throw uploadError;
       const { data: { publicUrl } } = supabase.storage.from('chat-attachments').getPublicUrl(path);
-      await supabase.from('messages').insert({
-        contact_phone: conversation.contact.phone,
-        body: message.trim() || file.name,
-        direction: 'outbound',
-        media_url: publicUrl,
-        media_type: file.type,
-        tenant_id: tenantId || undefined,
+      
+      await sendToWhatsApp({
+        message: message.trim() || undefined,
+        mediaUrl: publicUrl,
+        mediaType: file.type,
+        replyToMessageId: replyTo?.id || undefined,
       });
+      
       setMessage('');
+      setReplyTo(null);
       setAttachmentPreview(null);
       toast({ title: '✅ تم إرسال المرفق' });
     } catch (err) {
