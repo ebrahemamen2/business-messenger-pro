@@ -81,7 +81,14 @@ Deno.serve(async (req) => {
 
     // Determine message type based on media
     if (mediaUrl && mediaType) {
-      const mimeType = mediaType.toLowerCase();
+      let mimeType = mediaType.toLowerCase();
+      
+      // Fix unsupported audio types for WhatsApp
+      // WebM with Opus is essentially OGG Opus, WhatsApp accepts audio/ogg
+      if (mimeType === 'audio/webm' || mimeType === 'audio/webm;codecs=opus' || mimeType.startsWith('audio/webm')) {
+        mimeType = 'audio/ogg';
+      }
+      
       if (mimeType.startsWith("image")) {
         waPayload.type = "image";
         waPayload.image = { link: mediaUrl, caption: message || undefined };

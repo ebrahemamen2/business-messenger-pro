@@ -25,11 +25,16 @@ const VoiceRecorder = ({ onRecordComplete, disabled }: VoiceRecorderProps) => {
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-          ? 'audio/webm;codecs=opus'
-          : 'audio/webm',
-      });
+      
+      // Prefer ogg/opus (WhatsApp native), fallback to mp4, then webm
+      let mimeType = 'audio/webm;codecs=opus';
+      if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
+        mimeType = 'audio/ogg;codecs=opus';
+      } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+        mimeType = 'audio/mp4';
+      }
+      
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
 
@@ -39,8 +44,13 @@ const VoiceRecorder = ({ onRecordComplete, disabled }: VoiceRecorderProps) => {
 
       mediaRecorder.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        const file = new File([blob], `voice-${Date.now()}.webm`, { type: 'audio/webm' });
+        // Always output as ogg for WhatsApp compatibility
+        const isOgg = mimeType.includes('ogg');
+        const isMp4 = mimeType.includes('mp4');
+        const outputType = isOgg ? 'audio/ogg' : isMp4 ? 'audio/mp4' : 'audio/ogg';
+        const ext = isOgg ? 'ogg' : isMp4 ? 'mp4' : 'ogg';
+        const blob = new Blob(chunksRef.current, { type: outputType });
+        const file = new File([blob], `voice-${Date.now()}.${ext}`, { type: outputType });
         onRecordComplete(file);
       };
 
