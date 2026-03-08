@@ -49,6 +49,24 @@ function normalizePhone(phone: string): string {
   return p;
 }
 
+function getPhoneVariants(phone: string): string[] {
+  const clean = phone.replace(/[\s\-\+]/g, '');
+  const normalized = normalizePhone(clean);
+  const variants = new Set<string>([clean, normalized]);
+
+  if (/^20\d{10}$/.test(normalized)) {
+    variants.add(`0${normalized.slice(2)}`);
+  }
+
+  return [...variants];
+}
+
+function toTimestamp(value?: string | null): number {
+  if (!value) return 0;
+  const ts = new Date(value).getTime();
+  return Number.isNaN(ts) ? 0 : ts;
+}
+
 function formatTime(dateStr: string) {
   const d = new Date(dateStr);
   return d.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
