@@ -274,7 +274,7 @@ Deno.serve(async (req) => {
 
             // Upsert contact
             await supabase.from("contacts").upsert(
-              { phone: contactPhone, name: contactName },
+              { phone: contactPhone, name: contactName, tenant_id: config?.tenant_id || null },
               { onConflict: "phone" }
             );
 
