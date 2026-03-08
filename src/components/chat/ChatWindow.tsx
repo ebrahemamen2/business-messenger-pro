@@ -1,4 +1,4 @@
-import { Send, Paperclip, Smile, Phone, UserCircle, MoreVertical, CheckCheck, Check } from 'lucide-react';
+import { Send, Paperclip, Smile, Phone, UserCircle, MoreVertical, CheckCheck, Check, Store } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
