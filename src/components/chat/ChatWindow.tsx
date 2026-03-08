@@ -331,9 +331,9 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
                 disabled={!message.trim() || sending}
                 className="p-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed mb-0.5"
               >
-            >
-              <Send className="w-5 h-5" />
-            </button>
+                <Send className="w-5 h-5" />
+              </button>
+            )}
           </div>
         </div>
       </div>
