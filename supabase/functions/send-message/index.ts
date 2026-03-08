@@ -55,9 +55,18 @@ Deno.serve(async (req) => {
     }
 
     const waUrl = `https://graph.facebook.com/v21.0/${config.phone_number_id}/messages`;
+    const mediaUploadUrl = `https://graph.facebook.com/v21.0/${config.phone_number_id}/media`;
     const headers = {
       Authorization: `Bearer ${config.access_token}`,
       "Content-Type": "application/json",
+    };
+
+    const audioExtByMime: Record<string, string> = {
+      "audio/ogg": "ogg",
+      "audio/mpeg": "mp3",
+      "audio/amr": "amr",
+      "audio/mp4": "m4a",
+      "audio/aac": "aac",
     };
 
     // Build WhatsApp message payload
