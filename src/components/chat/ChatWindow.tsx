@@ -99,20 +99,28 @@ const ChatWindow = ({ conversation, onToggleContact }: ChatWindowProps) => {
           <div
             key={msg.id}
             className={`flex ${
-              msg.sender === 'agent' ? 'justify-end' : 'justify-start'
+              msg.sender === 'customer' ? 'justify-start' : 'justify-end'
             } animate-fade-in`}
           >
             <div
               className={`max-w-[65%] px-4 py-2.5 ${
-                msg.sender === 'agent'
+                msg.sender === 'store'
+                  ? 'bubble-store bg-[hsl(var(--store-message))] text-[hsl(var(--store-message-foreground))]'
+                  : msg.sender === 'agent'
                   ? 'bubble-agent bg-primary text-primary-foreground'
                   : 'bubble-customer bg-card text-foreground'
               }`}
             >
+              {msg.sender === 'store' && (
+                <div className="flex items-center gap-1 mb-1 opacity-80">
+                  <Store className="w-3 h-3" />
+                  <span className="text-[10px] font-semibold">رسالة المتجر</span>
+                </div>
+              )}
               <p className="text-sm leading-relaxed">{msg.text}</p>
               <div
                 className={`flex items-center gap-1 mt-1 ${
-                  msg.sender === 'agent' ? 'justify-end' : ''
+                  msg.sender !== 'customer' ? 'justify-end' : ''
                 }`}
               >
                 <span className="text-[10px] opacity-70">{msg.timestamp}</span>
