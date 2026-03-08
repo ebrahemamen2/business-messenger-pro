@@ -1,5 +1,6 @@
 import { Mic, Square } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
+import lamejs from 'lamejs';
 
 interface VoiceRecorderProps {
   onRecordComplete: (file: File) => void;
@@ -7,22 +8,62 @@ interface VoiceRecorderProps {
   disabled?: boolean;
 }
 
-const WHATSAPP_AUDIO_MIME_TYPES = [
+const RECORDER_MIME_TYPES = [
   'audio/ogg;codecs=opus',
+  'audio/webm;codecs=opus',
   'audio/mp4;codecs=mp4a.40.2',
-  'audio/mpeg',
-  'audio/aac',
   'audio/mp4',
-  'audio/amr',
+  'audio/webm',
 ] as const;
 
-function mimeToExt(mimeType: string) {
-  if (mimeType.startsWith('audio/ogg')) return 'ogg';
-  if (mimeType.startsWith('audio/mp4')) return 'mp4';
-  if (mimeType.startsWith('audio/aac')) return 'aac';
-  if (mimeType.startsWith('audio/mpeg')) return 'mp3';
-  if (mimeType.startsWith('audio/amr')) return 'amr';
-  return 'audio';
+function floatTo16BitPCM(input: Float32Array) {
+  const output = new Int16Array(input.length);
+  for (let i = 0; i < input.length; i++) {
+    const s = Math.max(-1, Math.min(1, input[i]));
+    output[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+  }
+  return output;
+}
+
+async function transcodeBlobToMp3(blob: Blob): Promise<File> {
+  const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+  const audioContext = new AudioCtx();
+
+  try {
+    const arrayBuffer = await blob.arrayBuffer();
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+
+    const sampleRate = audioBuffer.sampleRate;
+    const channels = audioBuffer.numberOfChannels;
+    const left = audioBuffer.getChannelData(0);
+
+    let mono = left;
+    if (channels > 1) {
+      const right = audioBuffer.getChannelData(1);
+      const mixed = new Float32Array(left.length);
+      for (let i = 0; i < left.length; i++) mixed[i] = (left[i] + right[i]) / 2;
+      mono = mixed;
+    }
+
+    const samples = floatTo16BitPCM(mono);
+    const mp3Encoder = new lamejs.Mp3Encoder(1, sampleRate, 96);
+    const blockSize = 1152;
+    const mp3Chunks: Uint8Array[] = [];
+
+    for (let i = 0; i < samples.length; i += blockSize) {
+      const chunk = samples.subarray(i, i + blockSize);
+      const encoded = mp3Encoder.encodeBuffer(chunk);
+      if (encoded.length > 0) mp3Chunks.push(new Uint8Array(encoded));
+    }
+
+    const end = mp3Encoder.flush();
+    if (end.length > 0) mp3Chunks.push(new Uint8Array(end));
+
+    const mp3Blob = new Blob(mp3Chunks, { type: 'audio/mpeg' });
+    return new File([mp3Blob], `voice-${Date.now()}.mp3`, { type: 'audio/mpeg' });
+  } finally {
+    await audioContext.close();
+  }
 }
 
 const VoiceRecorder = ({ onRecordComplete, onError, disabled }: VoiceRecorderProps) => {
@@ -43,9 +84,9 @@ const VoiceRecorder = ({ onRecordComplete, onError, disabled }: VoiceRecorderPro
 
   const startRecording = async () => {
     try {
-      const supportedMime = WHATSAPP_AUDIO_MIME_TYPES.find((type) => MediaRecorder.isTypeSupported(type));
+      const supportedMime = RECORDER_MIME_TYPES.find((type) => MediaRecorder.isTypeSupported(type));
       if (!supportedMime) {
-        onError?.('متصفحك لا يدعم تسجيل فويس بصيغة متوافقة مع واتساب، جرّب متصفح/جهاز آخر.');
+        onError?.('المتصفح لا يدعم تسجيل صوت متوافق، جرّب Chrome أو Edge.');
         return;
       }
 
@@ -58,7 +99,7 @@ const VoiceRecorder = ({ onRecordComplete, onError, disabled }: VoiceRecorderPro
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
 
-      mediaRecorder.onstop = () => {
+      mediaRecorder.onstop = async () => {
         stream.getTracks().forEach((t) => t.stop());
 
         if (!chunksRef.current.some((chunk) => chunk.size > 0)) {
@@ -66,18 +107,13 @@ const VoiceRecorder = ({ onRecordComplete, onError, disabled }: VoiceRecorderPro
           return;
         }
 
-        const actualMime = (chunksRef.current.find((c) => c.size > 0)?.type || mediaRecorder.mimeType || supportedMime).toLowerCase();
-        const normalizedMime = actualMime.replace(/\s+/g, '');
-        const isSupported = WHATSAPP_AUDIO_MIME_TYPES.some((type) => normalizedMime.startsWith(type.replace(/\s+/g, '')));
-
-        if (!isSupported) {
-          onError?.('نوع الصوت الناتج غير مدعوم من واتساب، جرّب تسجيل أطول أو متصفح آخر.');
-          return;
+        try {
+          const sourceBlob = new Blob(chunksRef.current, { type: mediaRecorder.mimeType || supportedMime });
+          const mp3File = await transcodeBlobToMp3(sourceBlob);
+          onRecordComplete(mp3File);
+        } catch {
+          onError?.('فشل تحويل الفويس لصيغة متوافقة، جرّب متصفح آخر.');
         }
-
-        const blob = new Blob(chunksRef.current, { type: actualMime });
-        const file = new File([blob], `voice-${Date.now()}.${mimeToExt(actualMime)}`, { type: actualMime });
-        onRecordComplete(file);
       };
 
       mediaRecorder.start(100);
