@@ -153,6 +153,16 @@ Deno.serve(async (req) => {
           baseAudioMime,
         });
 
+        if (!convertResult.ok) {
+          return json(
+            {
+              error: convertResult.error,
+              details: convertResult.details,
+            },
+            422,
+          );
+        }
+
         const finalAudioMime = convertResult.mimeType;
         const finalAudioUrl = convertResult.url;
 
