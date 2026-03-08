@@ -1,6 +1,5 @@
 import { Mic, Square } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
-import lamejs from 'lamejs';
 
 interface VoiceRecorderProps {
   onRecordComplete: (file: File) => void;
@@ -8,44 +7,86 @@ interface VoiceRecorderProps {
   disabled?: boolean;
 }
 
-function mergeFloat32Chunks(chunks: Float32Array[]) {
-  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-  const result = new Float32Array(totalLength);
-  let offset = 0;
+const AUDIO_MIME_CANDIDATES = [
+  'audio/webm;codecs=opus',
+  'audio/ogg;codecs=opus',
+  'audio/webm',
+  'audio/ogg',
+];
 
-  for (const chunk of chunks) {
-    result.set(chunk, offset);
-    offset += chunk.length;
-  }
+const getSupportedMimeType = () => {
+  if (typeof MediaRecorder === 'undefined') return '';
+  return AUDIO_MIME_CANDIDATES.find((type) => MediaRecorder.isTypeSupported(type)) || '';
+};
 
-  return result;
-}
-
-function floatTo16BitPCM(input: Float32Array) {
+const floatTo16BitPCM = (input: Float32Array) => {
   const output = new Int16Array(input.length);
   for (let i = 0; i < input.length; i++) {
     const s = Math.max(-1, Math.min(1, input[i]));
     output[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
   }
   return output;
-}
+};
 
-function encodeMp3FromPcm(samples: Int16Array, sampleRate: number): Uint8Array {
-  const mp3Encoder = new lamejs.Mp3Encoder(1, sampleRate, 96);
+const encodeMp3FromInt16 = async (samples: Int16Array, sampleRate: number) => {
+  const lameModule = await import('lamejs');
+  const Mp3Encoder = (lameModule as any).Mp3Encoder || (lameModule as any).default?.Mp3Encoder;
+
+  if (!Mp3Encoder) throw new Error('Mp3Encoder unavailable');
+
+  const encoder = new Mp3Encoder(1, Math.round(sampleRate), 96);
   const blockSize = 1152;
-  const mp3Bytes: number[] = [];
+  const mp3Chunks: Uint8Array[] = [];
 
   for (let i = 0; i < samples.length; i += blockSize) {
-    const chunk = samples.subarray(i, i + blockSize);
-    const encoded = mp3Encoder.encodeBuffer(chunk) as Int8Array;
-    if (encoded.length > 0) mp3Bytes.push(...(Array.from(encoded) as number[]));
+    const block = samples.subarray(i, i + blockSize);
+    const encoded = encoder.encodeBuffer(block);
+    if (encoded?.length) mp3Chunks.push(new Uint8Array(encoded));
   }
 
-  const end = mp3Encoder.flush() as Int8Array;
-  if (end.length > 0) mp3Bytes.push(...(Array.from(end) as number[]));
+  const end = encoder.flush();
+  if (end?.length) mp3Chunks.push(new Uint8Array(end));
 
-  return new Uint8Array(mp3Bytes);
-}
+  return new Blob(mp3Chunks, { type: 'audio/mpeg' });
+};
+
+const transcodeToMp3 = async (blob: Blob): Promise<File> => {
+  const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+  if (!AudioCtx) throw new Error('AudioContext unavailable');
+
+  const audioContext: AudioContext = new AudioCtx();
+
+  try {
+    const arrayBuffer = await blob.arrayBuffer();
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+
+    const channelCount = audioBuffer.numberOfChannels;
+    const length = audioBuffer.length;
+    const monoData = new Float32Array(length);
+
+    for (let ch = 0; ch < channelCount; ch++) {
+      const channel = audioBuffer.getChannelData(ch);
+      for (let i = 0; i < length; i++) {
+        monoData[i] += channel[i] / channelCount;
+      }
+    }
+
+    const pcm16 = floatTo16BitPCM(monoData);
+    const mp3Blob = await encodeMp3FromInt16(pcm16, audioBuffer.sampleRate);
+
+    if (mp3Blob.size < 1024) throw new Error('Encoded MP3 too small');
+
+    return new File([mp3Blob], `voice-${Date.now()}.mp3`, { type: 'audio/mpeg' });
+  } finally {
+    await audioContext.close().catch(() => undefined);
+  }
+};
+
+const fileExtensionByMime = (mimeType: string) => {
+  if (mimeType.includes('ogg')) return 'ogg';
+  if (mimeType.includes('webm')) return 'webm';
+  return 'dat';
+};
 
 const VoiceRecorder = ({ onRecordComplete, onError, disabled }: VoiceRecorderProps) => {
   const [recording, setRecording] = useState(false);
@@ -53,59 +94,46 @@ const VoiceRecorder = ({ onRecordComplete, onError, disabled }: VoiceRecorderPro
 
   const timerRef = useRef<ReturnType<typeof setInterval>>();
   const streamRef = useRef<MediaStream | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
-  const processorNodeRef = useRef<ScriptProcessorNode | null>(null);
-  const pcmChunksRef = useRef<Float32Array[]>([]);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<BlobPart[]>([]);
 
-  const cleanupAudio = async () => {
-    processorNodeRef.current?.disconnect();
-    sourceNodeRef.current?.disconnect();
-
-    processorNodeRef.current = null;
-    sourceNodeRef.current = null;
-
+  const cleanupStream = () => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
-
-    if (audioContextRef.current) {
-      await audioContextRef.current.close().catch(() => undefined);
-      audioContextRef.current = null;
-    }
   };
 
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
-      cleanupAudio();
+      if (mediaRecorderRef.current?.state !== 'inactive') {
+        mediaRecorderRef.current?.stop();
+      }
+      cleanupStream();
     };
   }, []);
 
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      const audioContext: AudioContext = new AudioCtx();
-      await audioContext.resume();
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
 
-      const source = audioContext.createMediaStreamSource(stream);
-      const processor = audioContext.createScriptProcessor(4096, 1, 1);
+      const mimeType = getSupportedMimeType();
+      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
 
-      pcmChunksRef.current = [];
-
-      processor.onaudioprocess = (event) => {
-        const input = event.inputBuffer.getChannelData(0);
-        pcmChunksRef.current.push(new Float32Array(input));
+      recordedChunksRef.current = [];
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) recordedChunksRef.current.push(event.data);
       };
 
-      source.connect(processor);
-      processor.connect(audioContext.destination);
-
       streamRef.current = stream;
-      audioContextRef.current = audioContext;
-      sourceNodeRef.current = source;
-      processorNodeRef.current = processor;
+      mediaRecorderRef.current = recorder;
 
+      recorder.start(250);
       setRecording(true);
       setDuration(0);
       timerRef.current = setInterval(() => setDuration((d) => d + 1), 1000);
@@ -115,35 +143,46 @@ const VoiceRecorder = ({ onRecordComplete, onError, disabled }: VoiceRecorderPro
   };
 
   const stopRecording = async () => {
-    if (!recording) return;
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || recorder.state === 'inactive') return;
 
     setRecording(false);
     if (timerRef.current) clearInterval(timerRef.current);
 
-    try {
-      const sampleRate = audioContextRef.current?.sampleRate || 44100;
-      const merged = mergeFloat32Chunks(pcmChunksRef.current);
+    recorder.onstop = async () => {
+      try {
+        const mimeType = recorder.mimeType || 'audio/webm';
+        const rawBlob = new Blob(recordedChunksRef.current, { type: mimeType });
 
-      await cleanupAudio();
+        if (rawBlob.size < 1024) {
+          onError?.('التسجيل كان قصير جدًا أو فارغ، جرّب مرة أخرى.');
+          return;
+        }
 
-      if (merged.length < 2048) {
-        onError?.('التسجيل كان قصير جدًا أو فارغ، جرّب مرة أخرى.');
-        return;
+        // Primary path: MP3 for best delivery compatibility.
+        try {
+          const mp3File = await transcodeToMp3(rawBlob);
+          onRecordComplete(mp3File);
+          return;
+        } catch (mp3Error) {
+          console.error('MP3 transcode failed, fallback to raw audio:', mp3Error);
+        }
+
+        // Fallback path: keep user flow working even if transcoding fails.
+        const ext = fileExtensionByMime(mimeType);
+        const fallbackFile = new File([rawBlob], `voice-${Date.now()}.${ext}`, { type: mimeType });
+        onRecordComplete(fallbackFile);
+      } catch (error) {
+        console.error('Voice prepare failed:', error);
+        onError?.('فشل تجهيز الفويس للإرسال، جرّب مرة أخرى.');
+      } finally {
+        recordedChunksRef.current = [];
+        mediaRecorderRef.current = null;
+        cleanupStream();
       }
+    };
 
-      const pcm16 = floatTo16BitPCM(merged);
-      const mp3Bytes = encodeMp3FromPcm(pcm16, sampleRate);
-      const safeBuffer = new ArrayBuffer(mp3Bytes.length);
-      new Uint8Array(safeBuffer).set(mp3Bytes);
-      const mp3Blob = new Blob([safeBuffer], { type: 'audio/mpeg' });
-      const mp3File = new File([mp3Blob], `voice-${Date.now()}.mp3`, { type: 'audio/mpeg' });
-
-      onRecordComplete(mp3File);
-    } catch {
-      onError?.('فشل تجهيز الفويس للإرسال، جرّب مرة أخرى.');
-    } finally {
-      pcmChunksRef.current = [];
-    }
+    recorder.stop();
   };
 
   const formatDuration = (s: number) => {
