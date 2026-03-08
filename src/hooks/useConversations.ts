@@ -132,13 +132,12 @@ export function useConversations(tenantId?: string | null, module: string = 'con
       };
     });
 
-    // For each conversation, get the last message body for preview (single query)
+    // For each conversation, get last messages for preview + unread calculation
     if (convs.length > 0) {
       const phones = convs.map((c) => c.contact.phone);
-      // Get latest message per phone using a single query ordered desc, then pick first per phone
       let lastMsgsQuery = supabase
         .from('messages')
-        .select('contact_phone, body, direction')
+        .select('contact_phone, body, direction, created_at')
         .in('contact_phone', phones)
         .order('created_at', { ascending: false });
       if (tenantId) lastMsgsQuery = lastMsgsQuery.eq('tenant_id', tenantId);
@@ -146,12 +145,30 @@ export function useConversations(tenantId?: string | null, module: string = 'con
 
       if (lastMsgs) {
         const lastByPhone: Record<string, string> = {};
+        // Calculate unread: count trailing inbound messages per phone
+        const unreadByPhone: Record<string, number> = {};
+        const messagesByPhone: Record<string, typeof lastMsgs> = {};
+
         for (const m of lastMsgs) {
           const p = normalizePhone(m.contact_phone);
           if (!lastByPhone[p]) lastByPhone[p] = m.body;
+          if (!messagesByPhone[p]) messagesByPhone[p] = [];
+          messagesByPhone[p].push(m);
         }
+
+        // For each phone, count consecutive inbound from the top (newest first)
+        for (const [p, msgs] of Object.entries(messagesByPhone)) {
+          let count = 0;
+          for (const msg of msgs) {
+            if (msg.direction === 'inbound') count++;
+            else break;
+          }
+          unreadByPhone[p] = count;
+        }
+
         for (const conv of convs) {
           conv.lastMessage = lastByPhone[conv.id] || '';
+          conv.unreadCount = unreadByPhone[conv.id] || 0;
         }
       }
     }
