@@ -14,7 +14,7 @@ export interface ChatMessage {
   id: string;
   text: string;
   timestamp: string;
-  sender: 'customer' | 'agent';
+  sender: 'customer' | 'agent' | 'store';
   status?: string;
 }
 
@@ -42,11 +42,15 @@ function formatTime(dateStr: string) {
 }
 
 function mapDbMessage(m: any): ChatMessage {
+  let sender: 'customer' | 'agent' | 'store' = 'agent';
+  if (m.direction === 'inbound') sender = 'customer';
+  else if (m.direction === 'store') sender = 'store';
+
   return {
     id: m.id,
     text: m.body,
     timestamp: formatTime(m.created_at),
-    sender: m.direction === 'inbound' ? 'customer' : 'agent',
+    sender,
     status: m.status || undefined,
   };
 }

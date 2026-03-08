@@ -260,6 +260,7 @@ export type Database = {
           id: string
           module: string
           phone_number_id: string | null
+          store_api_key: string | null
           tenant_id: string | null
           updated_at: string
           verify_token: string | null
@@ -275,6 +276,7 @@ export type Database = {
           id?: string
           module?: string
           phone_number_id?: string | null
+          store_api_key?: string | null
           tenant_id?: string | null
           updated_at?: string
           verify_token?: string | null
@@ -290,6 +292,7 @@ export type Database = {
           id?: string
           module?: string
           phone_number_id?: string | null
+          store_api_key?: string | null
           tenant_id?: string | null
           updated_at?: string
           verify_token?: string | null

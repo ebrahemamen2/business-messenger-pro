@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Copy, CheckCircle, Shield, Webhook, Key, Phone, Building2, Loader2 } from 'lucide-react';
+import { Copy, CheckCircle, Shield, Webhook, Key, Phone, Building2, Loader2, Store, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useTenantContext } from '@/contexts/TenantContext';
@@ -12,6 +12,13 @@ import WebhookDiagnostics from '@/components/settings/WebhookDiagnostics';
 
 const SUPABASE_PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'mhbmxvgcdzhqwpznmgei';
 const MODULE = 'confirm';
+
+function generateApiKey() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let key = 'sk_';
+  for (let i = 0; i < 32; i++) key += chars.charAt(Math.floor(Math.random() * chars.length));
+  return key;
+}
 
 const ConfirmSettings = () => {
   const { toast } = useToast();
@@ -21,10 +28,12 @@ const ConfirmSettings = () => {
   const [businessId, setBusinessId] = useState('');
   const [verifyToken, setVerifyToken] = useState('');
   const [welcomeEnabled, setWelcomeEnabled] = useState(true);
+  const [storeApiKey, setStoreApiKey] = useState('');
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const webhookUrl = `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/whatsapp-webhook`;
+  const storeWebhookUrl = `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/store-webhook`;
 
   useEffect(() => {
     const loadConfig = async () => {
@@ -48,12 +57,14 @@ const ConfirmSettings = () => {
         setBusinessId(data.business_account_id || '');
         setVerifyToken(data.verify_token || '');
         setWelcomeEnabled(data.welcome_enabled ?? true);
+        setStoreApiKey((data as any).store_api_key || '');
       } else {
         setToken('');
         setPhoneId('');
         setBusinessId('');
         setVerifyToken('');
         setWelcomeEnabled(true);
+        setStoreApiKey('');
       }
       setLoading(false);
     };
@@ -82,6 +93,7 @@ const ConfirmSettings = () => {
         business_account_id: businessId,
         verify_token: verifyToken,
         welcome_enabled: welcomeEnabled,
+        store_api_key: storeApiKey || null,
         module: MODULE,
       };
 
@@ -122,9 +134,13 @@ const ConfirmSettings = () => {
     }
   };
 
-  const copyWebhook = () => {
-    navigator.clipboard.writeText(webhookUrl);
-    toast({ title: 'تم النسخ', description: 'تم نسخ رابط الـ Webhook' });
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast({ title: 'تم النسخ', description: `تم نسخ ${label}` });
+  };
+
+  const handleGenerateKey = () => {
+    setStoreApiKey(generateApiKey());
   };
 
   if (loading) {
@@ -144,6 +160,7 @@ const ConfirmSettings = () => {
         </p>
       </div>
 
+      {/* WhatsApp API Card */}
       <Card className="p-6 bg-card border-border">
         <div className="flex items-center gap-3 mb-5">
           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -221,7 +238,7 @@ const ConfirmSettings = () => {
                 className="flex-1 bg-secondary border-0 text-muted-foreground text-xs"
                 dir="ltr"
               />
-              <Button variant="outline" onClick={copyWebhook} className="gap-2">
+              <Button variant="outline" onClick={() => copyToClipboard(webhookUrl, 'رابط الـ Webhook')} className="gap-2">
                 <Copy className="w-4 h-4" />
                 نسخ
               </Button>
@@ -236,20 +253,94 @@ const ConfirmSettings = () => {
           </div>
           <Switch checked={welcomeEnabled} onCheckedChange={setWelcomeEnabled} />
         </div>
-
-        <Button
-          onClick={handleSave}
-          disabled={saving}
-          className="w-full mt-6 bg-primary text-primary-foreground hover:bg-primary/90"
-        >
-          {saving ? (
-            <Loader2 className="w-4 h-4 ml-2 animate-spin" />
-          ) : (
-            <CheckCircle className="w-4 h-4 ml-2" />
-          )}
-          حفظ الإعدادات
-        </Button>
       </Card>
+
+      {/* Store Integration Card */}
+      <Card className="p-6 bg-card border-border">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-10 h-10 rounded-xl bg-[hsl(var(--store-message))]/15 flex items-center justify-center">
+            <Store className="w-5 h-5 text-[hsl(var(--store-message))]" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-foreground">ربط المتجر</h3>
+            <p className="text-xs text-muted-foreground">
+              استقبال نسخة من رسائل المتجر لعرضها في الشات — لا تُرسل للعميل مرة أخرى
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2 text-sm">
+              <Webhook className="w-3.5 h-3.5 text-muted-foreground" />
+              Store Webhook URL
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                value={storeWebhookUrl}
+                readOnly
+                className="flex-1 bg-secondary border-0 text-muted-foreground text-xs"
+                dir="ltr"
+              />
+              <Button variant="outline" onClick={() => copyToClipboard(storeWebhookUrl, 'رابط الـ Store Webhook')} className="gap-2">
+                <Copy className="w-4 h-4" />
+                نسخ
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">حط الرابط ده في إعدادات الشات الخارجي في المتجر</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2 text-sm">
+              <Key className="w-3.5 h-3.5 text-muted-foreground" />
+              Store API Key
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                value={storeApiKey}
+                onChange={(e) => setStoreApiKey(e.target.value)}
+                placeholder="اضغط توليد لإنشاء كود جديد"
+                className="flex-1 bg-secondary border-0 text-xs"
+                dir="ltr"
+              />
+              <Button variant="outline" onClick={handleGenerateKey} className="gap-2">
+                <RefreshCw className="w-4 h-4" />
+                توليد
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">كود فريد للبراند — حطه في إعدادات المتجر عشان نعرف الرسائل دي تبع مين</p>
+          </div>
+        </div>
+
+        <div className="mt-4 p-3 rounded-xl bg-secondary/50">
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            <strong className="text-foreground">طريقة الربط:</strong> المتجر يبعت POST request للـ Webhook URL بالبيانات دي:
+          </p>
+          <pre className="mt-2 p-3 rounded-lg bg-background text-xs text-muted-foreground overflow-x-auto" dir="ltr">
+{`{
+  "api_key": "كود البراند",
+  "phone": "201234567890",
+  "message": "نص الرسالة",
+  "customer_name": "اسم العميل",
+  "timestamp": "2025-01-01T12:00:00Z",
+  "order_id": "ORD-123"
+}`}
+          </pre>
+        </div>
+      </Card>
+
+      <Button
+        onClick={handleSave}
+        disabled={saving}
+        className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+      >
+        {saving ? (
+          <Loader2 className="w-4 h-4 ml-2 animate-spin" />
+        ) : (
+          <CheckCircle className="w-4 h-4 ml-2" />
+        )}
+        حفظ الإعدادات
+      </Button>
 
       <WebhookDiagnostics />
     </div>
