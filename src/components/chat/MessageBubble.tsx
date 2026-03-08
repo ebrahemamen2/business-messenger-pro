@@ -36,11 +36,11 @@ const MessageBubble = ({ message, onReply, allMessages = [] }: MessageBubbleProp
     if (!message.mediaUrl) return null;
     const type = message.mediaType || '';
 
-    if (type.startsWith('image')) {
+    if (type.startsWith('image') || type === 'webp') {
       return (
-        <div className="mb-1.5 rounded-lg overflow-hidden max-w-[280px]">
-          <img src={message.mediaUrl} alt="" className="w-full h-auto object-cover" loading="lazy" />
-        </div>
+        <a href={message.mediaUrl!} target="_blank" rel="noopener noreferrer" className="mb-1.5 block rounded-lg overflow-hidden max-w-[280px]">
+          <img src={message.mediaUrl!} alt="" className="w-full h-auto object-cover" loading="lazy" />
+        </a>
       );
     }
     if (type.startsWith('video')) {
