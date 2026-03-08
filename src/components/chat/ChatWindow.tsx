@@ -104,6 +104,13 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
     setShowSearch(false);
     setHighlightedMsgId(null);
     setSearchQuery('');
+    setReplyTo(null);
+    setMessage('');
+    setOptimisticMessages([]);
+    setAttachmentPreview((prev) => {
+      if (prev?.url) URL.revokeObjectURL(prev.url);
+      return null;
+    });
   }, [conversation.id]);
 
   const sendToWhatsApp = async (opts: { message?: string; mediaUrl?: string; mediaType?: string; replyToMessageId?: string }) => {
@@ -124,7 +131,12 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
         }),
       }
     );
-    if (!res.ok) throw new Error('Failed to send');
+
+    const payload = await res.json().catch(() => null);
+    if (!res.ok) {
+      const details = payload?.details?.error_data?.details || payload?.details?.message || payload?.error || 'Failed to send';
+      throw new Error(details);
+    }
   };
 
   const handleSend = async () => {
@@ -149,8 +161,8 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
 
     try {
       await sendToWhatsApp({ message: text, replyToMessageId: replyId });
-    } catch {
-      toast({ title: '❌ خطأ', description: 'فشل إرسال الرسالة', variant: 'destructive' });
+    } catch (err) {
+      toast({ title: '❌ خطأ', description: err instanceof Error ? err.message : 'فشل إرسال الرسالة', variant: 'destructive' });
       setOptimisticMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
       setMessage(text);
     } finally {
@@ -204,7 +216,10 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
     try {
       const ext = file.name.split('.').pop();
       const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from('chat-attachments').upload(path, file);
+      const { error: uploadError } = await supabase.storage.from('chat-attachments').upload(path, file, {
+        contentType: file.type || undefined,
+        upsert: false,
+      });
       if (uploadError) throw uploadError;
       const { data: { publicUrl } } = supabase.storage.from('chat-attachments').getPublicUrl(path);
 
@@ -217,10 +232,13 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
 
       setMessage('');
       setReplyTo(null);
-      setAttachmentPreview(null);
+      setAttachmentPreview((prev) => {
+        if (prev?.url) URL.revokeObjectURL(prev.url);
+        return null;
+      });
       toast({ title: '✅ تم الإرسال' });
-    } catch {
-      toast({ title: '❌ خطأ', description: 'فشل رفع الملف', variant: 'destructive' });
+    } catch (err) {
+      toast({ title: '❌ خطأ', description: err instanceof Error ? err.message : 'فشل رفع الملف', variant: 'destructive' });
     } finally {
       setUploading(false);
     }
@@ -228,6 +246,10 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
 
   const handleVoiceRecordComplete = (file: File) => {
     uploadAndSendFile(file);
+  };
+
+  const handleVoiceRecordError = (errorMessage: string) => {
+    toast({ title: '❌ خطأ في تسجيل الفويس', description: errorMessage, variant: 'destructive' });
   };
 
   const searchQueryRef = useRef('');
