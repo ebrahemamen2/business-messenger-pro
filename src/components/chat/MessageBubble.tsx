@@ -1,8 +1,9 @@
-import { CheckCheck, Check, Clock, Store, Reply, FileText, Download, Mic } from 'lucide-react';
+import { CheckCheck, Check, Clock, Store, Reply, FileText, Download } from 'lucide-react';
 import type { ChatMessage } from '@/hooks/useConversations';
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import ImageLightbox from './ImageLightbox';
 import FormattedText from './FormattedText';
+import AudioPlayer from './AudioPlayer';
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -18,10 +19,6 @@ const MessageBubble = ({ message, onReply, allMessages = [], highlight, isHighli
   const isAgent = message.sender === 'agent';
   const [imgLoaded, setImgLoaded] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const [audioPlaying, setAudioPlaying] = useState(false);
-  const [audioDuration, setAudioDuration] = useState('0:00');
-  const [audioProgress, setAudioProgress] = useState(0);
 
   const replyTarget = message.replyToId
     ? allMessages.find((m) => m.id === message.replyToId)
@@ -41,23 +38,6 @@ const MessageBubble = ({ message, onReply, allMessages = [], highlight, isHighli
       default:
         return <Check className="w-3.5 h-3.5 opacity-40" />;
     }
-  };
-
-  const formatDuration = (s: number) => {
-    if (!s || !isFinite(s)) return '0:00';
-    const m = Math.floor(s / 60);
-    const sec = Math.floor(s % 60);
-    return `${m}:${sec.toString().padStart(2, '0')}`;
-  };
-
-  const toggleAudio = () => {
-    if (!audioRef.current) return;
-    if (audioPlaying) {
-      audioRef.current.pause();
-    } else {
-      audioRef.current.play();
-    }
-    setAudioPlaying(!audioPlaying);
   };
 
   const hasMediaContent = !!message.mediaUrl;
@@ -118,64 +98,7 @@ const MessageBubble = ({ message, onReply, allMessages = [], highlight, isHighli
 
     // Audio / Voice note
     if (type.startsWith('audio') || type === 'ogg' || type === 'opus') {
-      return (
-        <div className="flex items-center gap-3 min-w-[220px] max-w-[280px]">
-          <audio
-            ref={audioRef}
-            src={message.mediaUrl!}
-            preload="metadata"
-            onLoadedMetadata={() => {
-              if (audioRef.current) setAudioDuration(formatDuration(audioRef.current.duration));
-            }}
-            onTimeUpdate={() => {
-              if (audioRef.current && audioRef.current.duration) {
-                setAudioProgress((audioRef.current.currentTime / audioRef.current.duration) * 100);
-              }
-            }}
-            onEnded={() => { setAudioPlaying(false); setAudioProgress(0); }}
-            className="hidden"
-          />
-          {/* Play/Pause button */}
-          <button
-            onClick={toggleAudio}
-            className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 hover:bg-primary/30 transition-colors"
-          >
-            {audioPlaying ? (
-              <div className="flex gap-0.5">
-                <div className="w-1 h-4 bg-primary rounded-full" />
-                <div className="w-1 h-4 bg-primary rounded-full" />
-              </div>
-            ) : (
-              <svg className="w-4 h-4 text-primary ml-0.5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            )}
-          </button>
-          {/* Waveform / progress */}
-          <div className="flex-1 flex flex-col gap-1.5">
-            <div className="relative h-2 bg-muted/30 rounded-full overflow-hidden">
-              <div
-                className="absolute inset-y-0 left-0 bg-primary/60 rounded-full transition-all"
-                style={{ width: `${audioProgress}%` }}
-              />
-              {/* Fake waveform bars */}
-              <div className="absolute inset-0 flex items-center justify-evenly px-0.5 opacity-40">
-                {Array.from({ length: 24 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="w-[2px] bg-foreground/40 rounded-full"
-                    style={{ height: `${30 + Math.sin(i * 0.8) * 50 + Math.random() * 20}%` }}
-                  />
-                ))}
-              </div>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-[10px] opacity-60">{audioDuration}</span>
-              <Mic className="w-3 h-3 opacity-40" />
-            </div>
-          </div>
-        </div>
-      );
+      return <AudioPlayer src={message.mediaUrl!} isAgent={isAgent} />;
     }
 
     // Document
