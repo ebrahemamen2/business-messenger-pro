@@ -30,7 +30,7 @@ export interface ConversationLabel {
 
 export interface ChatConversation {
   id: string;
-  dbId: string | null; // conversations table UUID
+  dbId: string | null;
   contact: ChatContact;
   messages: ChatMessage[];
   lastMessage: string;
@@ -41,7 +41,6 @@ export interface ChatConversation {
   labels: ConversationLabel[];
 }
 
-/** Normalize phone to consistent format */
 function normalizePhone(phone: string): string {
   let p = phone.replace(/[\s\-\+]/g, '');
   if (/^0\d{10}$/.test(p)) p = '2' + p;
@@ -58,7 +57,6 @@ function mapDbMessage(m: any): ChatMessage {
   let sender: 'customer' | 'agent' | 'store' = 'agent';
   if (m.direction === 'inbound') sender = 'customer';
   else if (m.direction === 'store') sender = 'store';
-
   return {
     id: m.id,
     text: m.body,
@@ -75,183 +73,183 @@ function mapDbMessage(m: any): ChatMessage {
 export function useConversations(tenantId?: string | null, module: string = 'confirm') {
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
 
-  const loadData = useCallback(async () => {
-    // Load contacts, messages, and conversation records in parallel
+  // Load conversation list (lightweight - no messages)
+  const loadList = useCallback(async () => {
+    let convsQuery = supabase.from('conversations').select('*').eq('module', module).order('last_message_at', { ascending: false });
     let contactsQuery = supabase.from('contacts').select('*');
-    let messagesQuery = supabase.from('messages').select('*').order('created_at', { ascending: false }).limit(5000);
-    let convsQuery = supabase.from('conversations').select('*').eq('module', module);
     let labelsQuery = supabase.from('conversation_label_assignments').select('*, conversation_labels(*)');
 
     if (tenantId) {
-      contactsQuery = contactsQuery.eq('tenant_id', tenantId);
-      messagesQuery = messagesQuery.eq('tenant_id', tenantId);
       convsQuery = convsQuery.eq('tenant_id', tenantId);
+      contactsQuery = contactsQuery.eq('tenant_id', tenantId);
     }
 
-    const [contactsRes, messagesRes, convsRes, labelsRes] = await Promise.all([
-      contactsQuery,
-      messagesQuery,
-      convsQuery,
-      labelsQuery,
-    ]);
+    const [convsRes, contactsRes, labelsRes] = await Promise.all([convsQuery, contactsQuery, labelsQuery]);
 
-    const contacts = contactsRes.data || [];
-    const messages = (messagesRes.data || []).reverse(); // reverse to chronological order
     const dbConvs = convsRes.data || [];
+    const contacts = contactsRes.data || [];
     const labelAssignments = labelsRes.data || [];
 
-    if (!contacts && !messages) {
-      setLoading(false);
-      return;
-    }
-
-    // Index DB conversations by phone
-    const dbConvByPhone: Record<string, any> = {};
-    for (const c of dbConvs) {
-      dbConvByPhone[normalizePhone(c.contact_phone)] = c;
+    // Index contacts by normalized phone
+    const contactByPhone: Record<string, any> = {};
+    for (const c of contacts) {
+      contactByPhone[normalizePhone(c.phone)] = c;
     }
 
     // Index labels by conversation_id
     const labelsByConvId: Record<string, ConversationLabel[]> = {};
     for (const la of labelAssignments) {
-      const convId = la.conversation_id;
-      if (!labelsByConvId[convId]) labelsByConvId[convId] = [];
+      if (!labelsByConvId[la.conversation_id]) labelsByConvId[la.conversation_id] = [];
       const lbl = la.conversation_labels as any;
-      if (lbl) {
-        labelsByConvId[convId].push({ id: lbl.id, name: lbl.name, color: lbl.color });
-      }
+      if (lbl) labelsByConvId[la.conversation_id].push({ id: lbl.id, name: lbl.name, color: lbl.color });
     }
 
-    // Group messages by normalized phone
-    const msgByPhone: Record<string, any[]> = {};
-    for (const m of messages) {
-      const phone = normalizePhone(m.contact_phone);
-      if (!msgByPhone[phone]) msgByPhone[phone] = [];
-      msgByPhone[phone].push(m);
-    }
+    const convs: ChatConversation[] = dbConvs.map((dbConv) => {
+      const phone = normalizePhone(dbConv.contact_phone);
+      const contact = contactByPhone[phone];
 
-    const convs: ChatConversation[] = [];
-    const processedPhones = new Set<string>();
-
-    // Helper to build conversation
-    const buildConv = (phone: string, contact: ChatContact, msgs: any[]) => {
-      const lastMsg = msgs[msgs.length - 1];
-      const dbConv = dbConvByPhone[phone];
-      const dbId = dbConv?.id || null;
-
-      // Calculate unread: inbound messages after last outbound
-      let unread = 0;
-      for (let i = msgs.length - 1; i >= 0; i--) {
-        if (msgs[i].direction === 'inbound') unread++;
-        else break; // stop at last outbound
-      }
-
-      const status = dbConv?.status || 'open';
-      const labels = dbId ? (labelsByConvId[dbId] || []) : [];
-
-      convs.push({
+      return {
         id: phone,
-        dbId,
-        contact,
-        messages: msgs.map(mapDbMessage),
-        lastMessage: lastMsg?.body || '',
-        lastMessageTime: lastMsg ? lastMsg.created_at : '',
-        unreadCount: unread,
-        status,
-        assignedTo: dbConv?.assigned_to || null,
-        labels,
-      });
-    };
+        dbId: dbConv.id,
+        contact: {
+          id: contact?.id || phone,
+          name: contact?.name || dbConv.contact_phone,
+          phone: dbConv.contact_phone,
+          email: contact?.email,
+          tags: contact?.tags || [],
+          notes: contact?.notes,
+        },
+        messages: [], // loaded lazily
+        lastMessage: '', // will be filled from last message query
+        lastMessageTime: dbConv.last_message_at || dbConv.created_at,
+        unreadCount: dbConv.unread_count || 0,
+        status: dbConv.status as any || 'open',
+        assignedTo: dbConv.assigned_to || null,
+        labels: labelsByConvId[dbConv.id] || [],
+      };
+    });
 
-    // Process contacts first (dedup by normalized phone)
-    for (const c of contacts) {
-      const phone = normalizePhone(c.phone);
-      if (processedPhones.has(phone)) continue;
-      processedPhones.add(phone);
-      const msgs = msgByPhone[phone] || [];
-      buildConv(phone, {
-        id: c.id,
-        name: c.name || c.phone,
-        phone: c.phone,
-        email: c.email,
-        tags: c.tags || [],
-        notes: c.notes,
-      }, msgs);
-    }
+    // For each conversation, get the last message body for preview (single query)
+    if (convs.length > 0) {
+      const phones = convs.map((c) => c.contact.phone);
+      // Get latest message per phone using a single query ordered desc, then pick first per phone
+      let lastMsgsQuery = supabase
+        .from('messages')
+        .select('contact_phone, body, direction')
+        .in('contact_phone', phones)
+        .order('created_at', { ascending: false });
+      if (tenantId) lastMsgsQuery = lastMsgsQuery.eq('tenant_id', tenantId);
+      const { data: lastMsgs } = await lastMsgsQuery;
 
-    // Messages from phones not in contacts
-    for (const phone of Object.keys(msgByPhone)) {
-      if (processedPhones.has(phone)) continue;
-      const msgs = msgByPhone[phone];
-      const lastMsg = msgs[msgs.length - 1];
-      buildConv(phone, {
-        id: phone,
-        name: lastMsg?.contact_name || phone,
-        phone,
-        tags: [],
-      }, msgs);
-    }
-
-    // Sort by last message time (newest first)
-    convs.sort((a, b) => (b.lastMessageTime || '').localeCompare(a.lastMessageTime || ''));
-
-    // Auto-create missing conversation DB records
-    const phonesNeedingDbRecord = convs.filter((c) => !c.dbId && c.messages.length > 0);
-    if (phonesNeedingDbRecord.length > 0) {
-      const inserts = phonesNeedingDbRecord.map((c) => ({
-        contact_phone: c.contact.phone,
-        tenant_id: tenantId || undefined,
-        module,
-        status: 'open',
-        unread_count: c.unreadCount,
-        last_message_at: c.lastMessageTime || new Date().toISOString(),
-      }));
-      const { data: inserted } = await supabase.from('conversations').upsert(inserts, {
-        onConflict: 'contact_phone,tenant_id,module',
-      }).select();
-      if (inserted) {
-        for (const row of inserted) {
-          const phone = normalizePhone(row.contact_phone);
-          const conv = convs.find((c) => c.id === phone);
-          if (conv) conv.dbId = row.id;
+      if (lastMsgs) {
+        const lastByPhone: Record<string, string> = {};
+        for (const m of lastMsgs) {
+          const p = normalizePhone(m.contact_phone);
+          if (!lastByPhone[p]) lastByPhone[p] = m.body;
+        }
+        for (const conv of convs) {
+          conv.lastMessage = lastByPhone[conv.id] || '';
         }
       }
     }
 
-    setConversations(convs);
+    setConversations((prev) => {
+      // Preserve loaded messages for the selected conversation
+      return convs.map((newConv) => {
+        const existing = prev.find((p) => p.id === newConv.id);
+        if (existing && existing.messages.length > 0) {
+          return { ...newConv, messages: existing.messages };
+        }
+        return newConv;
+      });
+    });
     setLoading(false);
   }, [tenantId, module]);
 
-  // Update conversation status in DB
+  // Load messages for a specific conversation (by phone)
+  const loadMessages = useCallback(async (phone: string) => {
+    const normalizedPhone = normalizePhone(phone);
+    // Find the original phone format from conversations
+    let msgQuery = supabase
+      .from('messages')
+      .select('*')
+      .order('created_at', { ascending: true });
+
+    if (tenantId) msgQuery = msgQuery.eq('tenant_id', tenantId);
+
+    // We need to match by normalized phone - query both formats
+    const { data: msgs } = await msgQuery;
+    if (!msgs) return;
+
+    // Filter by normalized phone client-side (handles format differences)
+    const filtered = msgs.filter((m) => normalizePhone(m.contact_phone) === normalizedPhone);
+
+    // Calculate unread
+    let unread = 0;
+    for (let i = filtered.length - 1; i >= 0; i--) {
+      if (filtered[i].direction === 'inbound') unread++;
+      else break;
+    }
+
+    setConversations((prev) =>
+      prev.map((conv) =>
+        conv.id === normalizedPhone
+          ? { ...conv, messages: filtered.map(mapDbMessage), unreadCount: unread }
+          : conv
+      )
+    );
+  }, [tenantId]);
+
+  // Select a conversation and load its messages
+  const selectConversation = useCallback((phone: string | null) => {
+    setSelectedPhone(phone);
+    if (phone) loadMessages(phone);
+  }, [loadMessages]);
+
   const updateStatus = useCallback(async (conversationDbId: string, status: string) => {
     await supabase.from('conversations').update({ status }).eq('id', conversationDbId);
-    loadData();
-  }, [loadData]);
+    loadList();
+  }, [loadList]);
 
-  // Update assigned agent
   const updateAssignment = useCallback(async (conversationDbId: string, userId: string | null) => {
     await supabase.from('conversations').update({ assigned_to: userId }).eq('id', conversationDbId);
-    loadData();
-  }, [loadData]);
+    loadList();
+  }, [loadList]);
 
   useEffect(() => {
-    loadData();
+    loadList();
 
     const channel = supabase
       .channel('messages-realtime')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, () => loadData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => loadData())
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+        const newMsg = payload.new as any;
+        const phone = normalizePhone(newMsg.contact_phone);
+        // Refresh the list preview
+        loadList();
+        // If this message belongs to selected conversation, reload its messages
+        if (phone === selectedPhone) loadMessages(phone);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => loadList())
       .subscribe();
 
-    intervalRef.current = setInterval(loadData, 20000);
+    intervalRef.current = setInterval(loadList, 30000);
 
     return () => {
       supabase.removeChannel(channel);
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [loadData]);
+  }, [loadList, loadMessages, selectedPhone]);
 
-  return { conversations, loading, reload: loadData, updateStatus, updateAssignment };
+  return {
+    conversations,
+    loading,
+    reload: loadList,
+    updateStatus,
+    updateAssignment,
+    selectConversation,
+    loadMessages,
+  };
 }
