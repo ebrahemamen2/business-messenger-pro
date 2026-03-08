@@ -11,8 +11,14 @@ import ConfirmAutoReply from '@/components/confirm/ConfirmAutoReply';
 
 const Confirm = () => {
   const { currentTenant } = useTenantContext();
-  const { conversations, loading, reload, updateStatus, updateAssignment } = useConversations(currentTenant?.id, 'confirm');
+  const { conversations, loading, reload, updateStatus, updateAssignment, selectConversation } = useConversations(currentTenant?.id, 'confirm');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showContact, setShowContact] = useState(false);
+
+  const handleSelect = (id: string) => {
+    setSelectedId(id);
+    selectConversation(id);
+  };
   const [showContact, setShowContact] = useState(false);
 
   const selected = conversations.find((c) => c.id === selectedId);
