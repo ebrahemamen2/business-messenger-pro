@@ -19,7 +19,6 @@ const Confirm = () => {
     setSelectedId(id);
     selectConversation(id);
   };
-  const [showContact, setShowContact] = useState(false);
 
   const selected = conversations.find((c) => c.id === selectedId);
 
