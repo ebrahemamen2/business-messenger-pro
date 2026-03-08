@@ -16,6 +16,7 @@ const MessageSearch = ({ messages, onClose, onHighlight, onQueryChange }: Messag
   const [currentIdx, setCurrentIdx] = useState(0);
 
   useEffect(() => {
+    onQueryChange?.(query);
     if (!query.trim()) {
       setResults([]);
       onHighlight(null, 0, 0);
