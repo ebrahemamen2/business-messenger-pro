@@ -104,6 +104,7 @@ Deno.serve(async (req) => {
       JSON.stringify({
         ok: true,
         action,
+        expected_callback_uri: callbackUri,
         subscribed_apps_count: apps.length,
         subscribed_apps: apps,
       }),
