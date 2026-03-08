@@ -52,6 +52,61 @@ async function convertAudioIfNeeded(params: {
   }
 }
 
+const json = (data: unknown, status = 200) =>
+  new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+
+async function convertAudioIfNeeded(params: {
+  supabaseUrl: string;
+  serviceKey: string;
+  mediaUrl: string;
+  baseAudioMime: string;
+}) {
+  const { supabaseUrl, serviceKey, mediaUrl, baseAudioMime } = params;
+
+  if (baseAudioMime === "audio/ogg") {
+    return { ok: true as const, url: mediaUrl, mimeType: "audio/ogg", converted: false };
+  }
+
+  try {
+    const res = await fetch(`${supabaseUrl}/functions/v1/convert-audio`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${serviceKey}`,
+        apikey: serviceKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ sourceUrl: mediaUrl, sourceMime: baseAudioMime }),
+    });
+
+    const payload = await res.json().catch(() => null);
+    if (!res.ok || !payload?.url) {
+      console.warn("convert-audio failed:", payload);
+      return {
+        ok: false as const,
+        error: "تعذّر تحويل ملف الصوت لصيغة مدعومة للإرسال. جرّب Chrome/Edge أو سجّل بصيغة OGG.",
+        details: payload,
+      };
+    }
+
+    return {
+      ok: true as const,
+      url: payload.url as string,
+      mimeType: (payload.mimeType as string) || "audio/ogg",
+      converted: true,
+    };
+  } catch (error) {
+    console.warn("convert-audio exception:", error);
+    return {
+      ok: false as const,
+      error: "فشل تحويل ملف الصوت قبل الإرسال.",
+      details: error instanceof Error ? error.message : "unknown",
+    };
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
