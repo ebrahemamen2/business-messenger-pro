@@ -19,6 +19,7 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean | null
+          module: string
           response_text: string
           tenant_id: string | null
           trigger_keyword: string
@@ -27,6 +28,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean | null
+          module?: string
           response_text: string
           tenant_id?: string | null
           trigger_keyword: string
@@ -35,6 +37,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean | null
+          module?: string
           response_text?: string
           tenant_id?: string | null
           trigger_keyword?: string
@@ -255,6 +258,7 @@ export type Database = {
           business_account_id: string | null
           created_at: string
           id: string
+          module: string
           phone_number_id: string | null
           tenant_id: string | null
           updated_at: string
@@ -269,6 +273,7 @@ export type Database = {
           business_account_id?: string | null
           created_at?: string
           id?: string
+          module?: string
           phone_number_id?: string | null
           tenant_id?: string | null
           updated_at?: string
@@ -283,6 +288,7 @@ export type Database = {
           business_account_id?: string | null
           created_at?: string
           id?: string
+          module?: string
           phone_number_id?: string | null
           tenant_id?: string | null
           updated_at?: string
