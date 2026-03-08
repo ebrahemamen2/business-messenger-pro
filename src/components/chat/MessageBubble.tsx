@@ -50,14 +50,12 @@ const MessageBubble = ({ message, onReply, allMessages = [] }: MessageBubbleProp
         </div>
       );
     }
-    if (type.startsWith('audio')) {
+    if (type.startsWith('audio') || type === 'ogg' || type === 'opus') {
       return (
-        <div className="mb-1.5 flex items-center gap-2 px-3 py-2 rounded-lg bg-background/20">
-          <Mic className="w-4 h-4" />
-          <div className="flex-1 h-1 bg-foreground/20 rounded-full">
-            <div className="w-1/3 h-full bg-foreground/60 rounded-full" />
-          </div>
-          <span className="text-[10px] opacity-70">0:12</span>
+        <div className="mb-1.5 rounded-lg overflow-hidden max-w-[280px]">
+          <audio controls className="w-full h-10" preload="metadata">
+            <source src={message.mediaUrl!} type={type.includes('/') ? type : `audio/${type}`} />
+          </audio>
         </div>
       );
     }
