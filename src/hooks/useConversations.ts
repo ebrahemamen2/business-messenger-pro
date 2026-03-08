@@ -107,13 +107,23 @@ export function useConversations(tenantId?: string | null, module: string = 'con
       if (lbl) labelsByConvId[la.conversation_id].push({ id: lbl.id, name: lbl.name, color: lbl.color });
     }
 
-    const convs: ChatConversation[] = dbConvs.map((dbConv) => {
+    // Deduplicate by normalized phone (keep the latest conversation per phone)
+    const seenPhones = new Set<string>();
+    const dedupedConvs = dbConvs.filter((dbConv) => {
+      const phone = normalizePhone(dbConv.contact_phone);
+      if (seenPhones.has(phone)) return false;
+      seenPhones.add(phone);
+      return true;
+    });
+
+    const convs: ChatConversation[] = dedupedConvs.map((dbConv) => {
       const phone = normalizePhone(dbConv.contact_phone);
       const contact = contactByPhone[phone];
 
       return {
-        id: phone,
+        id: dbConv.id, // Use DB id as unique key instead of phone
         dbId: dbConv.id,
+        normalizedPhone: phone,
         contact: {
           id: contact?.id || phone,
           name: contact?.name || dbConv.contact_phone,
@@ -122,8 +132,8 @@ export function useConversations(tenantId?: string | null, module: string = 'con
           tags: contact?.tags || [],
           notes: contact?.notes,
         },
-        messages: [], // loaded lazily
-        lastMessage: '', // will be filled from last message query
+        messages: [],
+        lastMessage: '',
         lastMessageTime: dbConv.last_message_at || dbConv.created_at,
         unreadCount: dbConv.unread_count || 0,
         status: dbConv.status as any || 'open',
