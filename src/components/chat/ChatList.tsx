@@ -51,7 +51,7 @@ const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادث
 
     // Filter
     if (filter === 'unread') return c.unreadCount > 0;
-    if (filter === 'open') return c.status === 'active' || c.status === 'pending';
+    if (filter === 'open') return c.status === 'open';
     if (filter === 'pending') return c.status === 'pending';
     if (filter === 'resolved') return c.status === 'resolved';
     return true;
@@ -111,11 +111,20 @@ const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادث
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-sm text-foreground truncate">
-                    {conv.contact.name}
-                  </span>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="font-semibold text-sm text-foreground truncate">
+                      {conv.contact.name}
+                    </span>
+                    {conv.labels && conv.labels.length > 0 && (
+                      <div className="flex gap-0.5 flex-shrink-0">
+                        {conv.labels.slice(0, 2).map((l) => (
+                          <span key={l.id} className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: l.color }} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <span className="text-[11px] text-muted-foreground flex-shrink-0 mr-2">
-                    {relativeTime(lastMsgRaw || '')}
+                    {relativeTime(conv.lastMessageTime || '')}
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground truncate max-w-[200px] mt-0.5">
