@@ -11,7 +11,7 @@ import ConfirmAutoReply from '@/components/confirm/ConfirmAutoReply';
 
 const Confirm = () => {
   const { currentTenant } = useTenantContext();
-  const { conversations, loading, reload, updateStatus, updateAssignment, selectConversation } = useConversations(currentTenant?.id, 'confirm');
+  const { conversations, loading, reload, updateStatus, updateAssignment, selectConversation, loadOlderMessages } = useConversations(currentTenant?.id, 'confirm');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showContact, setShowContact] = useState(false);
 
@@ -67,6 +67,7 @@ const Confirm = () => {
                   tenantId={currentTenant?.id}
                   conversationDbId={selected.dbId}
                   onStatusChange={updateStatus}
+                  onLoadOlder={loadOlderMessages}
                 />
                 {showContact && (
                   <ContactPanel

@@ -2,14 +2,17 @@ import { CheckCheck, Check, Clock, Store, Reply, FileText, Download, Mic } from 
 import type { ChatMessage } from '@/hooks/useConversations';
 import { useState, useRef } from 'react';
 import ImageLightbox from './ImageLightbox';
+import FormattedText from './FormattedText';
 
 interface MessageBubbleProps {
   message: ChatMessage;
   onReply?: (message: ChatMessage) => void;
   allMessages?: ChatMessage[];
+  highlight?: string;
+  isHighlighted?: boolean;
 }
 
-const MessageBubble = ({ message, onReply, allMessages = [] }: MessageBubbleProps) => {
+const MessageBubble = ({ message, onReply, allMessages = [], highlight, isHighlighted }: MessageBubbleProps) => {
   const isCustomer = message.sender === 'customer';
   const isStore = message.sender === 'store';
   const isAgent = message.sender === 'agent';
@@ -207,8 +210,8 @@ const MessageBubble = ({ message, onReply, allMessages = [] }: MessageBubbleProp
   const paddingClass = isMediaOnly ? 'p-1.5' : 'px-3 py-2';
 
   return (
-    <div className={`group flex ${isCustomer ? 'justify-start' : 'justify-end'} animate-fade-in mb-0.5`}>
-      <div className={`${bubbleClass} ${paddingClass}`}>
+    <div className={`group flex ${isCustomer ? 'justify-start' : 'justify-end'} animate-fade-in mb-0.5 ${isHighlighted ? 'scroll-mt-20' : ''}`} id={`msg-${message.id}`}>
+      <div className={`${bubbleClass} ${paddingClass} ${isHighlighted ? 'ring-2 ring-primary/50 transition-all duration-500' : ''}`}>
         {/* Reply button on hover */}
         {onReply && (
           <button
@@ -242,8 +245,8 @@ const MessageBubble = ({ message, onReply, allMessages = [] }: MessageBubbleProp
 
         {/* Text (hide placeholder text like [صورة]) */}
         {showText && (
-          <p className={`text-[13px] leading-relaxed whitespace-pre-wrap ${isMediaOnly ? '' : ''} ${hasMediaContent ? 'mt-1 px-1' : ''}`}>
-            {message.text}
+          <p className={`text-[13px] leading-relaxed whitespace-pre-wrap ${hasMediaContent ? 'mt-1 px-1' : ''}`}>
+            <FormattedText text={message.text!} highlight={highlight} />
           </p>
         )}
 
