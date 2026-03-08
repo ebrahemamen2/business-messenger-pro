@@ -48,10 +48,17 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
   const [showEmoji, setShowEmoji] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [attachmentPreview, setAttachmentPreview] = useState<{ url: string; file: File } | null>(null);
+  const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  // Combine real messages with optimistic ones, remove optimistic when real ones arrive
+  const allMessages = [
+    ...conversation.messages,
+    ...optimisticMessages.filter((om) => !conversation.messages.some((m) => m.text === om.text && m.sender === 'agent' && m.rawTimestamp >= om.rawTimestamp)),
+  ];
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
