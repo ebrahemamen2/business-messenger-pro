@@ -77,14 +77,33 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
 
   const handleSend = async () => {
     if (!message.trim() || sending) return;
+    const text = message.trim();
+    const replyId = replyTo?.id || undefined;
     setSending(true);
+    setMessage('');
+    setReplyTo(null);
+    setShowQuickReplies(false);
+
+    // Optimistic: add message to UI immediately
+    const optimisticMsg: ChatMessage = {
+      id: `optimistic-${Date.now()}`,
+      text,
+      timestamp: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+      rawTimestamp: new Date().toISOString(),
+      sender: 'agent',
+      status: 'sending',
+      replyToId: replyId,
+    };
+    conversation.messages.push(optimisticMsg);
+
     try {
-      await sendToWhatsApp({ message: message.trim(), replyToMessageId: replyTo?.id || undefined });
-      setMessage('');
-      setReplyTo(null);
-      setShowQuickReplies(false);
+      await sendToWhatsApp({ message: text, replyToMessageId: replyId });
     } catch (err) {
       toast({ title: '❌ خطأ', description: 'فشل إرسال الرسالة', variant: 'destructive' });
+      // Remove optimistic message on failure
+      const idx = conversation.messages.findIndex((m) => m.id === optimisticMsg.id);
+      if (idx !== -1) conversation.messages.splice(idx, 1);
+      setMessage(text);
     } finally {
       setSending(false);
     }

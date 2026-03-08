@@ -243,7 +243,8 @@ export function useConversations(tenantId?: string | null, module: string = 'con
       .from('messages')
       .select('*')
       .in('contact_phone', [...new Set(phonesToQuery)])
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: false })
+      .limit(100); // Load last 100 messages for speed
 
     if (tenantId) msgQuery = msgQuery.eq('tenant_id', tenantId);
 
