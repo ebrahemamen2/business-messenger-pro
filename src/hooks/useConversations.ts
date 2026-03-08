@@ -252,10 +252,7 @@ export function useConversations(tenantId?: string | null, module: string = 'con
   const loadMessages = useCallback(async (phone: string, markAsRead: boolean = false) => {
     const normalizedPhone = normalizePhone(phone);
 
-    // Query messages بجميع نسخ الرقم (local/international) لتجنب فقدان الرسائل
     const phonesToQuery = new Set<string>(getPhoneVariants(phone));
-
-    // Add original format from conversations
     const conv = conversationsRef.current.find((c) => c.id === normalizedPhone);
     if (conv) {
       getPhoneVariants(conv.contact.phone).forEach((p) => phonesToQuery.add(p));
@@ -266,15 +263,14 @@ export function useConversations(tenantId?: string | null, module: string = 'con
       .select('*')
       .in('contact_phone', [...phonesToQuery])
       .order('created_at', { ascending: false })
-      .limit(100); // Load last 100 messages for speed
+      .limit(100);
 
     if (tenantId) msgQuery = msgQuery.or(`tenant_id.eq.${tenantId},tenant_id.is.null`);
 
     const { data: rawMsgs } = await msgQuery;
     if (!rawMsgs) return;
-    const msgs = rawMsgs.reverse(); // Reverse to chronological order
+    const msgs = rawMsgs.reverse();
 
-    // Calculate unread (consecutive inbound from latest)
     let unread = 0;
     for (let i = msgs.length - 1; i >= 0; i--) {
       if (msgs[i].direction === 'inbound') unread++;
@@ -314,6 +310,46 @@ export function useConversations(tenantId?: string | null, module: string = 'con
       conversationsRef.current = next;
       return next;
     });
+  }, [tenantId]);
+
+  // Load older messages (pagination) — returns true if there are more
+  const loadOlderMessages = useCallback(async (phone: string): Promise<boolean> => {
+    const normalizedPhone = normalizePhone(phone);
+    const conv = conversationsRef.current.find((c) => c.id === normalizedPhone);
+    if (!conv || conv.messages.length === 0) return false;
+
+    const oldestTimestamp = conv.messages[0].rawTimestamp;
+    const phonesToQuery = new Set<string>(getPhoneVariants(phone));
+    if (conv) {
+      getPhoneVariants(conv.contact.phone).forEach((p) => phonesToQuery.add(p));
+    }
+
+    let msgQuery = supabase
+      .from('messages')
+      .select('*')
+      .in('contact_phone', [...phonesToQuery])
+      .lt('created_at', oldestTimestamp)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (tenantId) msgQuery = msgQuery.or(`tenant_id.eq.${tenantId},tenant_id.is.null`);
+
+    const { data: rawMsgs } = await msgQuery;
+    if (!rawMsgs || rawMsgs.length === 0) return false;
+
+    const olderMsgs = rawMsgs.reverse().map(mapDbMessage);
+
+    setConversations((prev) => {
+      const next = prev.map((c) =>
+        c.id === normalizedPhone
+          ? { ...c, messages: [...olderMsgs, ...c.messages] }
+          : c
+      );
+      conversationsRef.current = next;
+      return next;
+    });
+
+    return rawMsgs.length >= 50; // has more if we got a full page
   }, [tenantId]);
 
   // Select a conversation and load its messages
