@@ -14,7 +14,7 @@ export interface ChatMessage {
   id: string;
   text: string;
   timestamp: string;
-  sender: 'customer' | 'agent';
+  sender: 'customer' | 'agent' | 'store';
   status?: string;
 }
 
