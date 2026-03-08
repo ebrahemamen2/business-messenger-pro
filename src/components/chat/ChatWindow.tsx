@@ -208,7 +208,7 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
   // Group messages by date
   const messagesWithDates: (ChatMessage | { type: 'date'; label: string })[] = [];
   let lastDate = '';
-  for (const msg of conversation.messages) {
+  for (const msg of allMessages) {
     const dateKey = msg.rawTimestamp ? new Date(msg.rawTimestamp).toDateString() : '';
     if (dateKey && dateKey !== lastDate) {
       lastDate = dateKey;
