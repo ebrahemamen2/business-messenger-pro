@@ -303,15 +303,19 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-1 bg-background chat-messages">
-          {conversation.messages.length === 0 && (
-            <div className="flex items-center justify-center h-full text-muted-foreground text-sm">لا توجد رسائل بعد</div>
+          {allMessages.length === 0 && optimisticMessages.length === 0 && (
+            <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+              {conversation.messages.length === 0 ? (
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              ) : 'لا توجد رسائل بعد'}
+            </div>
           )}
           {messagesWithDates.map((item, i) => {
             if ('type' in item && item.type === 'date') {
               return <DateSeparator key={`date-${i}`} date={item.label} />;
             }
             const msg = item as ChatMessage;
-            return <MessageBubble key={msg.id} message={msg} onReply={handleReply} allMessages={conversation.messages} />;
+            return <MessageBubble key={msg.id} message={msg} onReply={handleReply} allMessages={allMessages} />;
           })}
           <div ref={messagesEndRef} />
         </div>
