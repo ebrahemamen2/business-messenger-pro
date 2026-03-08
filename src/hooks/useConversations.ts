@@ -107,7 +107,16 @@ export function useConversations(tenantId?: string | null, module: string = 'con
       if (lbl) labelsByConvId[la.conversation_id].push({ id: lbl.id, name: lbl.name, color: lbl.color });
     }
 
-    const convs: ChatConversation[] = dbConvs.map((dbConv) => {
+    // Deduplicate by normalized phone (keep latest per phone since ordered by last_message_at desc)
+    const seenPhones = new Set<string>();
+    const dedupedConvs = dbConvs.filter((dbConv) => {
+      const phone = normalizePhone(dbConv.contact_phone);
+      if (seenPhones.has(phone)) return false;
+      seenPhones.add(phone);
+      return true;
+    });
+
+    const convs: ChatConversation[] = dedupedConvs.map((dbConv) => {
       const phone = normalizePhone(dbConv.contact_phone);
       const contact = contactByPhone[phone];
 
@@ -122,8 +131,8 @@ export function useConversations(tenantId?: string | null, module: string = 'con
           tags: contact?.tags || [],
           notes: contact?.notes,
         },
-        messages: [], // loaded lazily
-        lastMessage: '', // will be filled from last message query
+        messages: [],
+        lastMessage: '',
         lastMessageTime: dbConv.last_message_at || dbConv.created_at,
         unreadCount: dbConv.unread_count || 0,
         status: dbConv.status as any || 'open',
@@ -132,31 +141,37 @@ export function useConversations(tenantId?: string | null, module: string = 'con
       };
     });
 
-    // For each conversation, get last messages for preview + unread calculation
+    // For each conversation, get last few messages per phone for preview + unread
     if (convs.length > 0) {
-      const phones = convs.map((c) => c.contact.phone);
+      // Query last 20 messages per phone (enough for unread calc) - fetch in batches
+      const unreadByPhone: Record<string, number> = {};
+      const lastByPhone: Record<string, string> = {};
+
+      // Batch: get recent messages for all phones at once, with enough limit
+      const phones = [...new Set(convs.map((c) => c.contact.phone))];
       let lastMsgsQuery = supabase
         .from('messages')
-        .select('contact_phone, body, direction, created_at')
+        .select('contact_phone, body, direction')
         .in('contact_phone', phones)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(phones.length * 20); // ~20 messages per conversation
       if (tenantId) lastMsgsQuery = lastMsgsQuery.eq('tenant_id', tenantId);
       const { data: lastMsgs } = await lastMsgsQuery;
 
       if (lastMsgs) {
-        const lastByPhone: Record<string, string> = {};
-        // Calculate unread: count trailing inbound messages per phone
-        const unreadByPhone: Record<string, number> = {};
         const messagesByPhone: Record<string, typeof lastMsgs> = {};
 
         for (const m of lastMsgs) {
           const p = normalizePhone(m.contact_phone);
           if (!lastByPhone[p]) lastByPhone[p] = m.body;
           if (!messagesByPhone[p]) messagesByPhone[p] = [];
-          messagesByPhone[p].push(m);
+          // Only keep first 20 per phone for unread calculation
+          if (messagesByPhone[p].length < 20) {
+            messagesByPhone[p].push(m);
+          }
         }
 
-        // For each phone, count consecutive inbound from the top (newest first)
+        // Count consecutive inbound from newest
         for (const [p, msgs] of Object.entries(messagesByPhone)) {
           let count = 0;
           for (const msg of msgs) {
@@ -165,11 +180,11 @@ export function useConversations(tenantId?: string | null, module: string = 'con
           }
           unreadByPhone[p] = count;
         }
+      }
 
-        for (const conv of convs) {
-          conv.lastMessage = lastByPhone[conv.id] || '';
-          conv.unreadCount = unreadByPhone[conv.id] || 0;
-        }
+      for (const conv of convs) {
+        conv.lastMessage = lastByPhone[conv.id] || '';
+        conv.unreadCount = unreadByPhone[conv.id] || 0;
       }
     }
 
