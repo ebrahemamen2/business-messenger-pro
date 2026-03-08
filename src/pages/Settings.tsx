@@ -71,10 +71,22 @@ const Settings = () => {
         await supabase.from('wa_config').insert(configData);
       }
 
-      toast({
-        title: '✅ تم الحفظ',
-        description: 'تم حفظ إعدادات الربط بنجاح في قاعدة البيانات',
+      const subResult = await supabase.functions.invoke('whatsapp-subscription', {
+        body: { action: 'subscribe' },
       });
+
+      if (subResult.error || !subResult.data?.ok) {
+        toast({
+          title: '⚠️ تم الحفظ',
+          description: 'تم حفظ الإعدادات لكن تفعيل استقبال الرسائل يحتاج مراجعة في Meta',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: '✅ تم الحفظ والتفعيل',
+          description: 'تم حفظ الإعدادات وتفعيل اشتراك استقبال الرسائل بنجاح',
+        });
+      }
     } catch (err) {
       toast({
         title: '❌ خطأ',
