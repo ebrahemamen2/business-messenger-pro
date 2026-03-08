@@ -56,7 +56,7 @@ const Confirm = () => {
             <ChatList
               conversations={conversations}
               selectedId={selectedId}
-              onSelect={setSelectedId}
+              onSelect={handleSelect}
               title="محادثات التأكيد"
             />
             {selected ? (
