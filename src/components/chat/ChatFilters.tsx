@@ -1,6 +1,6 @@
 import { Filter, SortAsc } from 'lucide-react';
 
-export type ChatFilter = 'all' | 'unread' | 'open' | 'pending' | 'resolved';
+export type ChatFilter = 'all' | 'unread' | 'no_reply' | 'open' | 'pending' | 'resolved';
 export type ChatSort = 'newest' | 'oldest' | 'unread';
 
 interface ChatFiltersProps {
@@ -13,6 +13,7 @@ interface ChatFiltersProps {
 const filters: { value: ChatFilter; label: string }[] = [
   { value: 'all', label: 'الكل' },
   { value: 'unread', label: 'غير مقروء' },
+  { value: 'no_reply', label: 'لم يتم الرد' },
   { value: 'open', label: 'مفتوح' },
   { value: 'pending', label: 'قيد المعالجة' },
   { value: 'resolved', label: 'مغلق' },
