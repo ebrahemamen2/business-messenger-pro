@@ -39,8 +39,11 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [showNotes, setShowNotes] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [attachmentPreview, setAttachmentPreview] = useState<{ url: string; file: File } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
