@@ -81,13 +81,7 @@ Deno.serve(async (req) => {
 
     // Determine message type based on media
     if (mediaUrl && mediaType) {
-      let mimeType = mediaType.toLowerCase();
-      
-      // Fix unsupported audio types for WhatsApp
-      // WebM with Opus is essentially OGG Opus, WhatsApp accepts audio/ogg
-      if (mimeType === 'audio/webm' || mimeType === 'audio/webm;codecs=opus' || mimeType.startsWith('audio/webm')) {
-        mimeType = 'audio/ogg';
-      }
+      const mimeType = mediaType.toLowerCase();
       
       if (mimeType.startsWith("image")) {
         waPayload.type = "image";
@@ -96,6 +90,19 @@ Deno.serve(async (req) => {
         waPayload.type = "video";
         waPayload.video = { link: mediaUrl, caption: message || undefined };
       } else if (mimeType.startsWith("audio")) {
+        const supportedAudioTypes = ["audio/ogg", "audio/mpeg", "audio/amr", "audio/mp4", "audio/aac"];
+        const isSupportedAudio = supportedAudioTypes.some((type) => mimeType.startsWith(type));
+
+        if (!isSupportedAudio) {
+          return new Response(
+            JSON.stringify({
+              error: "Unsupported audio format",
+              details: `WhatsApp does not support this audio format (${mediaType}). Supported: audio/ogg;codecs=opus, audio/mpeg, audio/amr, audio/mp4, audio/aac`,
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
         waPayload.type = "audio";
         waPayload.audio = { link: mediaUrl };
       } else {

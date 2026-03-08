@@ -1,12 +1,30 @@
-import { Mic, Square, Loader2 } from 'lucide-react';
+import { Mic, Square } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 
 interface VoiceRecorderProps {
   onRecordComplete: (file: File) => void;
+  onError?: (message: string) => void;
   disabled?: boolean;
 }
 
-const VoiceRecorder = ({ onRecordComplete, disabled }: VoiceRecorderProps) => {
+const WHATSAPP_AUDIO_MIME_TYPES = [
+  'audio/ogg;codecs=opus',
+  'audio/mp4',
+  'audio/aac',
+  'audio/mpeg',
+  'audio/amr',
+] as const;
+
+function mimeToExt(mimeType: string) {
+  if (mimeType.startsWith('audio/ogg')) return 'ogg';
+  if (mimeType.startsWith('audio/mp4')) return 'mp4';
+  if (mimeType.startsWith('audio/aac')) return 'aac';
+  if (mimeType.startsWith('audio/mpeg')) return 'mp3';
+  if (mimeType.startsWith('audio/amr')) return 'amr';
+  return 'audio';
+}
+
+const VoiceRecorder = ({ onRecordComplete, onError, disabled }: VoiceRecorderProps) => {
   const [recording, setRecording] = useState(false);
   const [duration, setDuration] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -24,17 +42,14 @@ const VoiceRecorder = ({ onRecordComplete, disabled }: VoiceRecorderProps) => {
 
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      
-      // Prefer ogg/opus (WhatsApp native), fallback to mp4, then webm
-      let mimeType = 'audio/webm;codecs=opus';
-      if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
-        mimeType = 'audio/ogg;codecs=opus';
-      } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
-        mimeType = 'audio/mp4';
+      const supportedMime = WHATSAPP_AUDIO_MIME_TYPES.find((type) => MediaRecorder.isTypeSupported(type));
+      if (!supportedMime) {
+        onError?.('متصفحك لا يدعم تسجيل فويس بصيغة متوافقة مع واتساب، جرّب متصفح/جهاز آخر.');
+        return;
       }
-      
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: supportedMime });
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
 
@@ -44,13 +59,23 @@ const VoiceRecorder = ({ onRecordComplete, disabled }: VoiceRecorderProps) => {
 
       mediaRecorder.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
-        // Always output as ogg for WhatsApp compatibility
-        const isOgg = mimeType.includes('ogg');
-        const isMp4 = mimeType.includes('mp4');
-        const outputType = isOgg ? 'audio/ogg' : isMp4 ? 'audio/mp4' : 'audio/ogg';
-        const ext = isOgg ? 'ogg' : isMp4 ? 'mp4' : 'ogg';
-        const blob = new Blob(chunksRef.current, { type: outputType });
-        const file = new File([blob], `voice-${Date.now()}.${ext}`, { type: outputType });
+
+        if (!chunksRef.current.some((chunk) => chunk.size > 0)) {
+          onError?.('التسجيل كان قصير جدًا أو فارغ، جرّب مرة أخرى.');
+          return;
+        }
+
+        const actualMime = (chunksRef.current.find((c) => c.size > 0)?.type || mediaRecorder.mimeType || supportedMime).toLowerCase();
+        const normalizedMime = actualMime.replace(/\s+/g, '');
+        const isSupported = WHATSAPP_AUDIO_MIME_TYPES.some((type) => normalizedMime.startsWith(type.replace(/\s+/g, '')));
+
+        if (!isSupported) {
+          onError?.('نوع الصوت الناتج غير مدعوم من واتساب، جرّب تسجيل أطول أو متصفح آخر.');
+          return;
+        }
+
+        const blob = new Blob(chunksRef.current, { type: actualMime });
+        const file = new File([blob], `voice-${Date.now()}.${mimeToExt(actualMime)}`, { type: actualMime });
         onRecordComplete(file);
       };
 
@@ -59,7 +84,7 @@ const VoiceRecorder = ({ onRecordComplete, disabled }: VoiceRecorderProps) => {
       setDuration(0);
       timerRef.current = setInterval(() => setDuration((d) => d + 1), 1000);
     } catch {
-      // Permission denied or no mic
+      onError?.('تعذّر الوصول للمايكروفون. تأكد من السماح بالوصول ثم حاول مرة أخرى.');
     }
   };
 
