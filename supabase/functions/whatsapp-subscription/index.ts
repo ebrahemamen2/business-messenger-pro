@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
 
     const { data: config, error: configError } = await supabase
       .from("wa_config")
-      .select("access_token, business_account_id")
+      .select("access_token, business_account_id, verify_token")
       .order("updated_at", { ascending: false })
       .limit(1)
       .maybeSingle();
