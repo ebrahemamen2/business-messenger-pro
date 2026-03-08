@@ -257,9 +257,10 @@ export function useConversations(tenantId?: string | null, module: string = 'con
     }
 
     const latest = msgs[msgs.length - 1];
-    const latestDirection = latest?.direction === 'inbound' || latest?.direction === 'outbound'
-      ? latest.direction
-      : null;
+    const latestDirection: ChatConversation['lastMessageDirection'] =
+      latest?.direction === 'inbound' || latest?.direction === 'outbound'
+        ? latest.direction
+        : null;
 
     const shouldMarkAsRead = markAsRead || openedInboundRef.current.has(normalizedPhone);
     if (shouldMarkAsRead && latestDirection === 'inbound') {
