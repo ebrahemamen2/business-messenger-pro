@@ -80,7 +80,7 @@ export function useConversations(tenantId?: string | null, module: string = 'con
   const loadData = useCallback(async () => {
     // Load contacts, messages, and conversation records in parallel
     let contactsQuery = supabase.from('contacts').select('*');
-    let messagesQuery = supabase.from('messages').select('*').order('created_at', { ascending: true });
+    let messagesQuery = supabase.from('messages').select('*').order('created_at', { ascending: false }).limit(5000);
     let convsQuery = supabase.from('conversations').select('*').eq('module', module);
     let labelsQuery = supabase.from('conversation_label_assignments').select('*, conversation_labels(*)');
 
@@ -98,7 +98,7 @@ export function useConversations(tenantId?: string | null, module: string = 'con
     ]);
 
     const contacts = contactsRes.data || [];
-    const messages = messagesRes.data || [];
+    const messages = (messagesRes.data || []).reverse(); // reverse to chronological order
     const dbConvs = convsRes.data || [];
     const labelAssignments = labelsRes.data || [];
 
