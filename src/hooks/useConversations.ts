@@ -344,6 +344,9 @@ export function useConversations(tenantId?: string | null, module: string = 'con
       .channel('messages-realtime')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
         const newMsg = payload.new as any;
+
+        if (tenantId && newMsg.tenant_id && newMsg.tenant_id !== tenantId) return;
+
         const phone = normalizePhone(newMsg.contact_phone);
         loadList();
         if (phone === selectedPhoneRef.current) loadMessages(phone, true);

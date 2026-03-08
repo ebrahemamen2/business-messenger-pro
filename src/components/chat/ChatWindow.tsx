@@ -85,6 +85,9 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
           mediaUrl: opts.mediaUrl || undefined,
           mediaType: opts.mediaType || undefined,
           replyToMessageId: opts.replyToMessageId || undefined,
+          tenantId: tenantId || undefined,
+          module,
+          conversationId: conversationDbId || undefined,
         }),
       }
     );

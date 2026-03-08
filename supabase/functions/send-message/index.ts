@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    const { to, message, mediaUrl, mediaType, replyToMessageId } = await req.json();
+    const { to, message, mediaUrl, mediaType, replyToMessageId, tenantId, module, conversationId } = await req.json();
 
     if (!to || (!message && !mediaUrl)) {
       return new Response(
@@ -25,12 +25,27 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get config
-    const { data: config } = await supabase
+    // Get config (prefer tenant/module-specific row, fallback to latest row)
+    let configQuery = supabase
       .from("wa_config")
-      .select("access_token, phone_number_id")
-      .limit(1)
-      .single();
+      .select("access_token, phone_number_id, tenant_id, module")
+      .order("updated_at", { ascending: false })
+      .limit(1);
+
+    if (tenantId) configQuery = configQuery.eq("tenant_id", tenantId);
+    if (module) configQuery = configQuery.eq("module", module);
+
+    let { data: config } = await configQuery.maybeSingle();
+
+    if (!config) {
+      const { data: fallbackConfig } = await supabase
+        .from("wa_config")
+        .select("access_token, phone_number_id, tenant_id, module")
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      config = fallbackConfig;
+    }
 
     if (!config?.access_token || !config?.phone_number_id) {
       return new Response(
