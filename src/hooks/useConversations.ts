@@ -165,19 +165,23 @@ export function useConversations(tenantId?: string | null, module: string = 'con
 
     // For each conversation, get last few messages per phone for preview + unread
     if (convs.length > 0) {
-      // Query last 20 messages per phone (enough for unread calc) - fetch in batches
       const unreadByPhone: Record<string, number> = {};
       const lastByPhone: Record<string, string> = {};
+      const lastAtByPhone: Record<string, string> = {};
 
-      // Batch: get recent messages for all phones at once, with enough limit
-      const phones = [...new Set(convs.map((c) => c.contact.phone))];
+      // Include normalized/local variants so we don't miss messages بسبب اختلاف تنسيق الرقم
+      const phones = [...new Set(convs.flatMap((c) => getPhoneVariants(c.contact.phone)))];
       let lastMsgsQuery = supabase
         .from('messages')
-        .select('contact_phone, body, direction')
+        .select('contact_phone, body, direction, created_at')
         .in('contact_phone', phones)
         .order('created_at', { ascending: false })
-        .limit(phones.length * 20); // ~20 messages per conversation
-      if (tenantId) lastMsgsQuery = lastMsgsQuery.eq('tenant_id', tenantId);
+        .limit(Math.min(phones.length * 20, 1000));
+
+      if (tenantId) {
+        lastMsgsQuery = lastMsgsQuery.or(`tenant_id.eq.${tenantId},tenant_id.is.null`);
+      }
+
       const { data: lastMsgs } = await lastMsgsQuery;
 
       if (lastMsgs) {
@@ -189,6 +193,7 @@ export function useConversations(tenantId?: string | null, module: string = 'con
           if (!lastByPhone[p]) {
             lastByPhone[p] = m.body;
             lastDirByPhone[p] = m.direction;
+            lastAtByPhone[p] = m.created_at;
           }
           if (!messagesByPhone[p]) messagesByPhone[p] = [];
           if (messagesByPhone[p].length < 20) {
@@ -207,9 +212,10 @@ export function useConversations(tenantId?: string | null, module: string = 'con
         }
 
         for (const conv of convs) {
-          conv.lastMessage = lastByPhone[conv.id] || '';
-          conv.unreadCount = unreadByPhone[conv.id] || 0;
-          conv.lastMessageDirection = (lastDirByPhone[conv.id] as any) || null;
+          conv.lastMessage = lastByPhone[conv.id] || conv.lastMessage;
+          conv.lastMessageTime = lastAtByPhone[conv.id] || conv.lastMessageTime;
+          conv.unreadCount = unreadByPhone[conv.id] ?? conv.unreadCount;
+          conv.lastMessageDirection = (lastDirByPhone[conv.id] as any) || conv.lastMessageDirection;
 
           // If conversation was opened by agent and last message is still inbound,
           // treat it as read but waiting for reply.
@@ -220,12 +226,6 @@ export function useConversations(tenantId?: string | null, module: string = 'con
               openedInboundRef.current.delete(conv.id);
             }
           }
-        }
-      } else {
-        for (const conv of convs) {
-          conv.lastMessage = lastByPhone[conv.id] || '';
-          conv.unreadCount = unreadByPhone[conv.id] || 0;
-          conv.lastMessageDirection = null;
         }
       }
     }
@@ -239,6 +239,9 @@ export function useConversations(tenantId?: string | null, module: string = 'con
         }
         return newConv;
       });
+
+      next.sort((a, b) => toTimestamp(b.lastMessageTime) - toTimestamp(a.lastMessageTime));
+
       conversationsRef.current = next;
       return next;
     });
