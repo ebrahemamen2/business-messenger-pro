@@ -49,6 +49,24 @@ function normalizePhone(phone: string): string {
   return p;
 }
 
+function getPhoneVariants(phone: string): string[] {
+  const clean = phone.replace(/[\s\-\+]/g, '');
+  const normalized = normalizePhone(clean);
+  const variants = new Set<string>([clean, normalized]);
+
+  if (/^20\d{10}$/.test(normalized)) {
+    variants.add(`0${normalized.slice(2)}`);
+  }
+
+  return [...variants];
+}
+
+function toTimestamp(value?: string | null): number {
+  if (!value) return 0;
+  const ts = new Date(value).getTime();
+  return Number.isNaN(ts) ? 0 : ts;
+}
+
 function formatTime(dateStr: string) {
   const d = new Date(dateStr);
   return d.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
@@ -147,19 +165,23 @@ export function useConversations(tenantId?: string | null, module: string = 'con
 
     // For each conversation, get last few messages per phone for preview + unread
     if (convs.length > 0) {
-      // Query last 20 messages per phone (enough for unread calc) - fetch in batches
       const unreadByPhone: Record<string, number> = {};
       const lastByPhone: Record<string, string> = {};
+      const lastAtByPhone: Record<string, string> = {};
 
-      // Batch: get recent messages for all phones at once, with enough limit
-      const phones = [...new Set(convs.map((c) => c.contact.phone))];
+      // Include normalized/local variants so we don't miss messages بسبب اختلاف تنسيق الرقم
+      const phones = [...new Set(convs.flatMap((c) => getPhoneVariants(c.contact.phone)))];
       let lastMsgsQuery = supabase
         .from('messages')
-        .select('contact_phone, body, direction')
+        .select('contact_phone, body, direction, created_at')
         .in('contact_phone', phones)
         .order('created_at', { ascending: false })
-        .limit(phones.length * 20); // ~20 messages per conversation
-      if (tenantId) lastMsgsQuery = lastMsgsQuery.eq('tenant_id', tenantId);
+        .limit(Math.min(phones.length * 20, 1000));
+
+      if (tenantId) {
+        lastMsgsQuery = lastMsgsQuery.or(`tenant_id.eq.${tenantId},tenant_id.is.null`);
+      }
+
       const { data: lastMsgs } = await lastMsgsQuery;
 
       if (lastMsgs) {
@@ -171,6 +193,7 @@ export function useConversations(tenantId?: string | null, module: string = 'con
           if (!lastByPhone[p]) {
             lastByPhone[p] = m.body;
             lastDirByPhone[p] = m.direction;
+            lastAtByPhone[p] = m.created_at;
           }
           if (!messagesByPhone[p]) messagesByPhone[p] = [];
           if (messagesByPhone[p].length < 20) {
@@ -189,9 +212,10 @@ export function useConversations(tenantId?: string | null, module: string = 'con
         }
 
         for (const conv of convs) {
-          conv.lastMessage = lastByPhone[conv.id] || '';
-          conv.unreadCount = unreadByPhone[conv.id] || 0;
-          conv.lastMessageDirection = (lastDirByPhone[conv.id] as any) || null;
+          conv.lastMessage = lastByPhone[conv.id] || conv.lastMessage;
+          conv.lastMessageTime = lastAtByPhone[conv.id] || conv.lastMessageTime;
+          conv.unreadCount = unreadByPhone[conv.id] ?? conv.unreadCount;
+          conv.lastMessageDirection = (lastDirByPhone[conv.id] as any) || conv.lastMessageDirection;
 
           // If conversation was opened by agent and last message is still inbound,
           // treat it as read but waiting for reply.
@@ -202,12 +226,6 @@ export function useConversations(tenantId?: string | null, module: string = 'con
               openedInboundRef.current.delete(conv.id);
             }
           }
-        }
-      } else {
-        for (const conv of convs) {
-          conv.lastMessage = lastByPhone[conv.id] || '';
-          conv.unreadCount = unreadByPhone[conv.id] || 0;
-          conv.lastMessageDirection = null;
         }
       }
     }
@@ -221,6 +239,9 @@ export function useConversations(tenantId?: string | null, module: string = 'con
         }
         return newConv;
       });
+
+      next.sort((a, b) => toTimestamp(b.lastMessageTime) - toTimestamp(a.lastMessageTime));
+
       conversationsRef.current = next;
       return next;
     });
@@ -231,22 +252,23 @@ export function useConversations(tenantId?: string | null, module: string = 'con
   const loadMessages = useCallback(async (phone: string, markAsRead: boolean = false) => {
     const normalizedPhone = normalizePhone(phone);
 
-    // Query messages by the exact phone and also try normalized variant
-    const phonesToQuery = [phone, normalizedPhone];
+    // Query messages بجميع نسخ الرقم (local/international) لتجنب فقدان الرسائل
+    const phonesToQuery = new Set<string>(getPhoneVariants(phone));
+
     // Add original format from conversations
     const conv = conversationsRef.current.find((c) => c.id === normalizedPhone);
-    if (conv && !phonesToQuery.includes(conv.contact.phone)) {
-      phonesToQuery.push(conv.contact.phone);
+    if (conv) {
+      getPhoneVariants(conv.contact.phone).forEach((p) => phonesToQuery.add(p));
     }
 
     let msgQuery = supabase
       .from('messages')
       .select('*')
-      .in('contact_phone', [...new Set(phonesToQuery)])
+      .in('contact_phone', [...phonesToQuery])
       .order('created_at', { ascending: false })
       .limit(100); // Load last 100 messages for speed
 
-    if (tenantId) msgQuery = msgQuery.eq('tenant_id', tenantId);
+    if (tenantId) msgQuery = msgQuery.or(`tenant_id.eq.${tenantId},tenant_id.is.null`);
 
     const { data: rawMsgs } = await msgQuery;
     if (!rawMsgs) return;
@@ -286,6 +308,9 @@ export function useConversations(tenantId?: string | null, module: string = 'con
             }
           : c
       );
+
+      next.sort((a, b) => toTimestamp(b.lastMessageTime) - toTimestamp(a.lastMessageTime));
+
       conversationsRef.current = next;
       return next;
     });
@@ -319,6 +344,9 @@ export function useConversations(tenantId?: string | null, module: string = 'con
       .channel('messages-realtime')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
         const newMsg = payload.new as any;
+
+        if (tenantId && newMsg.tenant_id && newMsg.tenant_id !== tenantId) return;
+
         const phone = normalizePhone(newMsg.contact_phone);
         loadList();
         if (phone === selectedPhoneRef.current) loadMessages(phone, true);

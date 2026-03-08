@@ -263,6 +263,7 @@ Deno.serve(async (req) => {
               status: "delivered",
               media_url: storedMediaUrl,
               media_type: storedMediaType,
+              tenant_id: config?.tenant_id || null,
             });
 
             if (insertErr) {
@@ -273,7 +274,7 @@ Deno.serve(async (req) => {
 
             // Upsert contact
             await supabase.from("contacts").upsert(
-              { phone: contactPhone, name: contactName },
+              { phone: contactPhone, name: contactName, tenant_id: config?.tenant_id || null },
               { onConflict: "phone" }
             );
 
@@ -330,6 +331,7 @@ Deno.serve(async (req) => {
                     direction: "outbound",
                     body: autoResponse,
                     status: "sent",
+                    tenant_id: config?.tenant_id || null,
                   });
                 } catch (replyErr) {
                   console.error("Auto-reply error:", replyErr);
