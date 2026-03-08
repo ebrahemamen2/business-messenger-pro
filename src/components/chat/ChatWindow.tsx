@@ -367,6 +367,7 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
               messages={allMessages}
               onClose={() => { setShowSearch(false); setHighlightedMsgId(null); setSearchQuery(''); }}
               onHighlight={handleSearchHighlight}
+              onQueryChange={handleSearchQueryChange}
             />
           </div>
         )}
