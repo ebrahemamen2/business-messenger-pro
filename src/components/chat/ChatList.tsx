@@ -7,6 +7,7 @@ interface ChatListProps {
   conversations: ChatConversation[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  title?: string;
 }
 
 /** Normalize for search: match both local and international formats */
