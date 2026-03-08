@@ -20,6 +20,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           response_text: string
+          tenant_id: string | null
           trigger_keyword: string
         }
         Insert: {
@@ -27,6 +28,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           response_text: string
+          tenant_id?: string | null
           trigger_keyword: string
         }
         Update: {
@@ -34,9 +36,18 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           response_text?: string
+          tenant_id?: string | null
           trigger_keyword?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "auto_reply_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       contacts: {
         Row: {
@@ -47,6 +58,7 @@ export type Database = {
           notes: string | null
           phone: string
           tags: string[] | null
+          tenant_id: string | null
           updated_at: string
         }
         Insert: {
@@ -57,6 +69,7 @@ export type Database = {
           notes?: string | null
           phone: string
           tags?: string[] | null
+          tenant_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -67,9 +80,18 @@ export type Database = {
           notes?: string | null
           phone?: string
           tags?: string[] | null
+          tenant_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "contacts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       messages: {
         Row: {
@@ -82,6 +104,7 @@ export type Database = {
           media_type: string | null
           media_url: string | null
           status: string | null
+          tenant_id: string | null
           wa_message_id: string | null
         }
         Insert: {
@@ -94,6 +117,7 @@ export type Database = {
           media_type?: string | null
           media_url?: string | null
           status?: string | null
+          tenant_id?: string | null
           wa_message_id?: string | null
         }
         Update: {
@@ -106,7 +130,120 @@ export type Database = {
           media_type?: string | null
           media_url?: string | null
           status?: string | null
+          tenant_id?: string | null
           wa_message_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          full_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          full_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tenant_members: {
+        Row: {
+          created_at: string
+          id: string
+          role: string
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: string
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: string
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_members_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenants: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean | null
+          logo_url: string | null
+          name: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          logo_url?: string | null
+          name: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          logo_url?: string | null
+          name?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
         }
         Relationships: []
       }
@@ -119,6 +256,7 @@ export type Database = {
           created_at: string
           id: string
           phone_number_id: string | null
+          tenant_id: string | null
           updated_at: string
           verify_token: string | null
           welcome_enabled: boolean | null
@@ -132,6 +270,7 @@ export type Database = {
           created_at?: string
           id?: string
           phone_number_id?: string | null
+          tenant_id?: string | null
           updated_at?: string
           verify_token?: string | null
           welcome_enabled?: boolean | null
@@ -145,12 +284,21 @@ export type Database = {
           created_at?: string
           id?: string
           phone_number_id?: string | null
+          tenant_id?: string | null
           updated_at?: string
           verify_token?: string | null
           welcome_enabled?: boolean | null
           welcome_message?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "wa_config_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       webhook_logs: {
         Row: {
@@ -162,6 +310,7 @@ export type Database = {
           payload_summary: Json | null
           phones: string[] | null
           status: string
+          tenant_id: string | null
         }
         Insert: {
           created_at?: string
@@ -172,6 +321,7 @@ export type Database = {
           payload_summary?: Json | null
           phones?: string[] | null
           status?: string
+          tenant_id?: string | null
         }
         Update: {
           created_at?: string
@@ -182,18 +332,34 @@ export type Database = {
           payload_summary?: Json | null
           phones?: string[] | null
           status?: string
+          tenant_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "webhook_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_tenant_ids: { Args: { _user_id: string }; Returns: string[] }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "super_admin" | "admin" | "agent"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -320,6 +486,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["super_admin", "admin", "agent"],
+    },
   },
 } as const
