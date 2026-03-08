@@ -215,13 +215,15 @@ export function useConversations(tenantId?: string | null, module: string = 'con
 
     setConversations((prev) => {
       // Preserve loaded messages for the selected conversation
-      return convs.map((newConv) => {
+      const next = convs.map((newConv) => {
         const existing = prev.find((p) => p.id === newConv.id);
         if (existing && existing.messages.length > 0) {
           return { ...newConv, messages: existing.messages };
         }
         return newConv;
       });
+      conversationsRef.current = next;
+      return next;
     });
     setLoading(false);
   }, [tenantId, module]);
