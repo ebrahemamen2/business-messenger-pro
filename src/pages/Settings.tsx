@@ -53,8 +53,9 @@ const Settings = () => {
       const { data: existing } = await supabase
         .from('wa_config')
         .select('id')
+        .order('updated_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       const configData = {
         access_token: token,
