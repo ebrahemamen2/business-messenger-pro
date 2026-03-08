@@ -36,18 +36,18 @@ const encodeMp3FromInt16 = async (samples: Int16Array, sampleRate: number) => {
 
   const encoder = new Mp3Encoder(1, Math.round(sampleRate), 96);
   const blockSize = 1152;
-  const mp3Chunks: Uint8Array[] = [];
+  const mp3Bytes: number[] = [];
 
   for (let i = 0; i < samples.length; i += blockSize) {
     const block = samples.subarray(i, i + blockSize);
-    const encoded = encoder.encodeBuffer(block);
-    if (encoded?.length) mp3Chunks.push(new Uint8Array(encoded));
+    const encoded = encoder.encodeBuffer(block) as Int8Array;
+    if (encoded?.length) mp3Bytes.push(...Array.from(encoded));
   }
 
-  const end = encoder.flush();
-  if (end?.length) mp3Chunks.push(new Uint8Array(end));
+  const end = encoder.flush() as Int8Array;
+  if (end?.length) mp3Bytes.push(...Array.from(end));
 
-  return new Blob(mp3Chunks, { type: 'audio/mpeg' });
+  return new Blob([new Uint8Array(mp3Bytes)], { type: 'audio/mpeg' });
 };
 
 const transcodeToMp3 = async (blob: Blob): Promise<File> => {
