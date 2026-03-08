@@ -9,14 +9,8 @@ const corsHeaders = {
 /** Normalize phone: strip leading 0 or +, ensure country code 20 for Egypt */
 function normalizePhone(phone: string): string {
   let p = phone.replace(/[\s\-\+]/g, "");
-  // If starts with 0 and is 11 digits (Egyptian local), prepend 20
-  if (/^0\d{10}$/.test(p)) {
-    p = "2" + p; // 01xxx -> 201xxx
-  }
-  // If starts with 20 and next is 0, remove the 0 (2001xxx -> 201xxx)
-  if (/^200\d{9}$/.test(p)) {
-    p = "20" + p.slice(3);
-  }
+  if (/^0\d{10}$/.test(p)) p = "2" + p;
+  if (/^200\d{9}$/.test(p)) p = "20" + p.slice(3);
   return p;
 }
 
@@ -26,21 +20,107 @@ function extractBody(message: any): string {
   if (message.interactive?.button_reply?.title) return message.interactive.button_reply.title;
   if (message.interactive?.list_reply?.title) return message.interactive.list_reply.title;
   if (message.button?.text) return message.button.text;
+  if (message.image?.caption) return message.image.caption;
+  if (message.video?.caption) return message.video.caption;
+  if (message.document?.caption) return message.document.caption;
   if (message.image) return "[صورة]";
   if (message.video) return "[فيديو]";
   if (message.audio) return "[صوت]";
-  if (message.document) return "[مستند]";
+  if (message.document) return `[مستند] ${message.document.filename || ""}`.trim();
   if (message.sticker) return "[ملصق]";
   if (message.location) return "[موقع]";
   if (message.contacts) return "[جهة اتصال]";
   return "[رسالة]";
 }
 
+/** Map WhatsApp media type to MIME prefix */
+function getMediaMimeType(type: string, message: any): string {
+  const mimeMap: Record<string, string> = {
+    image: message.image?.mime_type || "image/jpeg",
+    video: message.video?.mime_type || "video/mp4",
+    audio: message.audio?.mime_type || "audio/ogg",
+    document: message.document?.mime_type || "application/pdf",
+    sticker: message.sticker?.mime_type || "image/webp",
+  };
+  return mimeMap[type] || "application/octet-stream";
+}
+
+/** Get file extension from MIME type */
+function getExtFromMime(mime: string): string {
+  const map: Record<string, string> = {
+    "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp",
+    "video/mp4": "mp4", "video/3gpp": "3gp",
+    "audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/aac": "aac", "audio/opus": "opus",
+    "application/pdf": "pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+  };
+  return map[mime] || mime.split("/")[1] || "bin";
+}
+
+/** Download media from WhatsApp Graph API and upload to Supabase Storage */
+async function downloadAndStoreMedia(
+  mediaId: string,
+  accessToken: string,
+  mimeType: string,
+  supabase: any
+): Promise<string | null> {
+  try {
+    // Step 1: Get media URL from WhatsApp
+    const mediaInfoRes = await fetch(`https://graph.facebook.com/v21.0/${mediaId}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!mediaInfoRes.ok) {
+      console.error("Failed to get media info:", await mediaInfoRes.text());
+      return null;
+    }
+    const mediaInfo = await mediaInfoRes.json();
+    const mediaUrl = mediaInfo.url;
+    if (!mediaUrl) return null;
+
+    // Step 2: Download the actual media file
+    const fileRes = await fetch(mediaUrl, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!fileRes.ok) {
+      console.error("Failed to download media:", fileRes.status);
+      return null;
+    }
+    const fileBuffer = await fileRes.arrayBuffer();
+
+    // Step 3: Upload to Supabase Storage
+    const ext = getExtFromMime(mimeType);
+    const path = `media/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const { error: uploadErr } = await supabase.storage
+      .from("chat-attachments")
+      .upload(path, fileBuffer, { contentType: mimeType, upsert: false });
+
+    if (uploadErr) {
+      console.error("Storage upload error:", uploadErr.message);
+      return null;
+    }
+
+    // Step 4: Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from("chat-attachments")
+      .getPublicUrl(path);
+
+    return publicUrl;
+  } catch (err) {
+    console.error("Media download/store error:", err);
+    return null;
+  }
+}
+
 /** Extract media info if present */
-function extractMedia(message: any): { url?: string; type?: string } {
+function extractMediaInfo(message: any): { id?: string; type?: string; mimeType?: string } {
   for (const t of ["image", "video", "audio", "document", "sticker"]) {
     if (message[t]) {
-      return { url: message[t].id || null, type: t };
+      return {
+        id: message[t].id || null,
+        type: t,
+        mimeType: getMediaMimeType(t, message),
+      };
     }
   }
   return {};
@@ -92,10 +172,9 @@ Deno.serve(async (req) => {
 
     const entries = Array.isArray(rawBody?.entry) ? rawBody.entry : [];
 
-    // Collect all phones seen and message count for audit
     const allPhones: string[] = [];
     let totalMessages = 0;
-    let eventType = "status"; // default; upgraded to "message" if messages found
+    let eventType = "status";
     const errors: string[] = [];
 
     // Load config and rules once
@@ -121,10 +200,26 @@ Deno.serve(async (req) => {
         const value = change?.value;
         if (!value) continue;
 
+        // Handle status updates - update message status in DB
+        const statuses = Array.isArray(value?.statuses) ? value.statuses : [];
+        for (const statusUpdate of statuses) {
+          try {
+            const waMessageId = statusUpdate.id;
+            const newStatus = statusUpdate.status; // sent, delivered, read, failed
+            if (waMessageId && newStatus) {
+              await supabase
+                .from("messages")
+                .update({ status: newStatus })
+                .eq("wa_message_id", waMessageId);
+            }
+          } catch (err) {
+            console.error("Status update error:", err);
+          }
+        }
+
         const incomingMessages = Array.isArray(value?.messages) ? value.messages : [];
         const contacts = Array.isArray(value?.contacts) ? value.contacts : [];
 
-        // If no messages, it's a status update — skip processing but log
         if (!incomingMessages.length) continue;
 
         eventType = "message";
@@ -141,9 +236,24 @@ Deno.serve(async (req) => {
             const contactName = contact?.profile?.name || rawPhone;
 
             const body = extractBody(message);
-            const media = extractMedia(message);
+            const media = extractMediaInfo(message);
 
-            // Insert message (idempotent via wa_message_id check)
+            // Download and store media if present
+            let storedMediaUrl: string | null = null;
+            let storedMediaType: string | null = null;
+
+            if (media.id && config?.access_token) {
+              storedMediaUrl = await downloadAndStoreMedia(
+                media.id,
+                config.access_token,
+                media.mimeType || "application/octet-stream",
+                supabase
+              );
+              storedMediaType = media.mimeType || null;
+              console.log("Media stored:", storedMediaUrl ? "success" : "failed", media.type);
+            }
+
+            // Insert message
             const { error: insertErr } = await supabase.from("messages").insert({
               wa_message_id: message.id,
               contact_phone: contactPhone,
@@ -151,14 +261,13 @@ Deno.serve(async (req) => {
               direction: "inbound",
               body,
               status: "delivered",
-              media_url: media.url || null,
-              media_type: media.type || null,
+              media_url: storedMediaUrl,
+              media_type: storedMediaType,
             });
 
             if (insertErr) {
               console.error("Insert message error:", insertErr.message);
               errors.push(`msg_insert: ${insertErr.message}`);
-              // If duplicate, continue (don't count as failure)
               if (insertErr.message?.includes("duplicate")) continue;
             }
 
