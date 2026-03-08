@@ -8,6 +8,8 @@ interface MessageBubbleProps {
   message: ChatMessage;
   onReply?: (message: ChatMessage) => void;
   allMessages?: ChatMessage[];
+  highlight?: string;
+  isHighlighted?: boolean;
 }
 
 const MessageBubble = ({ message, onReply, allMessages = [] }: MessageBubbleProps) => {
