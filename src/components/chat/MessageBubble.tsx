@@ -1,6 +1,7 @@
 import { CheckCheck, Check, Clock, Store, Reply, FileText, Download, Mic } from 'lucide-react';
 import type { ChatMessage } from '@/hooks/useConversations';
 import { useState, useRef } from 'react';
+import ImageLightbox from './ImageLightbox';
 
 interface MessageBubbleProps {
   message: ChatMessage;
