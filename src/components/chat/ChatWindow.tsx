@@ -1,4 +1,4 @@
-import { Send, Paperclip, Smile, Phone, UserCircle, MoreVertical, StickyNote, Reply, X } from 'lucide-react';
+import { Send, Paperclip, Smile, Phone, UserCircle, MoreVertical, StickyNote, Reply, X, Image, Loader2 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,6 +8,7 @@ import MessageBubble from './MessageBubble';
 import DateSeparator from './DateSeparator';
 import QuickReplies from './QuickReplies';
 import ChatNotes from './ChatNotes';
+import EmojiPicker from './EmojiPicker';
 
 interface ChatWindowProps {
   conversation: ChatConversation;
