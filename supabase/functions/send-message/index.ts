@@ -55,9 +55,18 @@ Deno.serve(async (req) => {
     }
 
     const waUrl = `https://graph.facebook.com/v21.0/${config.phone_number_id}/messages`;
+    const mediaUploadUrl = `https://graph.facebook.com/v21.0/${config.phone_number_id}/media`;
     const headers = {
       Authorization: `Bearer ${config.access_token}`,
       "Content-Type": "application/json",
+    };
+
+    const audioExtByMime: Record<string, string> = {
+      "audio/ogg": "ogg",
+      "audio/mpeg": "mp3",
+      "audio/amr": "amr",
+      "audio/mp4": "m4a",
+      "audio/aac": "aac",
     };
 
     // Build WhatsApp message payload
@@ -91,7 +100,8 @@ Deno.serve(async (req) => {
         waPayload.video = { link: mediaUrl, caption: message || undefined };
       } else if (mimeType.startsWith("audio")) {
         const supportedAudioTypes = ["audio/ogg", "audio/mpeg", "audio/amr", "audio/mp4", "audio/aac"];
-        const isSupportedAudio = supportedAudioTypes.some((type) => mimeType.startsWith(type));
+        const baseAudioMime = mimeType.split(";")[0].trim();
+        const isSupportedAudio = supportedAudioTypes.includes(baseAudioMime);
 
         if (!isSupportedAudio) {
           return new Response(
@@ -103,8 +113,40 @@ Deno.serve(async (req) => {
           );
         }
 
+        // Upload audio as media object first (more reliable than URL link fetch for voice notes)
+        const audioRes = await fetch(mediaUrl);
+        if (!audioRes.ok) {
+          return new Response(
+            JSON.stringify({ error: "Failed to fetch audio file", details: await audioRes.text() }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const audioBuffer = await audioRes.arrayBuffer();
+        const ext = audioExtByMime[baseAudioMime] || "bin";
+        const formData = new FormData();
+        formData.append("messaging_product", "whatsapp");
+        formData.append(
+          "file",
+          new File([audioBuffer], `voice-${Date.now()}.${ext}`, { type: baseAudioMime })
+        );
+
+        const uploadRes = await fetch(mediaUploadUrl, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${config.access_token}` },
+          body: formData,
+        });
+
+        const uploadResult = await uploadRes.json();
+        if (!uploadRes.ok || !uploadResult?.id) {
+          return new Response(
+            JSON.stringify({ error: "WhatsApp media upload error", details: uploadResult }),
+            { status: uploadRes.status || 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
         waPayload.type = "audio";
-        waPayload.audio = { link: mediaUrl };
+        waPayload.audio = { id: uploadResult.id };
       } else {
         // Document (PDF, DOCX, etc.)
         waPayload.type = "document";
