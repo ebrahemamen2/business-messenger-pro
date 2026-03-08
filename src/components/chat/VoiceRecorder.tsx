@@ -60,6 +60,11 @@ const VoiceRecorder = ({ onRecordComplete, onError, disabled }: VoiceRecorderPro
       mediaRecorder.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
 
+        if (!chunksRef.current.some((chunk) => chunk.size > 0)) {
+          onError?.('التسجيل كان قصير جدًا أو فارغ، جرّب مرة أخرى.');
+          return;
+        }
+
         const actualMime = (chunksRef.current.find((c) => c.size > 0)?.type || mediaRecorder.mimeType || supportedMime).toLowerCase();
         const normalizedMime = actualMime.replace(/\s+/g, '');
         const isSupported = WHATSAPP_AUDIO_MIME_TYPES.some((type) => normalizedMime.startsWith(type.replace(/\s+/g, '')));
