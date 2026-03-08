@@ -51,7 +51,7 @@ const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادث
 
     // Filter
     if (filter === 'unread') return c.unreadCount > 0;
-    if (filter === 'open') return c.status === 'active' || c.status === 'pending';
+    if (filter === 'open') return c.status === 'open';
     if (filter === 'pending') return c.status === 'pending';
     if (filter === 'resolved') return c.status === 'resolved';
     return true;
