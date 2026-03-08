@@ -410,5 +410,6 @@ export function useConversations(tenantId?: string | null, module: string = 'con
     updateAssignment,
     selectConversation,
     loadMessages,
+    loadOlderMessages,
   };
 }
