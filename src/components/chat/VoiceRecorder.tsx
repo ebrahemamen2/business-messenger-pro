@@ -59,16 +59,14 @@ const VoiceRecorder = ({ onRecordComplete, onError, disabled }: VoiceRecorderPro
       });
 
       const preferredMimeType = getPreferredMimeType();
-      const recorder = preferredMimeType
-        ? new MediaRecorder(stream, { mimeType: preferredMimeType })
-        : new MediaRecorder(stream);
+      if (preferredMimeType !== 'audio/ogg;codecs=opus') {
+        stream.getTracks().forEach((track) => track.stop());
+        onError?.('المتصفح الحالي لا يوفّر تسجيل OGG Opus المطلوب للإرسال الموثوق. استخدم Chrome أو Edge.');
+        return;
+      }
 
-      selectedMimeTypeRef.current = preferredMimeType;
-      recordedChunksRef.current = [];
+      const recorder = new MediaRecorder(stream, { mimeType: preferredMimeType });
 
-      recorder.ondataavailable = (event) => {
-        if (event.data && event.data.size > 0) recordedChunksRef.current.push(event.data);
-      };
 
       streamRef.current = stream;
       mediaRecorderRef.current = recorder;

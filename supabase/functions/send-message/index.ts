@@ -21,7 +21,7 @@ async function convertAudioIfNeeded(params: {
   const { supabaseUrl, serviceKey, mediaUrl, baseAudioMime } = params;
 
   if (baseAudioMime === "audio/ogg") {
-    return { url: mediaUrl, mimeType: "audio/ogg", converted: false };
+    return { ok: true as const, url: mediaUrl, mimeType: "audio/ogg", converted: false };
   }
 
   try {
@@ -37,18 +37,27 @@ async function convertAudioIfNeeded(params: {
 
     const payload = await res.json().catch(() => null);
     if (!res.ok || !payload?.url) {
-      console.warn("convert-audio failed, fallback to original:", payload);
-      return { url: mediaUrl, mimeType: baseAudioMime, converted: false };
+      console.warn("convert-audio failed:", payload);
+      return {
+        ok: false as const,
+        error: "تعذّر تحويل ملف الصوت لصيغة مدعومة للإرسال. جرّب Chrome/Edge أو سجّل بصيغة OGG.",
+        details: payload,
+      };
     }
 
     return {
+      ok: true as const,
       url: payload.url as string,
       mimeType: (payload.mimeType as string) || "audio/ogg",
       converted: true,
     };
   } catch (error) {
-    console.warn("convert-audio exception, fallback to original:", error);
-    return { url: mediaUrl, mimeType: baseAudioMime, converted: false };
+    console.warn("convert-audio exception:", error);
+    return {
+      ok: false as const,
+      error: "فشل تحويل ملف الصوت قبل الإرسال.",
+      details: error instanceof Error ? error.message : "unknown",
+    };
   }
 }
 
@@ -143,6 +152,16 @@ Deno.serve(async (req) => {
           mediaUrl,
           baseAudioMime,
         });
+
+        if (!convertResult.ok) {
+          return json(
+            {
+              error: convertResult.error,
+              details: convertResult.details,
+            },
+            422,
+          );
+        }
 
         const finalAudioMime = convertResult.mimeType;
         const finalAudioUrl = convertResult.url;
