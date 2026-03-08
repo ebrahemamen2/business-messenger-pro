@@ -42,7 +42,7 @@ const ProtectedLayout = () => {
             <Route path="/confirm" element={<Confirm />} />
             <Route path="/follow-up" element={<FollowUp />} />
             <Route path="/contacts" element={<Contacts />} />
-            <Route path="/auto-reply" element={<AutoReply />} />
+            {/* auto-reply moved inside /confirm */}
             <Route path="/settings" element={<Settings />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />

@@ -18,7 +18,6 @@ const mainNav = [
   { icon: CheckCircle, label: 'التأكيد', path: '/confirm' },
   { icon: Truck, label: 'المتابعة', path: '/follow-up' },
   { icon: Users, label: 'جهات الاتصال', path: '/contacts' },
-  { icon: Bot, label: 'الرد التلقائي', path: '/auto-reply' },
 ];
 
 const AppSidebar = () => {
