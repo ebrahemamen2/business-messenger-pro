@@ -40,23 +40,6 @@ const MessageBubble = ({ message, onReply, allMessages = [], highlight, isHighli
     }
   };
 
-  const formatDuration = (s: number) => {
-    if (!s || !isFinite(s)) return '0:00';
-    const m = Math.floor(s / 60);
-    const sec = Math.floor(s % 60);
-    return `${m}:${sec.toString().padStart(2, '0')}`;
-  };
-
-  const toggleAudio = () => {
-    if (!audioRef.current) return;
-    if (audioPlaying) {
-      audioRef.current.pause();
-    } else {
-      audioRef.current.play();
-    }
-    setAudioPlaying(!audioPlaying);
-  };
-
   const hasMediaContent = !!message.mediaUrl;
   const isMediaOnly = hasMediaContent && (!message.text || message.text.startsWith('['));
   const showText = message.text && !message.text.startsWith('[');
