@@ -38,6 +38,8 @@
     --status-active: 142 70% 45%;
     --status-pending: 45 93% 47%;
     --status-resolved: 215 15% 50%;
+    --store-message: 35 90% 50%;
+    --store-message-foreground: 35 10% 10%;
 
     --sidebar-background: 220 20% 9%;
     --sidebar-foreground: 210 15% 70%;
