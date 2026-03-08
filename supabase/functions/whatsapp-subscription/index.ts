@@ -42,6 +42,7 @@ Deno.serve(async (req) => {
     }
 
     const endpoint = `https://graph.facebook.com/v21.0/${config.business_account_id}/subscribed_apps`;
+    const callbackUri = `${supabaseUrl}/functions/v1/whatsapp-webhook`;
 
     if (action === "subscribe") {
       const subscribeRes = await fetch(endpoint, {
@@ -50,7 +51,10 @@ Deno.serve(async (req) => {
           Authorization: `Bearer ${config.access_token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({}),
+        body: JSON.stringify({
+          override_callback_uri: callbackUri,
+          verify_token: config.verify_token || undefined,
+        }),
       });
 
       const subscribeJson = await subscribeRes.json();
