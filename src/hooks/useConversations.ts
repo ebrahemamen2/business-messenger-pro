@@ -14,8 +14,12 @@ export interface ChatMessage {
   id: string;
   text: string;
   timestamp: string;
+  rawTimestamp: string;
   sender: 'customer' | 'agent' | 'store';
   status?: string;
+  mediaUrl?: string | null;
+  mediaType?: string | null;
+  replyToId?: string | null;
 }
 
 export interface ChatConversation {
