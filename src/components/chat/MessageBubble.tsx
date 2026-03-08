@@ -45,8 +45,10 @@ const MessageBubble = ({ message, onReply, allMessages = [] }: MessageBubbleProp
     }
     if (type.startsWith('video')) {
       return (
-        <div className="mb-1.5 rounded-lg overflow-hidden max-w-[280px] relative bg-black/20 flex items-center justify-center h-40">
-          <Play className="w-10 h-10 text-primary-foreground/80" />
+        <div className="mb-1.5 rounded-lg overflow-hidden max-w-[280px]">
+          <video controls className="w-full h-auto max-h-[300px]" preload="metadata">
+            <source src={message.mediaUrl!} type={type.includes('/') ? type : `video/${type}`} />
+          </video>
         </div>
       );
     }
