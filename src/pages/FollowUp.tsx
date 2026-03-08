@@ -9,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 const FollowUp = () => {
   const { currentTenant } = useTenantContext();
-  const { conversations, loading, reload, updateStatus, updateAssignment, selectConversation } = useConversations(currentTenant?.id, 'followup');
+  const { conversations, loading, reload, updateStatus, updateAssignment, selectConversation, loadOlderMessages } = useConversations(currentTenant?.id, 'followup');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showContact, setShowContact] = useState(false);
 
