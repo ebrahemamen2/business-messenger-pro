@@ -252,8 +252,31 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
           </div>
         )}
 
+        {/* Attachment preview */}
+        {attachmentPreview && (
+          <div className="px-4 py-2 bg-secondary/50 border-t border-border flex items-center gap-3">
+            {attachmentPreview.file.type.startsWith('image') ? (
+              <img src={attachmentPreview.url} alt="" className="w-16 h-16 rounded-lg object-cover" />
+            ) : (
+              <div className="w-16 h-16 rounded-lg bg-secondary flex items-center justify-center">
+                <Paperclip className="w-6 h-6 text-muted-foreground" />
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-foreground truncate">{attachmentPreview.file.name}</p>
+              <p className="text-[10px] text-muted-foreground">{(attachmentPreview.file.size / 1024).toFixed(0)} KB</p>
+            </div>
+            <button onClick={() => setAttachmentPreview(null)} className="p-1 hover:bg-secondary rounded">
+              <X className="w-3.5 h-3.5 text-muted-foreground" />
+            </button>
+          </div>
+        )}
+
         {/* Input */}
         <div className="p-3 border-t border-border bg-card flex-shrink-0 relative">
+          {showEmoji && (
+            <EmojiPicker onSelect={handleEmojiSelect} onClose={() => setShowEmoji(false)} />
+          )}
           {showQuickReplies && (
             <QuickReplies
               query={quickReplyQuery}
@@ -265,14 +288,24 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
               onClose={() => setShowQuickReplies(false)}
             />
           )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx"
+            className="hidden"
+            onChange={handleFileSelect}
+          />
           <div className="flex items-end gap-2">
             <button
               onClick={() => setShowEmoji(!showEmoji)}
-              className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-secondary mb-0.5"
+              className={`p-2 transition-colors rounded-lg hover:bg-secondary mb-0.5 ${showEmoji ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
             >
               <Smile className="w-5 h-5" />
             </button>
-            <button className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-secondary mb-0.5">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-secondary mb-0.5"
+            >
               <Paperclip className="w-5 h-5" />
             </button>
             <Textarea
@@ -284,10 +317,20 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
               className="flex-1 bg-secondary border-0 text-sm min-h-[40px] max-h-[120px] resize-none py-2.5"
               rows={1}
             />
-            <button
-              onClick={handleSend}
-              disabled={!message.trim() || sending}
-              className="p-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed mb-0.5"
+            {attachmentPreview ? (
+              <button
+                onClick={uploadAndSendAttachment}
+                disabled={uploading}
+                className="p-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 disabled:opacity-40 mb-0.5"
+              >
+                {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+              </button>
+            ) : (
+              <button
+                onClick={handleSend}
+                disabled={!message.trim() || sending}
+                className="p-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed mb-0.5"
+              >
             >
               <Send className="w-5 h-5" />
             </button>
