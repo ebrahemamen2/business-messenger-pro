@@ -107,7 +107,7 @@ export function useConversations(tenantId?: string | null, module: string = 'con
       if (lbl) labelsByConvId[la.conversation_id].push({ id: lbl.id, name: lbl.name, color: lbl.color });
     }
 
-    // Deduplicate by normalized phone (keep the latest conversation per phone)
+    // Deduplicate by normalized phone (keep latest per phone since ordered by last_message_at desc)
     const seenPhones = new Set<string>();
     const dedupedConvs = dbConvs.filter((dbConv) => {
       const phone = normalizePhone(dbConv.contact_phone);
@@ -121,9 +121,8 @@ export function useConversations(tenantId?: string | null, module: string = 'con
       const contact = contactByPhone[phone];
 
       return {
-        id: dbConv.id, // Use DB id as unique key instead of phone
+        id: phone,
         dbId: dbConv.id,
-        normalizedPhone: phone,
         contact: {
           id: contact?.id || phone,
           name: contact?.name || dbConv.contact_phone,
