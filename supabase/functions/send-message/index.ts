@@ -16,11 +16,11 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    const { to, message } = await req.json();
+    const { to, message, mediaUrl, mediaType, replyToMessageId } = await req.json();
 
-    if (!to || !message) {
+    if (!to || (!message && !mediaUrl)) {
       return new Response(
-        JSON.stringify({ error: "Missing 'to' or 'message'" }),
+        JSON.stringify({ error: "Missing 'to' or 'message'/'mediaUrl'" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -39,20 +39,58 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Send via WhatsApp API
     const waUrl = `https://graph.facebook.com/v21.0/${config.phone_number_id}/messages`;
+    const headers = {
+      Authorization: `Bearer ${config.access_token}`,
+      "Content-Type": "application/json",
+    };
+
+    // Build WhatsApp message payload
+    let waPayload: any = {
+      messaging_product: "whatsapp",
+      to,
+    };
+
+    // Add context for replies
+    if (replyToMessageId) {
+      // Look up the wa_message_id for the reply
+      const { data: replyMsg } = await supabase
+        .from("messages")
+        .select("wa_message_id")
+        .eq("id", replyToMessageId)
+        .single();
+      if (replyMsg?.wa_message_id) {
+        waPayload.context = { message_id: replyMsg.wa_message_id };
+      }
+    }
+
+    // Determine message type based on media
+    if (mediaUrl && mediaType) {
+      const mimeType = mediaType.toLowerCase();
+      if (mimeType.startsWith("image")) {
+        waPayload.type = "image";
+        waPayload.image = { link: mediaUrl, caption: message || undefined };
+      } else if (mimeType.startsWith("video")) {
+        waPayload.type = "video";
+        waPayload.video = { link: mediaUrl, caption: message || undefined };
+      } else if (mimeType.startsWith("audio")) {
+        waPayload.type = "audio";
+        waPayload.audio = { link: mediaUrl };
+      } else {
+        // Document (PDF, DOCX, etc.)
+        waPayload.type = "document";
+        waPayload.document = { link: mediaUrl, caption: message || undefined };
+      }
+    } else {
+      // Text-only message
+      waPayload.type = "text";
+      waPayload.text = { body: message };
+    }
+
     const res = await fetch(waUrl, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${config.access_token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        to,
-        type: "text",
-        text: { body: message },
-      }),
+      headers,
+      body: JSON.stringify(waPayload),
     });
 
     const waResult = await res.json();
@@ -70,8 +108,11 @@ Deno.serve(async (req) => {
       wa_message_id: waResult.messages?.[0]?.id,
       contact_phone: to,
       direction: "outbound",
-      body: message,
+      body: message || (mediaUrl ? "[مرفق]" : ""),
       status: "sent",
+      media_url: mediaUrl || null,
+      media_type: mediaType || null,
+      reply_to_message_id: replyToMessageId || null,
     });
 
     return new Response(JSON.stringify({ success: true, data: waResult }), {

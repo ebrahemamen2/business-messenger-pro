@@ -36,37 +36,38 @@ const MessageBubble = ({ message, onReply, allMessages = [] }: MessageBubbleProp
     if (!message.mediaUrl) return null;
     const type = message.mediaType || '';
 
-    if (type.startsWith('image')) {
+    if (type.startsWith('image') || type === 'webp') {
       return (
-        <div className="mb-1.5 rounded-lg overflow-hidden max-w-[280px]">
-          <img src={message.mediaUrl} alt="" className="w-full h-auto object-cover" loading="lazy" />
-        </div>
+        <a href={message.mediaUrl!} target="_blank" rel="noopener noreferrer" className="mb-1.5 block rounded-lg overflow-hidden max-w-[280px]">
+          <img src={message.mediaUrl!} alt="" className="w-full h-auto object-cover" loading="lazy" />
+        </a>
       );
     }
     if (type.startsWith('video')) {
       return (
-        <div className="mb-1.5 rounded-lg overflow-hidden max-w-[280px] relative bg-black/20 flex items-center justify-center h-40">
-          <Play className="w-10 h-10 text-primary-foreground/80" />
+        <div className="mb-1.5 rounded-lg overflow-hidden max-w-[280px]">
+          <video controls className="w-full h-auto max-h-[300px]" preload="metadata">
+            <source src={message.mediaUrl!} type={type.includes('/') ? type : `video/${type}`} />
+          </video>
         </div>
       );
     }
-    if (type.startsWith('audio')) {
+    if (type.startsWith('audio') || type === 'ogg' || type === 'opus') {
       return (
-        <div className="mb-1.5 flex items-center gap-2 px-3 py-2 rounded-lg bg-background/20">
-          <Mic className="w-4 h-4" />
-          <div className="flex-1 h-1 bg-foreground/20 rounded-full">
-            <div className="w-1/3 h-full bg-foreground/60 rounded-full" />
-          </div>
-          <span className="text-[10px] opacity-70">0:12</span>
+        <div className="mb-1.5 rounded-lg overflow-hidden max-w-[280px]">
+          <audio controls className="w-full h-10" preload="metadata">
+            <source src={message.mediaUrl!} type={type.includes('/') ? type : `audio/${type}`} />
+          </audio>
         </div>
       );
     }
-    // Document
+    // Document - clickable link
+    const fileName = message.text?.replace(/^\[مستند\]\s*/, '') || 'مستند مرفق';
     return (
-      <div className="mb-1.5 flex items-center gap-2 px-3 py-2 rounded-lg bg-background/10">
+      <a href={message.mediaUrl!} target="_blank" rel="noopener noreferrer" className="mb-1.5 flex items-center gap-2 px-3 py-2 rounded-lg bg-background/10 hover:bg-background/20 transition-colors cursor-pointer">
         <FileText className="w-5 h-5" />
-        <span className="text-xs truncate">مستند مرفق</span>
-      </div>
+        <span className="text-xs truncate">{fileName}</span>
+      </a>
     );
   };
 
