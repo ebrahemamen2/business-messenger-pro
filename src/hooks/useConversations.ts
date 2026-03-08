@@ -136,6 +136,7 @@ export function useConversations(tenantId?: string | null, module: string = 'con
         lastMessage: '',
         lastMessageTime: dbConv.last_message_at || dbConv.created_at,
         unreadCount: dbConv.unread_count || 0,
+        lastMessageDirection: null,
         status: dbConv.status as any || 'open',
         assignedTo: dbConv.assigned_to || null,
         labels: labelsByConvId[dbConv.id] || [],
