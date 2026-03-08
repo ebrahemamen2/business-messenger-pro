@@ -57,23 +57,29 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [conversation.messages]);
 
+  const sendToWhatsApp = async (opts: { message?: string; mediaUrl?: string; mediaType?: string; replyToMessageId?: string }) => {
+    const res = await fetch(
+      `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/send-message`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: conversation.contact.phone,
+          message: opts.message || '',
+          mediaUrl: opts.mediaUrl || undefined,
+          mediaType: opts.mediaType || undefined,
+          replyToMessageId: opts.replyToMessageId || undefined,
+        }),
+      }
+    );
+    if (!res.ok) throw new Error('Failed to send');
+  };
+
   const handleSend = async () => {
     if (!message.trim() || sending) return;
     setSending(true);
     try {
-      const res = await fetch(
-        `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/send-message`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            to: conversation.contact.phone,
-            message: message.trim(),
-            replyToMessageId: replyTo?.id || undefined,
-          }),
-        }
-      );
-      if (!res.ok) throw new Error('Failed to send');
+      await sendToWhatsApp({ message: message.trim(), replyToMessageId: replyTo?.id || undefined });
       setMessage('');
       setReplyTo(null);
       setShowQuickReplies(false);
