@@ -3,7 +3,19 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-store-api-key",
+};
+
+const MESSAGE_TYPE_LABELS: Record<string, string> = {
+  confirmation: "تأكيد طلب",
+  order_edit: "تعديل طلب",
+  shipping: "تحديث شحن",
+  delivered: "تم التوصيل",
+  abandoned_recovery: "استرجاع سلة",
+  thankyou_offer: "عرض شكر",
+  manual: "رسالة يدوية",
+  auto_pending: "إرسال تلقائي",
+  test: "اختبار اتصال",
 };
 
 Deno.serve(async (req) => {
@@ -11,37 +23,64 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const json = (data: any, status = 200) =>
+    new Response(JSON.stringify(data), {
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    const body = await req.json();
-    const { api_key, phone, message, customer_name, timestamp, order_id, template_name } = body;
-
-    if (!api_key || !phone || !message) {
-      return new Response(
-        JSON.stringify({ error: "Missing required fields: api_key, phone, message" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // --- Validate API key from header ---
+    const apiKey = req.headers.get("x-store-api-key");
+    if (!apiKey) {
+      return json({ error: "Missing X-Store-API-Key header" }, 401);
     }
 
-    // Look up tenant by store_api_key
     const { data: config, error: configErr } = await supabase
       .from("wa_config")
       .select("tenant_id, module")
-      .eq("store_api_key", api_key)
+      .eq("store_api_key", apiKey)
       .maybeSingle();
 
     if (configErr || !config) {
-      return new Response(
-        JSON.stringify({ error: "Invalid API key" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return json({ error: "Invalid API key" }, 401);
     }
 
-    // Upsert contact
-    const normalizedPhone = phone.replace(/[\s\-\+]/g, "");
+    // --- Parse body ---
+    const body = await req.json();
+    const {
+      event,
+      timestamp,
+      customer_phone,
+      customer_name,
+      message_content,
+      message_type,
+      order_number,
+      whatsapp_message_id,
+    } = body;
+
+    // --- Handle test_connection event ---
+    if (event === "test_connection") {
+      return json({ success: true, message: "Connection verified", tenant_id: config.tenant_id });
+    }
+
+    // --- Validate required fields for outbound_message ---
+    if (event !== "outbound_message") {
+      return json({ error: `Unknown event: ${event}` }, 400);
+    }
+
+    if (!customer_phone || !message_content) {
+      return json({ error: "Missing required fields: customer_phone, message_content" }, 400);
+    }
+
+    // --- Normalize phone ---
+    const normalizedPhone = customer_phone.replace(/[\s\-\+]/g, "");
+
+    // --- Upsert contact ---
     const { data: existingContact } = await supabase
       .from("contacts")
       .select("id")
@@ -62,32 +101,42 @@ Deno.serve(async (req) => {
         .eq("id", existingContact.id);
     }
 
-    // Save message as "store" direction — displayed but NOT re-sent to customer
-    const messageData: any = {
+    // --- Build message body with type label ---
+    const typeLabel = MESSAGE_TYPE_LABELS[message_type] || message_type || "";
+    const bodyText = message_content;
+
+    // --- Save message as direction='store' ---
+    const messageData: Record<string, any> = {
       contact_phone: normalizedPhone,
       contact_name: customer_name || null,
       direction: "store",
-      body: message,
+      body: bodyText,
       status: "delivered",
       tenant_id: config.tenant_id,
+      wa_message_id: whatsapp_message_id || null,
+      media_type: message_type || null,
     };
 
     if (timestamp) {
       messageData.created_at = new Date(timestamp).toISOString();
     }
 
-    await supabase.from("messages").insert(messageData);
+    const { error: insertErr } = await supabase.from("messages").insert(messageData);
 
-    return new Response(
-      JSON.stringify({ success: true, message: "Message received and stored" }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    if (insertErr) {
+      console.error("Insert message error:", insertErr);
+      return json({ error: "Failed to store message" }, 500);
+    }
+
+    return json({
+      success: true,
+      message: "Message stored",
+      type: typeLabel,
+      order: order_number || null,
+    });
   } catch (error) {
     console.error("Store webhook error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return json({ error: errorMessage }, 500);
   }
 });

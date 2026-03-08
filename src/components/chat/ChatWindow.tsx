@@ -117,7 +117,7 @@ const ChatWindow = ({ conversation, onToggleContact }: ChatWindowProps) => {
                   <span className="text-[10px] font-semibold">رسالة المتجر</span>
                 </div>
               )}
-              <p className="text-sm leading-relaxed">{msg.text}</p>
+              <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
               <div
                 className={`flex items-center gap-1 mt-1 ${
                   msg.sender !== 'customer' ? 'justify-end' : ''
