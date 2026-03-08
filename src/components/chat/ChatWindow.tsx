@@ -110,15 +110,13 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
       status: 'sending',
       replyToId: replyId,
     };
-    conversation.messages.push(optimisticMsg);
+    setOptimisticMessages((prev) => [...prev, optimisticMsg]);
 
     try {
       await sendToWhatsApp({ message: text, replyToMessageId: replyId });
     } catch (err) {
       toast({ title: '❌ خطأ', description: 'فشل إرسال الرسالة', variant: 'destructive' });
-      // Remove optimistic message on failure
-      const idx = conversation.messages.findIndex((m) => m.id === optimisticMsg.id);
-      if (idx !== -1) conversation.messages.splice(idx, 1);
+      setOptimisticMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
       setMessage(text);
     } finally {
       setSending(false);
