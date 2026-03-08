@@ -98,7 +98,7 @@ export function useConversations(tenantId?: string | null, module: string = 'con
     ]);
 
     const contacts = contactsRes.data || [];
-    const messages = messagesRes.data || [];
+    const messages = (messagesRes.data || []).reverse(); // reverse to chronological order
     const dbConvs = convsRes.data || [];
     const labelAssignments = labelsRes.data || [];
 
