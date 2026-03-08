@@ -2,6 +2,7 @@ import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useState, useEffect } from 'react';
 import type { ChatConversation } from '@/hooks/useConversations';
+import ChatFilters, { type ChatFilter, type ChatSort } from './ChatFilters';
 
 interface ChatListProps {
   conversations: ChatConversation[];
@@ -10,15 +11,27 @@ interface ChatListProps {
   title?: string;
 }
 
-/** Normalize for search: match both local and international formats */
 function normalizeForSearch(text: string): string {
   return text.replace(/[\s\-\+]/g, '').replace(/^0/, '').replace(/^20/, '');
 }
 
+function relativeTime(dateStr: string): string {
+  if (!dateStr) return '';
+  const now = Date.now();
+  const d = new Date(dateStr).getTime();
+  const diff = Math.floor((now - d) / 1000);
+  if (diff < 60) return 'الآن';
+  if (diff < 3600) return `منذ ${Math.floor(diff / 60)} د`;
+  if (diff < 86400) return `منذ ${Math.floor(diff / 3600)} س`;
+  if (diff < 172800) return 'أمس';
+  return new Date(dateStr).toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' });
+}
+
 const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادثات' }: ChatListProps) => {
   const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<ChatFilter>('all');
+  const [sort, setSort] = useState<ChatSort>('newest');
 
-  // Auto-select first conversation if none selected
   useEffect(() => {
     if (!selectedId && conversations.length > 0) {
       onSelect(conversations[0].id);
@@ -26,13 +39,22 @@ const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادث
   }, [selectedId, conversations, onSelect]);
 
   const filtered = conversations.filter((c) => {
-    if (!search) return true;
-    const q = normalizeForSearch(search.toLowerCase());
-    return (
-      c.contact.name.toLowerCase().includes(search.toLowerCase()) ||
-      normalizeForSearch(c.contact.phone).includes(q) ||
-      c.contact.phone.includes(search)
-    );
+    // Search
+    if (search) {
+      const q = normalizeForSearch(search.toLowerCase());
+      const matches =
+        c.contact.name.toLowerCase().includes(search.toLowerCase()) ||
+        normalizeForSearch(c.contact.phone).includes(q) ||
+        c.contact.phone.includes(search);
+      if (!matches) return false;
+    }
+
+    // Filter
+    if (filter === 'unread') return c.unreadCount > 0;
+    if (filter === 'open') return c.status === 'active' || c.status === 'pending';
+    if (filter === 'pending') return c.status === 'pending';
+    if (filter === 'resolved') return c.status === 'resolved';
+    return true;
   });
 
   return (
@@ -55,39 +77,54 @@ const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادث
         </div>
       </div>
 
+      <ChatFilters
+        activeFilter={filter}
+        onFilterChange={setFilter}
+        activeSort={sort}
+        onSortChange={setSort}
+      />
+
       <div className="flex-1 overflow-y-auto">
-        {filtered.map((conv) => (
-          <button
-            key={conv.id}
-            onClick={() => onSelect(conv.id)}
-            className={`w-full p-3.5 flex gap-3 items-center border-b border-border/50 transition-all duration-150 text-right ${
-              selectedId === conv.id
-                ? 'bg-secondary/80'
-                : 'hover:bg-secondary/40'
-            }`}
-          >
-            <div className="relative flex-shrink-0">
-              <div className="w-11 h-11 rounded-full bg-primary/15 flex items-center justify-center">
-                <span className="text-sm font-bold text-primary">
-                  {conv.contact.name.charAt(0)}
-                </span>
+        {filtered.map((conv) => {
+          const lastMsgRaw = conv.messages[conv.messages.length - 1]?.rawTimestamp;
+          return (
+            <button
+              key={conv.id}
+              onClick={() => onSelect(conv.id)}
+              className={`w-full p-3.5 flex gap-3 items-center border-b border-border/50 transition-all duration-150 text-right ${
+                selectedId === conv.id
+                  ? 'bg-secondary/80'
+                  : 'hover:bg-secondary/40'
+              }`}
+            >
+              <div className="relative flex-shrink-0">
+                <div className="w-11 h-11 rounded-full bg-primary/15 flex items-center justify-center">
+                  <span className="text-sm font-bold text-primary">
+                    {conv.contact.name.charAt(0)}
+                  </span>
+                </div>
+                {conv.unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center">
+                    {conv.unreadCount}
+                  </span>
+                )}
               </div>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-sm text-foreground truncate">
-                  {conv.contact.name}
-                </span>
-                <span className="text-[11px] text-muted-foreground flex-shrink-0 mr-2">
-                  {conv.lastMessageTime}
-                </span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-sm text-foreground truncate">
+                    {conv.contact.name}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground flex-shrink-0 mr-2">
+                    {relativeTime(lastMsgRaw || '')}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground truncate max-w-[200px] mt-0.5">
+                  {conv.lastMessage}
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground truncate max-w-[200px] mt-0.5">
-                {conv.lastMessage}
-              </p>
-            </div>
-          </button>
-        ))}
+            </button>
+          );
+        })}
         {filtered.length === 0 && (
           <div className="p-8 text-center text-muted-foreground text-sm">
             لا توجد محادثات
