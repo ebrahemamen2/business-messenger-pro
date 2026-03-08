@@ -106,6 +106,59 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
     textareaRef.current?.focus();
   }, []);
 
+  const handleEmojiSelect = (emoji: string) => {
+    setMessage((prev) => prev + emoji);
+    setShowEmoji(false);
+    textareaRef.current?.focus();
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Preview
+    const previewUrl = URL.createObjectURL(file);
+    setAttachmentPreview({ url: previewUrl, file });
+  };
+
+  const uploadAndSendAttachment = async () => {
+    if (!attachmentPreview) return;
+    setUploading(true);
+    try {
+      const file = attachmentPreview.file;
+      const ext = file.name.split('.').pop();
+      const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('chat-attachments')
+        .upload(path, file);
+      
+      if (uploadError) throw uploadError;
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('chat-attachments')
+        .getPublicUrl(path);
+
+      // Insert message with media
+      await supabase.from('messages').insert({
+        contact_phone: conversation.contact.phone,
+        body: message.trim() || file.name,
+        direction: 'outbound',
+        media_url: publicUrl,
+        media_type: file.type,
+        tenant_id: tenantId || undefined,
+      });
+
+      setMessage('');
+      setAttachmentPreview(null);
+      toast({ title: '✅ تم إرسال المرفق' });
+    } catch (err) {
+      toast({ title: '❌ خطأ', description: 'فشل رفع الملف', variant: 'destructive' });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   // Group messages by date
   const messagesWithDates: (ChatMessage | { type: 'date'; label: string })[] = [];
   let lastDate = '';
