@@ -119,6 +119,8 @@ Deno.serve(async (req) => {
     }
 
     // Save outbound message
+    const nowIso = new Date().toISOString();
+
     await supabase.from("messages").insert({
       wa_message_id: waResult.messages?.[0]?.id,
       contact_phone: to,
@@ -128,7 +130,21 @@ Deno.serve(async (req) => {
       media_url: mediaUrl || null,
       media_type: mediaType || null,
       reply_to_message_id: replyToMessageId || null,
+      tenant_id: config.tenant_id || tenantId || null,
+      created_at: nowIso,
     });
+
+    // Keep conversation metadata in sync so ordering/unread updates immediately
+    if (conversationId) {
+      await supabase
+        .from("conversations")
+        .update({
+          last_message_at: nowIso,
+          unread_count: 0,
+          updated_at: nowIso,
+        })
+        .eq("id", conversationId);
+    }
 
     return new Response(JSON.stringify({ success: true, data: waResult }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
