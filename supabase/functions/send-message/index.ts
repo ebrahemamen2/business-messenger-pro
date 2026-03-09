@@ -123,6 +123,10 @@ Deno.serve(async (req) => {
       to,
     };
 
+    // For DB audit/debug: store the *actual* media URL/type we attempted to send
+    let storedMediaUrl: string | null = mediaUrl || null;
+    let storedMediaType: string | null = mediaType || null;
+
     if (replyToMessageId) {
       const { data: replyMsg } = await supabase
         .from("messages")
