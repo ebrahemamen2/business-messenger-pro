@@ -244,8 +244,57 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
     }
   };
 
-  const handleVoiceRecordComplete = (file: File) => {
-    uploadAndSendFile(file);
+  const handleVoiceRecordComplete = async (file: File) => {
+    setUploading(true);
+    try {
+      // Convert file to base64
+      const arrayBuffer = await file.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      let binary = '';
+      uint8Array.forEach(byte => binary += String.fromCharCode(byte));
+      const base64Audio = btoa(binary);
+
+      const res = await fetch(
+        `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/send-message`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: conversation.contact.phone,
+            message: '',
+            audioBase64: base64Audio,
+            audioMime: file.type,
+            tenantId: tenantId || undefined,
+            module,
+            conversationId: conversationDbId || undefined,
+          }),
+        }
+      );
+
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) {
+        const details = payload?.details?.error_data?.details || payload?.details?.message || payload?.error || 'Failed to send';
+        throw new Error(details);
+      }
+
+      // Add optimistic message
+      const optimisticMsg: ChatMessage = {
+        id: `optimistic-${Date.now()}`,
+        text: '[رسالة صوتية]',
+        timestamp: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+        rawTimestamp: new Date().toISOString(),
+        sender: 'agent' as const,
+        status: 'sent',
+        mediaType: file.type,
+      };
+      setOptimisticMessages(prev => [...prev, optimisticMsg]);
+
+      toast({ title: '✅ تم إرسال الرسالة الصوتية' });
+    } catch (err) {
+      toast({ title: '❌ خطأ', description: err instanceof Error ? err.message : 'فشل إرسال الفويس', variant: 'destructive' });
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleVoiceRecordError = (errorMessage: string) => {
