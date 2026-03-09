@@ -10,6 +10,7 @@ interface ChatListProps {
   onSelect: (id: string) => void;
   title?: string;
   tenantId?: string | null;
+  fullWidth?: boolean;
 }
 
 function normalizeForSearch(text: string): string {

@@ -28,6 +28,7 @@ interface ChatWindowProps {
   conversationDbId?: string | null;
   onStatusChange?: (dbId: string, status: string) => void;
   onLoadOlder?: (phone: string) => Promise<boolean>;
+  hideHeader?: boolean;
 }
 
 const SUPABASE_PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'mhbmxvgcdzhqwpznmgei';
