@@ -191,25 +191,7 @@ const ContactPanel = ({
           </div>
         </div>
 
-        {/* Conversation Status */}
-        <div className="pt-3 border-t border-border">
-          <p className="text-xs text-muted-foreground font-medium mb-2">حالة المحادثة</p>
-          <div className="flex gap-1.5">
-            {statusOptions.map((s) => (
-              <button
-                key={s.value}
-                onClick={() => handleStatusChange(s.value)}
-                className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition-colors border ${
-                  currentStatus === s.value
-                    ? `bg-[hsl(var(${s.cssVar}))]/20 text-[hsl(var(${s.cssVar}))] border-[hsl(var(${s.cssVar}))]`
-                    : 'border-border text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        {/* Conversation Status section has been removed as per user request */}
       </div>
     </div>
   );

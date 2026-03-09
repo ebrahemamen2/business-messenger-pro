@@ -1,6 +1,9 @@
-import { Tag } from 'lucide-react';
+import { Tag, Settings } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import LabelManager from './LabelManager';
+import type { ChatConversation } from '@/hooks/useConversations';
 
 export type ChatFilter = 'all' | 'unread' | 'no_reply' | `label:${string}`;
 
@@ -14,6 +17,7 @@ interface ChatFiltersProps {
   activeFilter: ChatFilter;
   onFilterChange: (f: ChatFilter) => void;
   tenantId?: string | null;
+  conversations?: ChatConversation[];
 }
 
 const baseFilters: { value: ChatFilter; label: string }[] = [
@@ -22,8 +26,9 @@ const baseFilters: { value: ChatFilter; label: string }[] = [
   { value: 'no_reply', label: 'لم يتم الرد' },
 ];
 
-const ChatFilters = ({ activeFilter, onFilterChange, tenantId }: ChatFiltersProps) => {
+const ChatFilters = ({ activeFilter, onFilterChange, tenantId, conversations = [] }: ChatFiltersProps) => {
   const [labels, setLabels] = useState<LabelOption[]>([]);
+  const [labelManagerOpen, setLabelManagerOpen] = useState(false);
 
   useEffect(() => {
     const loadLabels = async () => {
@@ -34,6 +39,22 @@ const ChatFilters = ({ activeFilter, onFilterChange, tenantId }: ChatFiltersProp
     };
     loadLabels();
   }, [tenantId]);
+
+  // Only show labels that are actually used in conversations
+  const labelsWithConversations = labels.filter(label => 
+    conversations.some(conv => conv.labels.some(l => l.id === label.id))
+  );
+
+  const handleLabelsChanged = () => {
+    // Reload labels and inform parent to reload conversations
+    const loadLabels = async () => {
+      let query = supabase.from('conversation_labels').select('*').order('name');
+      if (tenantId) query = query.eq('tenant_id', tenantId);
+      const { data } = await query;
+      setLabels(data || []);
+    };
+    loadLabels();
+  };
 
   return (
     <div className="px-3 py-2 border-b border-border space-y-2">
@@ -54,14 +75,14 @@ const ChatFilters = ({ activeFilter, onFilterChange, tenantId }: ChatFiltersProp
         ))}
 
         {/* Labels separator */}
-        {labels.length > 0 && (
+        {labelsWithConversations.length > 0 && (
           <div className="flex items-center px-1">
             <Tag className="w-3 h-3 text-muted-foreground" />
           </div>
         )}
 
         {/* Label filters */}
-        {labels.map((label) => {
+        {labelsWithConversations.map((label) => {
           const filterValue = `label:${label.id}` as ChatFilter;
           const isActive = activeFilter === filterValue;
           return (
@@ -82,7 +103,36 @@ const ChatFilters = ({ activeFilter, onFilterChange, tenantId }: ChatFiltersProp
             </button>
           );
         })}
+        
+        {/* Label Management Button */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <button className="p-1.5 rounded-full hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
+              <Settings className="w-3.5 h-3.5" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 p-0" align="start">
+            <div className="p-3">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-medium">إدارة التصنيفات</span>
+              </div>
+              <button 
+                onClick={() => setLabelManagerOpen(true)}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-secondary rounded-md transition-colors"
+              >
+                فتح نافذة التحكم في التصنيفات
+              </button>
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
+
+      <LabelManager 
+        open={labelManagerOpen}
+        onOpenChange={setLabelManagerOpen}
+        tenantId={tenantId}
+        onLabelsChanged={handleLabelsChanged}
+      />
     </div>
   );
 };
