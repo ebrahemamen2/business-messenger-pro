@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    const { to, message, mediaUrl, mediaType, audioBase64, audioMime, replyToMessageId, tenantId, module, conversationId } = await req.json();
+    const { to, message, mediaUrl, mediaType, replyToMessageId, tenantId, module, conversationId } = await req.json();
 
     if (!to || (!message && !mediaUrl && !audioBase64)) {
       return json({ error: "Missing 'to' or 'message'/'mediaUrl'/'audioBase64'" }, 400);
