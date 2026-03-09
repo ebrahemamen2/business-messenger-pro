@@ -72,10 +72,13 @@ const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادث
 
   useEffect(() => {
     if (filteredAndSorted.length === 0) return;
-    if (!selectedId || !filteredAndSorted.some((c) => c.id === selectedId)) {
+    // Only auto-select first conversation for 'all' filter or when no selection exists
+    if (!selectedId) {
+      onSelect(filteredAndSorted[0].id);
+    } else if (filter === 'all' && !filteredAndSorted.some((c) => c.id === selectedId)) {
       onSelect(filteredAndSorted[0].id);
     }
-  }, [selectedId, filteredAndSorted, onSelect]);
+  }, [selectedId, filteredAndSorted, onSelect, filter]);
 
   return (
     <div className="w-[340px] h-full border-r border-border flex flex-col bg-card flex-shrink-0">
