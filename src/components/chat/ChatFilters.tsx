@@ -75,14 +75,14 @@ const ChatFilters = ({ activeFilter, onFilterChange, tenantId, conversations = [
         ))}
 
         {/* Labels separator */}
-        {labels.length > 0 && (
+        {labelsWithConversations.length > 0 && (
           <div className="flex items-center px-1">
             <Tag className="w-3 h-3 text-muted-foreground" />
           </div>
         )}
 
         {/* Label filters */}
-        {labels.map((label) => {
+        {labelsWithConversations.map((label) => {
           const filterValue = `label:${label.id}` as ChatFilter;
           const isActive = activeFilter === filterValue;
           return (
