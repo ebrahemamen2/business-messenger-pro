@@ -2,13 +2,14 @@ import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useState, useEffect, useMemo } from 'react';
 import type { ChatConversation } from '@/hooks/useConversations';
-import ChatFilters, { type ChatFilter, type ChatSort } from './ChatFilters';
+import ChatFilters, { type ChatFilter } from './ChatFilters';
 
 interface ChatListProps {
   conversations: ChatConversation[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   title?: string;
+  tenantId?: string | null;
 }
 
 function normalizeForSearch(text: string): string {
@@ -33,10 +34,9 @@ function toTimestamp(value?: string | null): number {
   return Number.isNaN(ts) ? 0 : ts;
 }
 
-const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادثات' }: ChatListProps) => {
+const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادثات', tenantId }: ChatListProps) => {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<ChatFilter>('all');
-  const [sort, setSort] = useState<ChatSort>('newest');
 
   const filtered = useMemo(() => {
     return conversations.filter((c) => {
@@ -53,26 +53,22 @@ const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادث
       // Filter
       if (filter === 'unread') return c.unreadCount > 0;
       if (filter === 'no_reply') return c.lastMessageDirection === 'inbound' && c.unreadCount === 0;
-      if (filter === 'open') return c.status === 'open';
-      if (filter === 'pending') return c.status === 'pending';
-      if (filter === 'resolved') return c.status === 'resolved';
-      return true;
+      if (filter.startsWith('label:')) {
+        const labelId = filter.replace('label:', '');
+        return c.labels.some((l) => l.id === labelId);
+      }
+      return true; // 'all'
     });
   }, [conversations, search, filter]);
 
+  // Always sort by newest first (like WhatsApp)
   const filteredAndSorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
       const aTime = toTimestamp(a.lastMessageTime);
       const bTime = toTimestamp(b.lastMessageTime);
-
-      if (sort === 'oldest') return aTime - bTime;
-      if (sort === 'unread') {
-        if (b.unreadCount !== a.unreadCount) return b.unreadCount - a.unreadCount;
-        return bTime - aTime;
-      }
-      return bTime - aTime; // newest
+      return bTime - aTime;
     });
-  }, [filtered, sort]);
+  }, [filtered]);
 
   useEffect(() => {
     if (filteredAndSorted.length === 0) return;
@@ -87,7 +83,7 @@ const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادث
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-bold text-foreground">{title}</h2>
           <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded-full">
-            {conversations.length}
+            {filteredAndSorted.length}
           </span>
         </div>
         <div className="relative">
@@ -104,8 +100,7 @@ const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادث
       <ChatFilters
         activeFilter={filter}
         onFilterChange={setFilter}
-        activeSort={sort}
-        onSortChange={setSort}
+        tenantId={tenantId}
       />
 
       <div className="flex-1 overflow-y-auto">
