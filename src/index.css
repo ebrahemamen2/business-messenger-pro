@@ -88,4 +88,9 @@
     background: hsl(var(--muted));
     border-radius: 10px;
   }
+
+  /* Safe area for mobile devices */
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }

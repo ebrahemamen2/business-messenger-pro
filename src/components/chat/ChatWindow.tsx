@@ -28,6 +28,7 @@ interface ChatWindowProps {
   conversationDbId?: string | null;
   onStatusChange?: (dbId: string, status: string) => void;
   onLoadOlder?: (phone: string) => Promise<boolean>;
+  hideHeader?: boolean;
 }
 
 const SUPABASE_PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'mhbmxvgcdzhqwpznmgei';
@@ -42,7 +43,7 @@ function getDateLabel(dateStr: string): string {
   return d.toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
-const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantId, conversationDbId, onStatusChange, onLoadOlder }: ChatWindowProps) => {
+const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantId, conversationDbId, onStatusChange, onLoadOlder, hideHeader }: ChatWindowProps) => {
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [showQuickReplies, setShowQuickReplies] = useState(false);
@@ -353,73 +354,75 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
   return (
     <div className="flex-1 flex h-full min-w-0">
       <div className="flex-1 flex flex-col h-full min-w-0">
-        {/* Header */}
-        <div className="h-16 border-b border-border flex items-center justify-between px-5 bg-card flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center">
-              <span className="text-sm font-bold text-primary">{conversation.contact.name.charAt(0)}</span>
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-semibold text-sm text-foreground">{conversation.contact.name}</h3>
-                <span
-                  className="text-[9px] font-medium px-1.5 py-0.5 rounded-full"
-                  style={{
-                    backgroundColor: `hsl(var(${st.cssVar}) / 0.15)`,
-                    color: `hsl(var(${st.cssVar}))`,
-                  }}
-                >
-                  {st.label}
-                </span>
+        {/* Header - conditionally hidden on mobile */}
+        {!hideHeader && (
+          <div className="h-16 border-b border-border flex items-center justify-between px-5 bg-card flex-shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center">
+                <span className="text-sm font-bold text-primary">{conversation.contact.name.charAt(0)}</span>
               </div>
-              <p className="text-xs text-muted-foreground">{conversation.contact.phone}</p>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-sm text-foreground">{conversation.contact.name}</h3>
+                  <span
+                    className="text-[9px] font-medium px-1.5 py-0.5 rounded-full"
+                    style={{
+                      backgroundColor: `hsl(var(${st.cssVar}) / 0.15)`,
+                      color: `hsl(var(${st.cssVar}))`,
+                    }}
+                  >
+                    {st.label}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">{conversation.contact.phone}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setShowSearch(!showSearch)}
+                className={`p-2.5 rounded-lg transition-colors ${showSearch ? 'bg-primary/15 text-primary' : 'hover:bg-secondary text-muted-foreground'}`}
+                title="بحث في الرسائل"
+              >
+                <Search className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setShowNotes(!showNotes)}
+                className={`p-2.5 rounded-lg transition-colors ${showNotes ? 'bg-primary/15 text-primary' : 'hover:bg-secondary text-muted-foreground'}`}
+                title="ملاحظات داخلية"
+              >
+                <StickyNote className="w-4 h-4" />
+              </button>
+              <button onClick={copyPhone} className="p-2.5 rounded-lg hover:bg-secondary text-muted-foreground transition-colors" title="نسخ رقم الهاتف">
+                <Phone className="w-4 h-4" />
+              </button>
+              <button onClick={onToggleContact} className="p-2.5 rounded-lg hover:bg-secondary text-muted-foreground transition-colors" title="معلومات العميل">
+                <UserCircle className="w-4 h-4" />
+              </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="p-2.5 rounded-lg hover:bg-secondary text-muted-foreground transition-colors">
+                    <MoreVertical className="w-4 h-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => handleMarkStatus('open')} className="gap-2">
+                    <CheckCircle className="w-3.5 h-3.5 text-[hsl(var(--status-active))]" /> تحديد كمفتوح
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleMarkStatus('pending')} className="gap-2">
+                    <Clock className="w-3.5 h-3.5 text-[hsl(var(--status-pending))]" /> قيد المعالجة
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleMarkStatus('resolved')} className="gap-2">
+                    <Ban className="w-3.5 h-3.5 text-[hsl(var(--status-resolved))]" /> إغلاق المحادثة
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={copyPhone} className="gap-2">
+                    <Copy className="w-3.5 h-3.5" /> نسخ رقم الهاتف
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setShowSearch(!showSearch)}
-              className={`p-2.5 rounded-lg transition-colors ${showSearch ? 'bg-primary/15 text-primary' : 'hover:bg-secondary text-muted-foreground'}`}
-              title="بحث في الرسائل"
-            >
-              <Search className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setShowNotes(!showNotes)}
-              className={`p-2.5 rounded-lg transition-colors ${showNotes ? 'bg-primary/15 text-primary' : 'hover:bg-secondary text-muted-foreground'}`}
-              title="ملاحظات داخلية"
-            >
-              <StickyNote className="w-4 h-4" />
-            </button>
-            <button onClick={copyPhone} className="p-2.5 rounded-lg hover:bg-secondary text-muted-foreground transition-colors" title="نسخ رقم الهاتف">
-              <Phone className="w-4 h-4" />
-            </button>
-            <button onClick={onToggleContact} className="p-2.5 rounded-lg hover:bg-secondary text-muted-foreground transition-colors" title="معلومات العميل">
-              <UserCircle className="w-4 h-4" />
-            </button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="p-2.5 rounded-lg hover:bg-secondary text-muted-foreground transition-colors">
-                  <MoreVertical className="w-4 h-4" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={() => handleMarkStatus('open')} className="gap-2">
-                  <CheckCircle className="w-3.5 h-3.5 text-[hsl(var(--status-active))]" /> تحديد كمفتوح
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleMarkStatus('pending')} className="gap-2">
-                  <Clock className="w-3.5 h-3.5 text-[hsl(var(--status-pending))]" /> قيد المعالجة
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleMarkStatus('resolved')} className="gap-2">
-                  <Ban className="w-3.5 h-3.5 text-[hsl(var(--status-resolved))]" /> إغلاق المحادثة
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={copyPhone} className="gap-2">
-                  <Copy className="w-3.5 h-3.5" /> نسخ رقم الهاتف
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
+        )}
 
         {/* Search bar */}
         {showSearch && (

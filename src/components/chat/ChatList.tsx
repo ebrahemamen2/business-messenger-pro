@@ -10,6 +10,7 @@ interface ChatListProps {
   onSelect: (id: string) => void;
   title?: string;
   tenantId?: string | null;
+  fullWidth?: boolean;
 }
 
 function normalizeForSearch(text: string): string {
@@ -34,7 +35,7 @@ function toTimestamp(value?: string | null): number {
   return Number.isNaN(ts) ? 0 : ts;
 }
 
-const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادثات', tenantId }: ChatListProps) => {
+const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادثات', tenantId, fullWidth }: ChatListProps) => {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<ChatFilter>('all');
 
@@ -81,7 +82,7 @@ const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادث
   }, [selectedId, filteredAndSorted, onSelect, filter]);
 
   return (
-    <div className="w-[340px] h-full border-r border-border flex flex-col bg-card flex-shrink-0">
+    <div className={`h-full border-r border-border flex flex-col bg-card flex-shrink-0 ${fullWidth ? 'w-full' : 'w-[340px]'}`}>
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-bold text-foreground">{title}</h2>

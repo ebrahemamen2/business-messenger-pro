@@ -100,14 +100,22 @@ export function useConversations(tenantId?: string | null, module: string = 'con
 
   // Load conversation list (lightweight - no messages)
   const loadList = useCallback(async () => {
-    let convsQuery = supabase.from('conversations').select('*').eq('module', module).order('last_message_at', { ascending: false });
-    let contactsQuery = supabase.from('contacts').select('*');
-    let labelsQuery = supabase.from('conversation_label_assignments').select('*, conversation_labels(*)');
-
-    if (tenantId) {
-      convsQuery = convsQuery.eq('tenant_id', tenantId);
-      contactsQuery = contactsQuery.eq('tenant_id', tenantId);
+    // CRITICAL: Don't fetch if tenantId is required but not yet available
+    if (!tenantId) {
+      setConversations([]);
+      setLoading(false);
+      return;
     }
+
+    try {
+      let convsQuery = supabase.from('conversations').select('*').eq('module', module).order('last_message_at', { ascending: false });
+      let contactsQuery = supabase.from('contacts').select('*');
+      let labelsQuery = supabase.from('conversation_label_assignments').select('*, conversation_labels(*)');
+
+      if (tenantId) {
+        convsQuery = convsQuery.eq('tenant_id', tenantId);
+        contactsQuery = contactsQuery.eq('tenant_id', tenantId);
+      }
 
     const [convsRes, contactsRes, labelsRes] = await Promise.all([convsQuery, contactsQuery, labelsQuery]);
 
@@ -261,6 +269,10 @@ export function useConversations(tenantId?: string | null, module: string = 'con
       return next;
     });
     setLoading(false);
+    } catch (err) {
+      console.error('Error loading conversations:', err);
+      setLoading(false);
+    }
   }, [tenantId, module]);
 
   // Load messages for a specific conversation (by phone)
