@@ -11,6 +11,7 @@ interface ChatListProps {
   title?: string;
   tenantId?: string | null;
   fullWidth?: boolean;
+  autoSelect?: boolean;
 }
 
 function normalizeForSearch(text: string): string {
