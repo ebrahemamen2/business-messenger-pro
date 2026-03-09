@@ -299,11 +299,12 @@ export function useConversations(tenantId?: string | null, module: string = 'con
         : null;
 
     const shouldMarkAsRead = markAsRead || openedInboundRef.current.has(normalizedPhone);
-    if (shouldMarkAsRead && latestDirection === 'inbound') {
+    if (shouldMarkAsRead) {
       openedInboundRef.current.add(normalizedPhone);
-    }
-    if (latestDirection && latestDirection !== 'inbound') {
-      openedInboundRef.current.delete(normalizedPhone);
+      // Update read timestamp to latest message timestamp
+      if (latest?.created_at) {
+        readStatusRef.current.set(normalizedPhone, new Date(latest.created_at).getTime());
+      }
     }
 
     setConversations((prev) => {
