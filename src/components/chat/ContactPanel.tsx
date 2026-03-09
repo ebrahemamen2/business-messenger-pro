@@ -191,7 +191,8 @@ const ContactPanel = ({
           </div>
         </div>
 
-        {/* Conversation Status */}
+        {/* Conversation Status - Commented out as requested */}
+        {/*
         <div className="pt-3 border-t border-border">
           <p className="text-xs text-muted-foreground font-medium mb-2">حالة المحادثة</p>
           <div className="flex gap-1.5">
@@ -210,6 +211,7 @@ const ContactPanel = ({
             ))}
           </div>
         </div>
+        */
       </div>
     </div>
   );

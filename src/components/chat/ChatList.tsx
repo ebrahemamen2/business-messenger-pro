@@ -104,6 +104,7 @@ const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادث
         activeFilter={filter}
         onFilterChange={setFilter}
         tenantId={tenantId}
+        conversations={conversations}
       />
 
       <div className="flex-1 overflow-y-auto">

@@ -103,7 +103,36 @@ const ChatFilters = ({ activeFilter, onFilterChange, tenantId, conversations = [
             </button>
           );
         })}
+        
+        {/* Label Management Button */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <button className="p-1.5 rounded-full hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
+              <Settings className="w-3.5 h-3.5" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 p-0" align="start">
+            <div className="p-3">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-medium">إدارة التصنيفات</span>
+              </div>
+              <button 
+                onClick={() => setLabelManagerOpen(true)}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-secondary rounded-md transition-colors"
+              >
+                فتح نافذة التحكم في التصنيفات
+              </button>
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
+
+      <LabelManager 
+        open={labelManagerOpen}
+        onOpenChange={setLabelManagerOpen}
+        tenantId={tenantId}
+        onLabelsChanged={handleLabelsChanged}
+      />
     </div>
   );
 };
