@@ -97,7 +97,7 @@ export function useConversations(tenantId?: string | null, module: string = 'con
   const openedInboundRef = useRef<Set<string>>(new Set());
   const readStatusRef = useRef<Map<string, number>>(new Map()); // Track last read message timestamp
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
-
+  const listRequestIdRef = useRef(0);
   // Load conversation list (lightweight - no messages)
   const loadList = useCallback(async () => {
     // CRITICAL: Don't fetch if tenantId is required but not yet available
