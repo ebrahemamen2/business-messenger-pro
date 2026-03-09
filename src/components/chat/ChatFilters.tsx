@@ -1,6 +1,9 @@
-import { Tag } from 'lucide-react';
+import { Tag, Settings } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import LabelManager from './LabelManager';
+import type { ChatConversation } from '@/hooks/useConversations';
 
 export type ChatFilter = 'all' | 'unread' | 'no_reply' | `label:${string}`;
 
@@ -14,6 +17,7 @@ interface ChatFiltersProps {
   activeFilter: ChatFilter;
   onFilterChange: (f: ChatFilter) => void;
   tenantId?: string | null;
+  conversations?: ChatConversation[];
 }
 
 const baseFilters: { value: ChatFilter; label: string }[] = [
