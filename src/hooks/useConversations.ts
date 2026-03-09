@@ -97,15 +97,13 @@ export function useConversations(tenantId?: string | null, module: string = 'con
   const openedInboundRef = useRef<Set<string>>(new Set());
   const readStatusRef = useRef<Map<string, number>>(new Map()); // Track last read message timestamp
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
-
+  const listRequestIdRef = useRef(0);
   // Load conversation list (lightweight - no messages)
   const loadList = useCallback(async () => {
-    // CRITICAL: Don't fetch if tenantId is required but not yet available
-    if (!tenantId) {
-      setConversations([]);
-      setLoading(false);
-      return;
-    }
+    // Don't fetch until tenantId is available (prevents cross-tenant flashes)
+    if (!tenantId) return;
+
+    const reqId = ++listRequestIdRef.current;
 
     try {
       let convsQuery = supabase.from('conversations').select('*').eq('module', module).order('last_message_at', { ascending: false });
@@ -252,6 +250,8 @@ export function useConversations(tenantId?: string | null, module: string = 'con
         }
       }
     }
+
+    if (reqId !== listRequestIdRef.current) return;
 
     setConversations((prev) => {
       // Preserve loaded messages for the selected conversation
@@ -404,22 +404,24 @@ export function useConversations(tenantId?: string | null, module: string = 'con
   }, [loadList]);
 
   useEffect(() => {
+    if (!tenantId) return;
+
     loadList();
 
     const channel = supabase
-      .channel('messages-realtime')
+      .channel(`messages-realtime:${tenantId}:${module}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
         const newMsg = payload.new as any;
 
         if (tenantId && newMsg.tenant_id && newMsg.tenant_id !== tenantId) return;
 
         const phone = normalizePhone(newMsg.contact_phone);
-        
+
         // If it's the selected conversation and it's an inbound message, keep it read
         if (phone === selectedPhoneRef.current && openedInboundRef.current.has(phone)) {
           readStatusRef.current.set(phone, new Date(newMsg.created_at).getTime());
         }
-        
+
         loadList();
         if (phone === selectedPhoneRef.current) loadMessages(phone, true);
       })
@@ -436,7 +438,7 @@ export function useConversations(tenantId?: string | null, module: string = 'con
       supabase.removeChannel(channel);
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [loadList, loadMessages]);
+  }, [tenantId, module, loadList, loadMessages]);
 
   return {
     conversations,
