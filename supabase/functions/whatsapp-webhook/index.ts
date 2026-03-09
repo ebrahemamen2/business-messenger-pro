@@ -252,19 +252,24 @@ Deno.serve(async (req) => {
     let eventType = "status";
     const errors: string[] = [];
 
-    // Load config and rules once
-    const { data: config } = await supabase
-      .from("wa_config")
-      .select("*")
-      .limit(1)
-      .single();
+    // Load config — resolve tenant from phone_number_id in the webhook payload
+    const phoneNumberId = entries?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id;
+
+    let configQuery = supabase.from("wa_config").select("*");
+    if (phoneNumberId) {
+      configQuery = configQuery.eq("phone_number_id", phoneNumberId);
+    }
+    const { data: config } = await configQuery.order("updated_at", { ascending: false }).limit(1).single();
 
     let rules: Array<{ trigger_keyword: string; response_text: string }> = [];
     if (config?.access_token && config?.phone_number_id) {
-      const { data } = await supabase
+      let rulesQuery = supabase
         .from("auto_reply_rules")
         .select("trigger_keyword, response_text")
         .eq("is_active", true);
+      if (config.tenant_id) rulesQuery = rulesQuery.eq("tenant_id", config.tenant_id);
+      if (config.module) rulesQuery = rulesQuery.eq("module", config.module);
+      const { data } = await rulesQuery;
       rules = data || [];
     }
 
