@@ -26,8 +26,9 @@ const baseFilters: { value: ChatFilter; label: string }[] = [
   { value: 'no_reply', label: 'لم يتم الرد' },
 ];
 
-const ChatFilters = ({ activeFilter, onFilterChange, tenantId }: ChatFiltersProps) => {
+const ChatFilters = ({ activeFilter, onFilterChange, tenantId, conversations = [] }: ChatFiltersProps) => {
   const [labels, setLabels] = useState<LabelOption[]>([]);
+  const [labelManagerOpen, setLabelManagerOpen] = useState(false);
 
   useEffect(() => {
     const loadLabels = async () => {
@@ -38,6 +39,22 @@ const ChatFilters = ({ activeFilter, onFilterChange, tenantId }: ChatFiltersProp
     };
     loadLabels();
   }, [tenantId]);
+
+  // Only show labels that are actually used in conversations
+  const labelsWithConversations = labels.filter(label => 
+    conversations.some(conv => conv.labels.some(l => l.id === label.id))
+  );
+
+  const handleLabelsChanged = () => {
+    // Reload labels and inform parent to reload conversations
+    const loadLabels = async () => {
+      let query = supabase.from('conversation_labels').select('*').order('name');
+      if (tenantId) query = query.eq('tenant_id', tenantId);
+      const { data } = await query;
+      setLabels(data || []);
+    };
+    loadLabels();
+  };
 
   return (
     <div className="px-3 py-2 border-b border-border space-y-2">
