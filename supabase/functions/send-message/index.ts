@@ -138,7 +138,45 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (mediaUrl && mediaType) {
+    // Handle direct base64 audio upload (voice messages)
+    if (audioBase64 && audioMime) {
+      // Decode base64 to binary
+      const binaryStr = atob(audioBase64);
+      const bytes = new Uint8Array(binaryStr.length);
+      for (let i = 0; i < binaryStr.length; i++) {
+        bytes[i] = binaryStr.charCodeAt(i);
+      }
+
+      // Determine safe mime type for WhatsApp
+      const baseMime = audioMime.split(';')[0].trim();
+      const whatsappMime = ['audio/ogg', 'audio/mpeg', 'audio/amr', 'audio/mp4', 'audio/aac'].includes(baseMime) 
+        ? baseMime 
+        : 'audio/ogg';
+      const ext = whatsappMime === 'audio/mpeg' ? 'mp3' : whatsappMime === 'audio/mp4' ? 'm4a' : 'ogg';
+
+      const formData = new FormData();
+      formData.append('messaging_product', 'whatsapp');
+      formData.append('file', new File([bytes], `voice-${Date.now()}.${ext}`, { type: whatsappMime }));
+
+      const uploadRes = await fetch(mediaUploadUrl, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${config.access_token}` },
+        body: formData,
+      });
+
+      const uploadResult = await uploadRes.json();
+      if (!uploadRes.ok || !uploadResult?.id) {
+        return json({ error: "WhatsApp media upload error", details: uploadResult }, uploadRes.status || 400);
+      }
+
+      waPayload.type = "audio";
+      waPayload.audio = { id: uploadResult.id };
+
+      // Store the media details for DB audit
+      storedMediaUrl = `data:${whatsappMime};base64,${audioBase64.slice(0, 50)}...`;
+      storedMediaType = whatsappMime;
+
+    } else if (mediaUrl && mediaType) {
       const mimeType = mediaType.toLowerCase();
 
       if (mimeType.startsWith("image")) {
