@@ -233,13 +233,12 @@ export function useConversations(tenantId?: string | null, module: string = 'con
           conv.unreadCount = unreadByPhone[conv.id] ?? conv.unreadCount;
           conv.lastMessageDirection = (lastDirByPhone[conv.id] as any) || conv.lastMessageDirection;
 
-          // If conversation was opened by agent and last message is still inbound,
-          // treat it as read but waiting for reply.
+          // Ensure opened conversations remain read
           if (openedInboundRef.current.has(conv.id)) {
-            if (conv.lastMessageDirection === 'inbound') {
-              conv.unreadCount = 0;
-            } else {
-              openedInboundRef.current.delete(conv.id);
+            conv.unreadCount = 0;
+            // Update read timestamp for this conversation
+            if (conv.lastMessageTime) {
+              readStatusRef.current.set(conv.id, new Date(conv.lastMessageTime).getTime());
             }
           }
         }
