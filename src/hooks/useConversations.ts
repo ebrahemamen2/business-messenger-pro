@@ -269,6 +269,10 @@ export function useConversations(tenantId?: string | null, module: string = 'con
       return next;
     });
     setLoading(false);
+    } catch (err) {
+      console.error('Error loading conversations:', err);
+      setLoading(false);
+    }
   }, [tenantId, module]);
 
   // Load messages for a specific conversation (by phone)
