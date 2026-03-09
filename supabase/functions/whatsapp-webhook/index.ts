@@ -149,6 +149,58 @@ function extractMediaInfo(message: any): { id?: string; type?: string; mimeType?
   return {};
 }
 
+async function upsertConversationFromMessage(params: {
+  supabase: any;
+  contactPhone: string;
+  tenantId: string | null;
+  module: string;
+  direction: "inbound" | "outbound";
+  atIso: string;
+}) {
+  const { supabase, contactPhone, tenantId, module, direction, atIso } = params;
+
+  let lookup = supabase
+    .from("conversations")
+    .select("id, unread_count")
+    .eq("contact_phone", contactPhone)
+    .eq("module", module)
+    .limit(1);
+
+  lookup = tenantId ? lookup.eq("tenant_id", tenantId) : lookup.is("tenant_id", null);
+
+  const { data: existingConv, error: lookupErr } = await lookup.maybeSingle();
+  if (lookupErr) throw lookupErr;
+
+  if (existingConv) {
+    const nextUnread = direction === "inbound" ? (existingConv.unread_count || 0) + 1 : 0;
+    const { error: updateErr } = await supabase
+      .from("conversations")
+      .update({
+        last_message_at: atIso,
+        updated_at: atIso,
+        unread_count: nextUnread,
+      })
+      .eq("id", existingConv.id);
+
+    if (updateErr) throw updateErr;
+    return;
+  }
+
+  const unreadCount = direction === "inbound" ? 1 : 0;
+  const { error: insertErr } = await supabase.from("conversations").insert({
+    contact_phone: contactPhone,
+    tenant_id: tenantId,
+    module,
+    status: "open",
+    unread_count: unreadCount,
+    last_message_at: atIso,
+    created_at: atIso,
+    updated_at: atIso,
+  });
+
+  if (insertErr) throw insertErr;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -295,6 +347,8 @@ Deno.serve(async (req) => {
               console.log("Media stored:", storedMediaUrl ? "success" : "failed", media.type);
             }
 
+            const inboundAt = new Date().toISOString();
+
             // Insert message
             const { error: insertErr } = await supabase.from("messages").insert({
               wa_message_id: message.id,
@@ -306,6 +360,7 @@ Deno.serve(async (req) => {
               media_url: storedMediaUrl,
               media_type: storedMediaType,
               tenant_id: config?.tenant_id || null,
+              created_at: inboundAt,
             });
 
             if (insertErr) {
@@ -319,6 +374,15 @@ Deno.serve(async (req) => {
               { phone: contactPhone, name: contactName, tenant_id: config?.tenant_id || null },
               { onConflict: "phone" }
             );
+
+            await upsertConversationFromMessage({
+              supabase,
+              contactPhone,
+              tenantId: config?.tenant_id || null,
+              module: config?.module || "confirm",
+              direction: "inbound",
+              atIso: inboundAt,
+            });
 
             totalMessages += 1;
 
@@ -366,7 +430,8 @@ Deno.serve(async (req) => {
                   const waResult = await res.json();
                   console.log("Auto-reply sent:", JSON.stringify(waResult));
 
-                  await supabase.from("messages").insert({
+                  const outboundAt = new Date().toISOString();
+                  const { error: autoInsertErr } = await supabase.from("messages").insert({
                     wa_message_id: waResult.messages?.[0]?.id,
                     contact_phone: contactPhone,
                     contact_name: contactName,
@@ -374,7 +439,22 @@ Deno.serve(async (req) => {
                     body: autoResponse,
                     status: "sent",
                     tenant_id: config?.tenant_id || null,
+                    created_at: outboundAt,
                   });
+
+                  if (autoInsertErr) {
+                    console.error("Auto-reply save error:", autoInsertErr.message);
+                    errors.push(`auto_reply_insert: ${autoInsertErr.message}`);
+                  } else {
+                    await upsertConversationFromMessage({
+                      supabase,
+                      contactPhone,
+                      tenantId: config?.tenant_id || null,
+                      module: config?.module || "confirm",
+                      direction: "outbound",
+                      atIso: outboundAt,
+                    });
+                  }
                 } catch (replyErr) {
                   console.error("Auto-reply error:", replyErr);
                   errors.push(`auto_reply: ${replyErr}`);

@@ -61,6 +61,70 @@ async function convertAudioIfNeeded(params: {
   }
 }
 
+async function upsertConversationAfterOutbound(params: {
+  supabase: any;
+  contactPhone: string;
+  tenantId: string | null;
+  module: string;
+  atIso: string;
+  conversationId?: string | null;
+}) {
+  const { supabase, contactPhone, tenantId, module, atIso, conversationId } = params;
+
+  if (conversationId) {
+    const { error } = await supabase
+      .from("conversations")
+      .update({
+        last_message_at: atIso,
+        unread_count: 0,
+        updated_at: atIso,
+      })
+      .eq("id", conversationId);
+
+    if (error) throw error;
+    return;
+  }
+
+  let lookup = supabase
+    .from("conversations")
+    .select("id")
+    .eq("contact_phone", contactPhone)
+    .eq("module", module)
+    .limit(1);
+
+  lookup = tenantId ? lookup.eq("tenant_id", tenantId) : lookup.is("tenant_id", null);
+
+  const { data: existing, error: lookupErr } = await lookup.maybeSingle();
+  if (lookupErr) throw lookupErr;
+
+  if (existing) {
+    const { error } = await supabase
+      .from("conversations")
+      .update({
+        last_message_at: atIso,
+        unread_count: 0,
+        updated_at: atIso,
+      })
+      .eq("id", existing.id);
+
+    if (error) throw error;
+    return;
+  }
+
+  const { error: insertErr } = await supabase.from("conversations").insert({
+    contact_phone: contactPhone,
+    tenant_id: tenantId,
+    module,
+    status: "open",
+    unread_count: 0,
+    last_message_at: atIso,
+    created_at: atIso,
+    updated_at: atIso,
+  });
+
+  if (insertErr) throw insertErr;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -243,7 +307,10 @@ Deno.serve(async (req) => {
 
     const nowIso = new Date().toISOString();
 
-    await supabase.from("messages").insert({
+    const effectiveTenantId = config.tenant_id || tenantId || null;
+    const conversationModule = module || config.module || "confirm";
+
+    const { error: messageInsertErr } = await supabase.from("messages").insert({
       wa_message_id: waResult.messages?.[0]?.id,
       contact_phone: to,
       direction: "outbound",
@@ -252,20 +319,23 @@ Deno.serve(async (req) => {
       media_url: storedMediaUrl,
       media_type: storedMediaType,
       reply_to_message_id: replyToMessageId || null,
-      tenant_id: config.tenant_id || tenantId || null,
+      tenant_id: effectiveTenantId,
       created_at: nowIso,
     });
 
-    if (conversationId) {
-      await supabase
-        .from("conversations")
-        .update({
-          last_message_at: nowIso,
-          unread_count: 0,
-          updated_at: nowIso,
-        })
-        .eq("id", conversationId);
+    if (messageInsertErr) {
+      console.error("Save outbound message error:", messageInsertErr);
+      return json({ error: "Failed to save outbound message" }, 500);
     }
+
+    await upsertConversationAfterOutbound({
+      supabase,
+      contactPhone: to,
+      tenantId: effectiveTenantId,
+      module: conversationModule,
+      atIso: nowIso,
+      conversationId,
+    });
 
     return json({ success: true, data: waResult });
   } catch (error) {
