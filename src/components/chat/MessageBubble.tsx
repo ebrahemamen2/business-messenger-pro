@@ -34,7 +34,10 @@ const MessageBubble = ({ message, onReply, allMessages = [], highlight, isHighli
       case 'sent':
         return <Check className="w-3.5 h-3.5 opacity-60" />;
       case 'pending':
+      case 'sending':
         return <Clock className="w-3.5 h-3.5 opacity-40" />;
+      case 'failed':
+        return <Ban className="w-3.5 h-3.5 text-destructive" />;
       default:
         return <Check className="w-3.5 h-3.5 opacity-40" />;
     }

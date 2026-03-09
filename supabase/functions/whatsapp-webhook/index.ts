@@ -206,6 +206,25 @@ Deno.serve(async (req) => {
           try {
             const waMessageId = statusUpdate.id;
             const newStatus = statusUpdate.status; // sent, delivered, read, failed
+
+            const recipient = typeof statusUpdate.recipient_id === "string" ? statusUpdate.recipient_id : "";
+            if (recipient) allPhones.push(normalizePhone(recipient));
+
+            // Capture Meta error details (especially for failed media)
+            const statusErrors = Array.isArray(statusUpdate.errors) ? statusUpdate.errors : [];
+            if (newStatus === "failed" && statusErrors.length) {
+              const details = statusErrors
+                .map((e: any) => {
+                  const code = e?.code ?? "";
+                  const title = e?.title ?? e?.message ?? "";
+                  const det = e?.details ?? e?.error_data?.details ?? "";
+                  return [code, title, det].filter(Boolean).join(" - ");
+                })
+                .filter(Boolean)
+                .join(" | ");
+              errors.push(`wa_failed(${waMessageId}): ${details}`);
+            }
+
             if (waMessageId && newStatus) {
               await supabase
                 .from("messages")
