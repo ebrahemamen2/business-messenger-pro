@@ -347,6 +347,8 @@ Deno.serve(async (req) => {
               console.log("Media stored:", storedMediaUrl ? "success" : "failed", media.type);
             }
 
+            const inboundAt = new Date().toISOString();
+
             // Insert message
             const { error: insertErr } = await supabase.from("messages").insert({
               wa_message_id: message.id,
@@ -358,6 +360,7 @@ Deno.serve(async (req) => {
               media_url: storedMediaUrl,
               media_type: storedMediaType,
               tenant_id: config?.tenant_id || null,
+              created_at: inboundAt,
             });
 
             if (insertErr) {
@@ -371,6 +374,15 @@ Deno.serve(async (req) => {
               { phone: contactPhone, name: contactName, tenant_id: config?.tenant_id || null },
               { onConflict: "phone" }
             );
+
+            await upsertConversationFromMessage({
+              supabase,
+              contactPhone,
+              tenantId: config?.tenant_id || null,
+              module: config?.module || "confirm",
+              direction: "inbound",
+              atIso: inboundAt,
+            });
 
             totalMessages += 1;
 
