@@ -95,6 +95,7 @@ export function useConversations(tenantId?: string | null, module: string = 'con
   const conversationsRef = useRef<ChatConversation[]>([]);
   const selectedPhoneRef = useRef<string | null>(null);
   const openedInboundRef = useRef<Set<string>>(new Set());
+  const readStatusRef = useRef<Map<string, number>>(new Map()); // Track last read message timestamp
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
 
   // Load conversation list (lightweight - no messages)
@@ -203,12 +204,25 @@ export function useConversations(tenantId?: string | null, module: string = 'con
           }
         }
 
-        // Count consecutive inbound from newest
+        // Count consecutive inbound from newest, respecting read status
         for (const [p, msgs] of Object.entries(messagesByPhone)) {
           let count = 0;
-          for (const msg of msgs) {
-            if (msg.direction === 'inbound') count++;
-            else break;
+          const lastReadTimestamp = readStatusRef.current.get(p) || 0;
+          
+          // If conversation was opened by agent, consider all messages as read
+          if (openedInboundRef.current.has(p)) {
+            count = 0;
+          } else {
+            // Count unread inbound messages
+            for (const msg of msgs) {
+              const msgTimestamp = new Date(msg.created_at).getTime();
+              if (msg.direction === 'inbound' && msgTimestamp > lastReadTimestamp) {
+                count++;
+              } else if (msg.direction === 'outbound') {
+                // If we find an outbound message, stop counting
+                break;
+              }
+            }
           }
           unreadByPhone[p] = count;
         }
@@ -219,13 +233,12 @@ export function useConversations(tenantId?: string | null, module: string = 'con
           conv.unreadCount = unreadByPhone[conv.id] ?? conv.unreadCount;
           conv.lastMessageDirection = (lastDirByPhone[conv.id] as any) || conv.lastMessageDirection;
 
-          // If conversation was opened by agent and last message is still inbound,
-          // treat it as read but waiting for reply.
+          // Ensure opened conversations remain read
           if (openedInboundRef.current.has(conv.id)) {
-            if (conv.lastMessageDirection === 'inbound') {
-              conv.unreadCount = 0;
-            } else {
-              openedInboundRef.current.delete(conv.id);
+            conv.unreadCount = 0;
+            // Update read timestamp for this conversation
+            if (conv.lastMessageTime) {
+              readStatusRef.current.set(conv.id, new Date(conv.lastMessageTime).getTime());
             }
           }
         }
@@ -286,11 +299,12 @@ export function useConversations(tenantId?: string | null, module: string = 'con
         : null;
 
     const shouldMarkAsRead = markAsRead || openedInboundRef.current.has(normalizedPhone);
-    if (shouldMarkAsRead && latestDirection === 'inbound') {
+    if (shouldMarkAsRead) {
       openedInboundRef.current.add(normalizedPhone);
-    }
-    if (latestDirection && latestDirection !== 'inbound') {
-      openedInboundRef.current.delete(normalizedPhone);
+      // Update read timestamp to latest message timestamp
+      if (latest?.created_at) {
+        readStatusRef.current.set(normalizedPhone, new Date(latest.created_at).getTime());
+      }
     }
 
     setConversations((prev) => {
@@ -360,7 +374,9 @@ export function useConversations(tenantId?: string | null, module: string = 'con
     selectedPhoneRef.current = normalized;
 
     if (normalized) {
+      // Mark as opened and read
       openedInboundRef.current.add(normalized);
+      readStatusRef.current.set(normalized, Date.now());
       loadMessages(normalized, true);
     }
   }, [loadMessages]);
@@ -386,6 +402,12 @@ export function useConversations(tenantId?: string | null, module: string = 'con
         if (tenantId && newMsg.tenant_id && newMsg.tenant_id !== tenantId) return;
 
         const phone = normalizePhone(newMsg.contact_phone);
+        
+        // If it's the selected conversation and it's an inbound message, keep it read
+        if (phone === selectedPhoneRef.current && openedInboundRef.current.has(phone)) {
+          readStatusRef.current.set(phone, new Date(newMsg.created_at).getTime());
+        }
+        
         loadList();
         if (phone === selectedPhoneRef.current) loadMessages(phone, true);
       })
