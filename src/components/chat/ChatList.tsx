@@ -73,6 +73,7 @@ const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادث
   }, [filtered]);
 
   useEffect(() => {
+    if (!autoSelect) return;
     if (filteredAndSorted.length === 0) return;
     // Only auto-select first conversation for 'all' filter or when no selection exists
     if (!selectedId) {
@@ -80,7 +81,7 @@ const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادث
     } else if (filter === 'all' && !filteredAndSorted.some((c) => c.id === selectedId)) {
       onSelect(filteredAndSorted[0].id);
     }
-  }, [selectedId, filteredAndSorted, onSelect, filter]);
+  }, [selectedId, filteredAndSorted, onSelect, filter, autoSelect]);
 
   return (
     <div className={`h-full border-r border-border flex flex-col bg-card flex-shrink-0 ${fullWidth ? 'w-full' : 'w-[340px]'}`}>
