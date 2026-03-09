@@ -36,7 +36,7 @@ function toTimestamp(value?: string | null): number {
   return Number.isNaN(ts) ? 0 : ts;
 }
 
-const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادثات', tenantId, fullWidth }: ChatListProps) => {
+const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادثات', tenantId, fullWidth, autoSelect = true }: ChatListProps) => {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<ChatFilter>('all');
 
