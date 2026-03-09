@@ -251,6 +251,8 @@ export function useConversations(tenantId?: string | null, module: string = 'con
       }
     }
 
+    if (reqId !== listRequestIdRef.current) return;
+
     setConversations((prev) => {
       // Preserve loaded messages for the selected conversation
       const next = convs.map((newConv) => {
