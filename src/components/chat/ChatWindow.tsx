@@ -237,6 +237,7 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
         return null;
       });
       toast({ title: '✅ تم الإرسال (قيد التأكيد)' });
+    } catch (err) {
       toast({ title: '❌ خطأ', description: err instanceof Error ? err.message : 'فشل رفع الملف', variant: 'destructive' });
     } finally {
       setUploading(false);
