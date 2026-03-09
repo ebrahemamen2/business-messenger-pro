@@ -100,12 +100,10 @@ export function useConversations(tenantId?: string | null, module: string = 'con
   const listRequestIdRef = useRef(0);
   // Load conversation list (lightweight - no messages)
   const loadList = useCallback(async () => {
-    // CRITICAL: Don't fetch if tenantId is required but not yet available
-    if (!tenantId) {
-      setConversations([]);
-      setLoading(false);
-      return;
-    }
+    // Don't fetch until tenantId is available (prevents cross-tenant flashes)
+    if (!tenantId) return;
+
+    const reqId = ++listRequestIdRef.current;
 
     try {
       let convsQuery = supabase.from('conversations').select('*').eq('module', module).order('last_message_at', { ascending: false });
