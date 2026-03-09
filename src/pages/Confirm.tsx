@@ -74,6 +74,7 @@ const Confirm = () => {
                   title="محادثات التأكيد"
                   tenantId={currentTenant?.id}
                   fullWidth
+                  autoSelect={false}
                 />
               ) : selected ? (
                 /* Chat window with back button */

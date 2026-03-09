@@ -11,6 +11,7 @@ interface ChatListProps {
   title?: string;
   tenantId?: string | null;
   fullWidth?: boolean;
+  autoSelect?: boolean;
 }
 
 function normalizeForSearch(text: string): string {
@@ -35,7 +36,7 @@ function toTimestamp(value?: string | null): number {
   return Number.isNaN(ts) ? 0 : ts;
 }
 
-const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادثات', tenantId, fullWidth }: ChatListProps) => {
+const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادثات', tenantId, fullWidth, autoSelect = true }: ChatListProps) => {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<ChatFilter>('all');
 
@@ -72,6 +73,7 @@ const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادث
   }, [filtered]);
 
   useEffect(() => {
+    if (!autoSelect) return;
     if (filteredAndSorted.length === 0) return;
     // Only auto-select first conversation for 'all' filter or when no selection exists
     if (!selectedId) {
@@ -79,7 +81,7 @@ const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادث
     } else if (filter === 'all' && !filteredAndSorted.some((c) => c.id === selectedId)) {
       onSelect(filteredAndSorted[0].id);
     }
-  }, [selectedId, filteredAndSorted, onSelect, filter]);
+  }, [selectedId, filteredAndSorted, onSelect, filter, autoSelect]);
 
   return (
     <div className={`h-full border-r border-border flex flex-col bg-card flex-shrink-0 ${fullWidth ? 'w-full' : 'w-[340px]'}`}>

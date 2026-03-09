@@ -71,6 +71,7 @@ const FollowUp = () => {
                   title="محادثات المتابعة"
                   tenantId={currentTenant?.id}
                   fullWidth
+                  autoSelect={false}
                 />
               ) : selected ? (
                 <div className="flex flex-col h-full">
