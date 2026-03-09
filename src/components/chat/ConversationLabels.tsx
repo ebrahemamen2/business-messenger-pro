@@ -68,7 +68,7 @@ const ConversationLabels = ({ conversationId, tenantId, initialLabels = [], onLa
   };
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <Tag className="w-3.5 h-3.5 text-muted-foreground" />
@@ -79,53 +79,82 @@ const ConversationLabels = ({ conversationId, tenantId, initialLabels = [], onLa
         </button>
       </div>
 
-      {showAdd && (
-        <div className="flex gap-1.5 items-center">
-          <Input
-            placeholder="اسم التصنيف"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            className="text-xs h-7 flex-1"
-            onKeyDown={(e) => e.key === 'Enter' && createLabel()}
-          />
-          <div className="flex gap-0.5">
-            {PRESET_COLORS.map((c) => (
+      {/* Assigned Labels Display */}
+      {assignedLabels.length > 0 && (
+        <div className="space-y-1">
+          <span className="text-[10px] text-muted-foreground">التصنيفات المحددة:</span>
+          <div className="flex flex-wrap gap-1.5">
+            {assignedLabels.map((label) => (
               <button
-                key={c}
-                onClick={() => setNewColor(c)}
-                className={`w-4 h-4 rounded-full border-2 ${newColor === c ? 'border-foreground' : 'border-transparent'}`}
-                style={{ backgroundColor: c }}
-              />
+                key={label.id}
+                onClick={() => toggleLabel(label)}
+                className="px-2 py-0.5 rounded-full text-[10px] font-medium transition-all border flex items-center gap-1"
+                style={{
+                  backgroundColor: label.color + '25',
+                  borderColor: label.color,
+                  color: label.color,
+                }}
+              >
+                {label.name}
+                <X className="w-2.5 h-2.5" />
+              </button>
             ))}
           </div>
         </div>
       )}
 
-      <div className="flex flex-wrap gap-1.5">
-        {allLabels.length === 0 && !showAdd && (
-          <p className="text-[10px] text-muted-foreground">لا توجد تصنيفات - اضغط + لإنشاء</p>
+      {showAdd && (
+        <div className="space-y-2 p-2 bg-secondary/50 rounded-lg">
+          <div className="flex gap-1.5 items-center">
+            <Input
+              placeholder="اسم التصنيف الجديد"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              className="text-xs h-7 flex-1"
+              onKeyDown={(e) => e.key === 'Enter' && createLabel()}
+            />
+            <div className="flex gap-0.5">
+              {PRESET_COLORS.slice(0, 4).map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setNewColor(c)}
+                  className={`w-4 h-4 rounded-full border-2 ${newColor === c ? 'border-foreground' : 'border-transparent'}`}
+                  style={{ backgroundColor: c }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Available Labels */}
+      {allLabels.length > 0 && (
+        <div className="space-y-1">
+          <span className="text-[10px] text-muted-foreground">التصنيفات المتاحة:</span>
+          <div className="flex flex-wrap gap-1.5">
+            {allLabels
+              .filter(label => !assignedLabels.some(al => al.id === label.id))
+              .map((label) => (
+                <button
+                  key={label.id}
+                  onClick={() => toggleLabel(label)}
+                  className="px-2 py-0.5 rounded-full text-[10px] font-medium transition-all border opacity-50 hover:opacity-80"
+                  style={{
+                    backgroundColor: 'transparent',
+                    borderColor: label.color,
+                    color: label.color,
+                  }}
+                >
+                  {label.name}
+                </button>
+              ))
+            }
+          </div>
         )}
-        {allLabels.map((label) => {
-          const isAssigned = assignedLabels.some((l) => l.id === label.id);
-          return (
-            <button
-              key={label.id}
-              onClick={() => toggleLabel(label)}
-              className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition-all border ${
-                isAssigned ? 'opacity-100' : 'opacity-50 hover:opacity-80'
-              }`}
-              style={{
-                backgroundColor: isAssigned ? label.color + '25' : 'transparent',
-                borderColor: label.color,
-                color: label.color,
-              }}
-            >
-              {label.name}
-              {isAssigned && <X className="w-2.5 h-2.5 inline ml-1" />}
-            </button>
-          );
-        })}
-      </div>
+
+      {allLabels.length === 0 && !showAdd && (
+        <p className="text-[10px] text-muted-foreground">لا توجد تصنيفات - اضغط + لإنشاء</p>
+      )}
     </div>
   );
 };
