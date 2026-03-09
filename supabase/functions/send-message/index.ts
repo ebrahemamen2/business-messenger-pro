@@ -247,7 +247,7 @@ Deno.serve(async (req) => {
       wa_message_id: waResult.messages?.[0]?.id,
       contact_phone: to,
       direction: "outbound",
-      body: message || (audioBase64 ? "[رسالة صوتية]" : (mediaUrl ? "[مرفق]" : "")),
+      body: message || (mediaUrl && mediaType?.startsWith('audio') ? "[رسالة صوتية]" : (mediaUrl ? "[مرفق]" : "")),
       status: "sent",
       media_url: storedMediaUrl,
       media_type: storedMediaType,

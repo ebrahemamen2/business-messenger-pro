@@ -244,50 +244,26 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
     }
   };
 
-  const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
-    const bytes = new Uint8Array(buffer);
-    const chunkSize = 8192;
-    let binary = '';
-
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-      const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
-      for (let j = 0; j < chunk.length; j++) {
-        binary += String.fromCharCode(chunk[j]);
-      }
-    }
-
-    return btoa(binary);
-  };
-
   const handleVoiceRecordComplete = async (file: File) => {
     setUploading(true);
     try {
-      // Convert file to base64 (chunked to avoid corruption/limits)
-      const arrayBuffer = await file.arrayBuffer();
-      const base64Audio = arrayBufferToBase64(arrayBuffer);
+      // Upload voice file to storage (same as other files)
+      const ext = file.name.split('.').pop() || 'ogg';
+      const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from('chat-attachments').upload(path, file, {
+        contentType: file.type || 'audio/ogg',
+        upsert: false,
+      });
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage.from('chat-attachments').getPublicUrl(path);
 
-      const res = await fetch(
-        `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/send-message`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            to: conversation.contact.phone,
-            message: '',
-            audioBase64: base64Audio,
-            audioMime: file.type,
-            tenantId: tenantId || undefined,
-            module,
-            conversationId: conversationDbId || undefined,
-          }),
-        }
-      );
-
-      const payload = await res.json().catch(() => null);
-      if (!res.ok) {
-        const details = payload?.details?.error_data?.details || payload?.details?.message || payload?.error || 'Failed to send';
-        throw new Error(details);
-      }
+      // Send voice message
+      await sendToWhatsApp({
+        message: '[رسالة صوتية]',
+        mediaUrl: publicUrl,
+        mediaType: file.type || 'audio/ogg',
+        replyToMessageId: replyTo?.id || undefined,
+      });
 
       // Add optimistic message
       const optimisticMsg: ChatMessage = {
@@ -297,9 +273,11 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
         rawTimestamp: new Date().toISOString(),
         sender: 'agent' as const,
         status: 'sent',
-        mediaType: file.type,
+        mediaType: file.type || 'audio/ogg',
+        mediaUrl: publicUrl,
       };
       setOptimisticMessages(prev => [...prev, optimisticMsg]);
+      setReplyTo(null);
 
       toast({ title: '✅ تم إرسال الرسالة الصوتية' });
     } catch (err) {
