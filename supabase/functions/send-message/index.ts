@@ -123,6 +123,10 @@ Deno.serve(async (req) => {
       to,
     };
 
+    // For DB audit/debug: store the *actual* media URL/type we attempted to send
+    let storedMediaUrl: string | null = mediaUrl || null;
+    let storedMediaType: string | null = mediaType || null;
+
     if (replyToMessageId) {
       const { data: replyMsg } = await supabase
         .from("messages")
@@ -187,11 +191,15 @@ Deno.serve(async (req) => {
 
         const audioBuffer = await audioRes.arrayBuffer();
         const ext = audioExtByMime[finalAudioMime] || "bin";
+
+        // WhatsApp expects Opus voice notes as audio/ogg;codecs=opus
+        const uploadMime = finalAudioMime === "audio/ogg" ? "audio/ogg;codecs=opus" : finalAudioMime;
+
         const formData = new FormData();
         formData.append("messaging_product", "whatsapp");
         formData.append(
           "file",
-          new File([audioBuffer], `voice-${Date.now()}.${ext}`, { type: finalAudioMime }),
+          new File([audioBuffer], `voice-${Date.now()}.${ext}`, { type: uploadMime }),
         );
 
         const uploadRes = await fetch(mediaUploadUrl, {
@@ -207,6 +215,10 @@ Deno.serve(async (req) => {
 
         waPayload.type = "audio";
         waPayload.audio = { id: uploadResult.id };
+
+        // Persist the sent media details (after conversion)
+        storedMediaUrl = finalAudioUrl;
+        storedMediaType = finalAudioMime;
       } else {
         waPayload.type = "document";
         waPayload.document = { link: mediaUrl, caption: message || undefined };
@@ -237,8 +249,8 @@ Deno.serve(async (req) => {
       direction: "outbound",
       body: message || (mediaUrl ? "[مرفق]" : ""),
       status: "sent",
-      media_url: mediaUrl || null,
-      media_type: mediaType || null,
+      media_url: storedMediaUrl,
+      media_type: storedMediaType,
       reply_to_message_id: replyToMessageId || null,
       tenant_id: config.tenant_id || tenantId || null,
       created_at: nowIso,
