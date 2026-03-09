@@ -442,7 +442,10 @@ Deno.serve(async (req) => {
                     created_at: outboundAt,
                   });
 
-                  if (!autoInsertErr) {
+                  if (autoInsertErr) {
+                    console.error("Auto-reply save error:", autoInsertErr.message);
+                    errors.push(`auto_reply_insert: ${autoInsertErr.message}`);
+                  } else {
                     await upsertConversationFromMessage({
                       supabase,
                       contactPhone,
