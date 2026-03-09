@@ -73,8 +73,8 @@ Deno.serve(async (req) => {
 
     const { to, message, mediaUrl, mediaType, replyToMessageId, tenantId, module, conversationId } = await req.json();
 
-    if (!to || (!message && !mediaUrl && !audioBase64)) {
-      return json({ error: "Missing 'to' or 'message'/'mediaUrl'/'audioBase64'" }, 400);
+    if (!to || (!message && !mediaUrl)) {
+      return json({ error: "Missing 'to' or 'message'/'mediaUrl'" }, 400);
     }
 
     let configQuery = supabase
