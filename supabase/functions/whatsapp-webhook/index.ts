@@ -430,7 +430,8 @@ Deno.serve(async (req) => {
                   const waResult = await res.json();
                   console.log("Auto-reply sent:", JSON.stringify(waResult));
 
-                  await supabase.from("messages").insert({
+                  const outboundAt = new Date().toISOString();
+                  const { error: autoInsertErr } = await supabase.from("messages").insert({
                     wa_message_id: waResult.messages?.[0]?.id,
                     contact_phone: contactPhone,
                     contact_name: contactName,
@@ -438,7 +439,19 @@ Deno.serve(async (req) => {
                     body: autoResponse,
                     status: "sent",
                     tenant_id: config?.tenant_id || null,
+                    created_at: outboundAt,
                   });
+
+                  if (!autoInsertErr) {
+                    await upsertConversationFromMessage({
+                      supabase,
+                      contactPhone,
+                      tenantId: config?.tenant_id || null,
+                      module: config?.module || "confirm",
+                      direction: "outbound",
+                      atIso: outboundAt,
+                    });
+                  }
                 } catch (replyErr) {
                   console.error("Auto-reply error:", replyErr);
                   errors.push(`auto_reply: ${replyErr}`);
