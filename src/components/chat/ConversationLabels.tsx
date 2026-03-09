@@ -150,7 +150,8 @@ const ConversationLabels = ({ conversationId, tenantId, initialLabels = [], onLa
               ))
             }
           </div>
-        )}
+        </div>
+      )}
 
       {allLabels.length === 0 && !showAdd && (
         <p className="text-[10px] text-muted-foreground">لا توجد تصنيفات - اضغط + لإنشاء</p>
