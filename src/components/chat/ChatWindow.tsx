@@ -244,15 +244,27 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
     }
   };
 
+  const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
+    const bytes = new Uint8Array(buffer);
+    const chunkSize = 8192;
+    let binary = '';
+
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+      for (let j = 0; j < chunk.length; j++) {
+        binary += String.fromCharCode(chunk[j]);
+      }
+    }
+
+    return btoa(binary);
+  };
+
   const handleVoiceRecordComplete = async (file: File) => {
     setUploading(true);
     try {
-      // Convert file to base64
+      // Convert file to base64 (chunked to avoid corruption/limits)
       const arrayBuffer = await file.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
-      let binary = '';
-      uint8Array.forEach(byte => binary += String.fromCharCode(byte));
-      const base64Audio = btoa(binary);
+      const base64Audio = arrayBufferToBase64(arrayBuffer);
 
       const res = await fetch(
         `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/send-message`,
