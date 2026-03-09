@@ -57,6 +57,7 @@ const Confirm = () => {
               selectedId={selectedId}
               onSelect={handleSelect}
               title="محادثات التأكيد"
+              tenantId={currentTenant?.id}
             />
             {selected ? (
               <>
