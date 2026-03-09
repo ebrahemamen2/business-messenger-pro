@@ -16,13 +16,25 @@ function normalizePhone(phone: string): string {
 
 /** Extract message body from any message type */
 function extractBody(message: any): string {
+  // Handle text messages (most common)
   if (message.text?.body) return message.text.body;
+  
+  // Handle interactive messages (buttons, lists, etc.)
   if (message.interactive?.button_reply?.title) return message.interactive.button_reply.title;
   if (message.interactive?.list_reply?.title) return message.interactive.list_reply.title;
   if (message.button?.text) return message.button.text;
+  
+  // Handle reactions
+  if (message.type === 'reaction') {
+    return message.reaction?.emoji ? message.reaction.emoji : "[إزالة تفاعل]";
+  }
+  
+  // Handle media with captions first
   if (message.image?.caption) return message.image.caption;
   if (message.video?.caption) return message.video.caption;
   if (message.document?.caption) return message.document.caption;
+  
+  // Handle media without captions
   if (message.image) return "[صورة]";
   if (message.video) return "[فيديو]";
   if (message.audio) return "[صوت]";
@@ -30,6 +42,17 @@ function extractBody(message: any): string {
   if (message.sticker) return "[ملصق]";
   if (message.location) return "[موقع]";
   if (message.contacts) return "[جهة اتصال]";
+  
+  // Handle newer message types
+  if (message.order) return "[طلب من الكتالوج]";
+  if (message.system) return "[رسالة نظام]";
+  
+  // Handle messages with 'type' field but no specific handler
+  if (message.type && !['text', 'image', 'video', 'audio', 'document', 'sticker', 'location', 'contacts'].includes(message.type)) {
+    return `[رسالة غير مدعومة: ${message.type}]`;
+  }
+  
+  // Fallback for completely unknown message structures
   return "[رسالة]";
 }
 
