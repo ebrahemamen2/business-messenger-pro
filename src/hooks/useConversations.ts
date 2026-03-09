@@ -402,6 +402,12 @@ export function useConversations(tenantId?: string | null, module: string = 'con
         if (tenantId && newMsg.tenant_id && newMsg.tenant_id !== tenantId) return;
 
         const phone = normalizePhone(newMsg.contact_phone);
+        
+        // If it's the selected conversation and it's an inbound message, keep it read
+        if (phone === selectedPhoneRef.current && openedInboundRef.current.has(phone)) {
+          readStatusRef.current.set(phone, new Date(newMsg.created_at).getTime());
+        }
+        
         loadList();
         if (phone === selectedPhoneRef.current) loadMessages(phone, true);
       })
