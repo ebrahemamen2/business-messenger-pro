@@ -55,6 +55,7 @@ const FollowUp = () => {
               selectedId={selectedId}
               onSelect={handleSelect}
               title="محادثات المتابعة"
+              tenantId={currentTenant?.id}
             />
             {selected ? (
               <>
