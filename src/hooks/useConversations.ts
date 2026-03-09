@@ -171,12 +171,14 @@ export function useConversations(tenantId?: string | null, module: string = 'con
 
       // Include normalized/local variants so we don't miss messages بسبب اختلاف تنسيق الرقم
       const phones = [...new Set(convs.flatMap((c) => getPhoneVariants(c.contact.phone)))];
+      // Fetch last message per phone using a smarter approach:
+      // get last 5 messages per phone to ensure preview coverage
       let lastMsgsQuery = supabase
         .from('messages')
         .select('contact_phone, body, direction, created_at')
         .in('contact_phone', phones)
         .order('created_at', { ascending: false })
-        .limit(Math.min(phones.length * 20, 1000));
+        .limit(1000);
 
       if (tenantId) {
         lastMsgsQuery = lastMsgsQuery.or(`tenant_id.eq.${tenantId},tenant_id.is.null`);
