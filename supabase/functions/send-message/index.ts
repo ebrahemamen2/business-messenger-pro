@@ -191,11 +191,15 @@ Deno.serve(async (req) => {
 
         const audioBuffer = await audioRes.arrayBuffer();
         const ext = audioExtByMime[finalAudioMime] || "bin";
+
+        // WhatsApp expects Opus voice notes as audio/ogg;codecs=opus
+        const uploadMime = finalAudioMime === "audio/ogg" ? "audio/ogg;codecs=opus" : finalAudioMime;
+
         const formData = new FormData();
         formData.append("messaging_product", "whatsapp");
         formData.append(
           "file",
-          new File([audioBuffer], `voice-${Date.now()}.${ext}`, { type: finalAudioMime }),
+          new File([audioBuffer], `voice-${Date.now()}.${ext}`, { type: uploadMime }),
         );
 
         const uploadRes = await fetch(mediaUploadUrl, {
@@ -211,6 +215,10 @@ Deno.serve(async (req) => {
 
         waPayload.type = "audio";
         waPayload.audio = { id: uploadResult.id };
+
+        // Persist the sent media details (after conversion)
+        storedMediaUrl = finalAudioUrl;
+        storedMediaType = finalAudioMime;
       } else {
         waPayload.type = "document";
         waPayload.document = { link: mediaUrl, caption: message || undefined };
