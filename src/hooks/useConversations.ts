@@ -404,22 +404,24 @@ export function useConversations(tenantId?: string | null, module: string = 'con
   }, [loadList]);
 
   useEffect(() => {
+    if (!tenantId) return;
+
     loadList();
 
     const channel = supabase
-      .channel('messages-realtime')
+      .channel(`messages-realtime:${tenantId}:${module}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
         const newMsg = payload.new as any;
 
         if (tenantId && newMsg.tenant_id && newMsg.tenant_id !== tenantId) return;
 
         const phone = normalizePhone(newMsg.contact_phone);
-        
+
         // If it's the selected conversation and it's an inbound message, keep it read
         if (phone === selectedPhoneRef.current && openedInboundRef.current.has(phone)) {
           readStatusRef.current.set(phone, new Date(newMsg.created_at).getTime());
         }
-        
+
         loadList();
         if (phone === selectedPhoneRef.current) loadMessages(phone, true);
       })
@@ -436,7 +438,7 @@ export function useConversations(tenantId?: string | null, module: string = 'con
       supabase.removeChannel(channel);
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [loadList, loadMessages]);
+  }, [tenantId, module, loadList, loadMessages]);
 
   return {
     conversations,
