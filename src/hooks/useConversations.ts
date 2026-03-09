@@ -204,12 +204,25 @@ export function useConversations(tenantId?: string | null, module: string = 'con
           }
         }
 
-        // Count consecutive inbound from newest
+        // Count consecutive inbound from newest, respecting read status
         for (const [p, msgs] of Object.entries(messagesByPhone)) {
           let count = 0;
-          for (const msg of msgs) {
-            if (msg.direction === 'inbound') count++;
-            else break;
+          const lastReadTimestamp = readStatusRef.current.get(p) || 0;
+          
+          // If conversation was opened by agent, consider all messages as read
+          if (openedInboundRef.current.has(p)) {
+            count = 0;
+          } else {
+            // Count unread inbound messages
+            for (const msg of msgs) {
+              const msgTimestamp = new Date(msg.created_at).getTime();
+              if (msg.direction === 'inbound' && msgTimestamp > lastReadTimestamp) {
+                count++;
+              } else if (msg.direction === 'outbound') {
+                // If we find an outbound message, stop counting
+                break;
+              }
+            }
           }
           unreadByPhone[p] = count;
         }
