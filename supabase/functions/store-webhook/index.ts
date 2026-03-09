@@ -105,7 +105,8 @@ Deno.serve(async (req) => {
     const typeLabel = MESSAGE_TYPE_LABELS[message_type] || message_type || "";
     const bodyText = message_content;
 
-    // --- Save message as direction='store' ---
+    // --- Save message as direction='store' (fallback to outbound if legacy constraint exists) ---
+    const messageCreatedAt = timestamp ? new Date(timestamp).toISOString() : new Date().toISOString();
     const messageData: Record<string, any> = {
       contact_phone: normalizedPhone,
       contact_name: customer_name || null,
@@ -115,17 +116,55 @@ Deno.serve(async (req) => {
       tenant_id: config.tenant_id,
       wa_message_id: whatsapp_message_id || null,
       media_type: message_type || null,
+      created_at: messageCreatedAt,
     };
 
-    if (timestamp) {
-      messageData.created_at = new Date(timestamp).toISOString();
-    }
+    let { error: insertErr } = await supabase.from("messages").insert(messageData);
 
-    const { error: insertErr } = await supabase.from("messages").insert(messageData);
+    // Some projects still have messages_direction_check allowing only inbound/outbound
+    if (insertErr?.message?.includes("messages_direction_check")) {
+      const fallback = await supabase
+        .from("messages")
+        .insert({ ...messageData, direction: "outbound" });
+      insertErr = fallback.error;
+    }
 
     if (insertErr) {
       console.error("Insert message error:", insertErr);
       return json({ error: "Failed to store message" }, 500);
+    }
+
+    const conversationModule = config.module || "confirm";
+    let conversationLookup = supabase
+      .from("conversations")
+      .select("id")
+      .eq("contact_phone", normalizedPhone)
+      .eq("module", conversationModule)
+      .eq("tenant_id", config.tenant_id)
+      .limit(1);
+
+    const { data: existingConversation } = await conversationLookup.maybeSingle();
+
+    if (existingConversation) {
+      await supabase
+        .from("conversations")
+        .update({
+          last_message_at: messageCreatedAt,
+          updated_at: messageCreatedAt,
+          unread_count: 0,
+        })
+        .eq("id", existingConversation.id);
+    } else {
+      await supabase.from("conversations").insert({
+        contact_phone: normalizedPhone,
+        tenant_id: config.tenant_id,
+        module: conversationModule,
+        status: "open",
+        unread_count: 0,
+        last_message_at: messageCreatedAt,
+        created_at: messageCreatedAt,
+        updated_at: messageCreatedAt,
+      });
     }
 
     return json({
