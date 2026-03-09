@@ -10,6 +10,9 @@ interface VoiceRecorderProps {
 const getPreferredMimeType = () => {
   if (typeof MediaRecorder === 'undefined') return '';
   if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) return 'audio/ogg;codecs=opus';
+  // WhatsApp Web (Chrome/Edge) غالباً يدعم WebM Opus
+  if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) return 'audio/webm;codecs=opus';
+  // Safari غالباً يدعم MP4/AAC
   if (MediaRecorder.isTypeSupported('audio/mp4')) return 'audio/mp4';
   return '';
 };

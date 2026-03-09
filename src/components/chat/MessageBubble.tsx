@@ -1,4 +1,4 @@
-import { CheckCheck, Check, Clock, Store, Reply, FileText, Download } from 'lucide-react';
+import { CheckCheck, Check, Clock, Store, Reply, FileText, Download, Ban } from 'lucide-react';
 import type { ChatMessage } from '@/hooks/useConversations';
 import { useState } from 'react';
 import ImageLightbox from './ImageLightbox';
