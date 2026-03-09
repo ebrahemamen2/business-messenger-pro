@@ -95,6 +95,7 @@ export function useConversations(tenantId?: string | null, module: string = 'con
   const conversationsRef = useRef<ChatConversation[]>([]);
   const selectedPhoneRef = useRef<string | null>(null);
   const openedInboundRef = useRef<Set<string>>(new Set());
+  const readStatusRef = useRef<Map<string, number>>(new Map()); // Track last read message timestamp
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
 
   // Load conversation list (lightweight - no messages)
