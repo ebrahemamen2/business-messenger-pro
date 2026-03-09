@@ -307,7 +307,10 @@ Deno.serve(async (req) => {
 
     const nowIso = new Date().toISOString();
 
-    await supabase.from("messages").insert({
+    const effectiveTenantId = config.tenant_id || tenantId || null;
+    const conversationModule = module || config.module || "confirm";
+
+    const { error: messageInsertErr } = await supabase.from("messages").insert({
       wa_message_id: waResult.messages?.[0]?.id,
       contact_phone: to,
       direction: "outbound",
@@ -316,20 +319,23 @@ Deno.serve(async (req) => {
       media_url: storedMediaUrl,
       media_type: storedMediaType,
       reply_to_message_id: replyToMessageId || null,
-      tenant_id: config.tenant_id || tenantId || null,
+      tenant_id: effectiveTenantId,
       created_at: nowIso,
     });
 
-    if (conversationId) {
-      await supabase
-        .from("conversations")
-        .update({
-          last_message_at: nowIso,
-          unread_count: 0,
-          updated_at: nowIso,
-        })
-        .eq("id", conversationId);
+    if (messageInsertErr) {
+      console.error("Save outbound message error:", messageInsertErr);
+      return json({ error: "Failed to save outbound message" }, 500);
     }
+
+    await upsertConversationAfterOutbound({
+      supabase,
+      contactPhone: to,
+      tenantId: effectiveTenantId,
+      module: conversationModule,
+      atIso: nowIso,
+      conversationId,
+    });
 
     return json({ success: true, data: waResult });
   } catch (error) {
