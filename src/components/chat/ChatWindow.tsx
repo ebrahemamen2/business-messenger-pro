@@ -236,8 +236,7 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
         if (prev?.url) URL.revokeObjectURL(prev.url);
         return null;
       });
-      toast({ title: '✅ تم الإرسال' });
-    } catch (err) {
+      toast({ title: '✅ تم الإرسال (قيد التأكيد)' });
       toast({ title: '❌ خطأ', description: err instanceof Error ? err.message : 'فشل رفع الملف', variant: 'destructive' });
     } finally {
       setUploading(false);
