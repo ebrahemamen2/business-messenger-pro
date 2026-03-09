@@ -148,7 +148,7 @@ const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادث
                 </span>
               </div>
               <p className="text-xs text-muted-foreground truncate max-w-[200px] mt-0.5">
-                {conv.lastMessage}
+                {conv.lastMessage || conv.contact.phone}
               </p>
             </div>
           </button>
