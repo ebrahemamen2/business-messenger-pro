@@ -374,7 +374,9 @@ export function useConversations(tenantId?: string | null, module: string = 'con
     selectedPhoneRef.current = normalized;
 
     if (normalized) {
+      // Mark as opened and read
       openedInboundRef.current.add(normalized);
+      readStatusRef.current.set(normalized, Date.now());
       loadMessages(normalized, true);
     }
   }, [loadMessages]);
