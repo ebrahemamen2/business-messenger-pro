@@ -7,124 +7,96 @@ interface VoiceRecorderProps {
   disabled?: boolean;
 }
 
-const getPreferredMimeType = () => {
-  if (typeof MediaRecorder === 'undefined') return '';
-  if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) return 'audio/ogg;codecs=opus';
-  // WhatsApp Web (Chrome/Edge) غالباً يدعم WebM Opus
-  if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) return 'audio/webm;codecs=opus';
-  // Safari غالباً يدعم MP4/AAC
-  if (MediaRecorder.isTypeSupported('audio/mp4')) return 'audio/mp4';
-  return '';
-};
+const SUPPORTED_MIME_TYPES = [
+  'audio/ogg;codecs=opus',
+  'audio/ogg',
+  'audio/mp4',
+  'audio/webm;codecs=opus',
+  'audio/webm',
+];
 
-const getFileExtension = (mimeType: string) => {
-  const normalized = mimeType.toLowerCase();
-  if (normalized.includes('ogg')) return 'ogg';
-  if (normalized.includes('mp4')) return 'm4a';
-  if (normalized.includes('webm')) return 'webm';
-  return 'dat';
-};
+function getSupportedMimeType(): string {
+  for (const mime of SUPPORTED_MIME_TYPES) {
+    if (MediaRecorder.isTypeSupported(mime)) return mime;
+  }
+  return '';
+}
+
+// Map browser mime type → what we tell WhatsApp API
+function toWhatsAppMime(mime: string): string {
+  const base = mime.split(';')[0].trim();
+  if (base === 'audio/ogg') return 'audio/ogg';
+  if (base === 'audio/mp4') return 'audio/mp4';
+  // audio/webm → we send as audio/ogg, WhatsApp accepts it
+  return 'audio/ogg';
+}
 
 const VoiceRecorder = ({ onRecordComplete, onError, disabled }: VoiceRecorderProps) => {
   const [recording, setRecording] = useState(false);
   const [duration, setDuration] = useState(0);
 
   const timerRef = useRef<ReturnType<typeof setInterval>>();
-  const streamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const selectedMimeTypeRef = useRef<string>('');
-  const recordedChunksRef = useRef<BlobPart[]>([]);
-
-  const cleanupStream = () => {
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    streamRef.current = null;
-  };
+  const chunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
-      if (mediaRecorderRef.current?.state !== 'inactive') {
-        mediaRecorderRef.current.stop();
-      }
-      cleanupStream();
+      streamRef.current?.getTracks().forEach(t => t.stop());
     };
   }, []);
 
   const startRecording = async () => {
     try {
-      // Must stay directly inside user click handler for browser permissions.
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
 
-      const preferredMimeType = getPreferredMimeType();
-      if (!preferredMimeType) {
-        stream.getTracks().forEach((track) => track.stop());
-        onError?.('المتصفح الحالي لا يدعم تسجيل صوت بصيغة مدعومة. جرّب Chrome أو Edge.');
+      const mimeType = getSupportedMimeType();
+      if (!mimeType) {
+        onError?.('المتصفح لا يدعم تسجيل الصوت. استخدم Chrome أو Firefox.');
         return;
       }
 
-      selectedMimeTypeRef.current = preferredMimeType;
-      recordedChunksRef.current = [];
-
-      const recorder = new MediaRecorder(stream, { mimeType: preferredMimeType });
+      const recorder = new MediaRecorder(stream, { mimeType });
+      chunksRef.current = [];
 
       recorder.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) recordedChunksRef.current.push(e.data);
+        if (e.data.size > 0) chunksRef.current.push(e.data);
       };
 
-      recorder.onerror = () => {
-        onError?.('حدث خطأ أثناء تسجيل الصوت. جرّب مرة أخرى.');
+      recorder.onstop = () => {
+        streamRef.current?.getTracks().forEach(t => t.stop());
+        const blob = new Blob(chunksRef.current, { type: mimeType });
+
+        if (blob.size < 1000) {
+          onError?.('التسجيل كان قصير جداً أو فارغ، جرّب مرة أخرى.');
+          return;
+        }
+
+        // Always name it .ogg and tell the API audio/ogg
+        const whatsappMime = toWhatsAppMime(mimeType);
+        const ext = whatsappMime === 'audio/mp4' ? 'm4a' : 'ogg';
+        const file = new File([blob], `voice-${Date.now()}.${ext}`, { type: whatsappMime });
+        onRecordComplete(file);
       };
 
-      streamRef.current = stream;
+      recorder.start(250); // collect chunks every 250ms
       mediaRecorderRef.current = recorder;
-
-      recorder.start(250);
       setRecording(true);
       setDuration(0);
-      timerRef.current = setInterval(() => setDuration((d) => d + 1), 1000);
+      timerRef.current = setInterval(() => setDuration(d => d + 1), 1000);
     } catch {
       onError?.('تعذّر الوصول للمايكروفون. تأكد من السماح بالوصول ثم حاول مرة أخرى.');
     }
   };
 
-  const stopRecording = async () => {
-    const recorder = mediaRecorderRef.current;
-    if (!recorder || recorder.state === 'inactive') return;
-
-    setRecording(false);
+  const stopRecording = () => {
+    if (!recording || !mediaRecorderRef.current) return;
     if (timerRef.current) clearInterval(timerRef.current);
-
-    recorder.onstop = () => {
-      try {
-        const mimeType = recorder.mimeType || selectedMimeTypeRef.current || 'audio/webm';
-        const rawBlob = new Blob(recordedChunksRef.current, { type: mimeType });
-
-        if (rawBlob.size < 1024) {
-          onError?.('التسجيل كان قصير جدًا أو فارغ، جرّب مرة أخرى.');
-          return;
-        }
-
-        const ext = getFileExtension(mimeType);
-        const voiceFile = new File([rawBlob], `voice-${Date.now()}.${ext}`, { type: mimeType });
-        onRecordComplete(voiceFile);
-      } catch (error) {
-        console.error('Voice prepare failed:', error);
-        onError?.('فشل تجهيز الفويس للإرسال، جرّب مرة أخرى.');
-      } finally {
-        recordedChunksRef.current = [];
-        mediaRecorderRef.current = null;
-        selectedMimeTypeRef.current = '';
-        cleanupStream();
-      }
-    };
-
-    recorder.stop();
+    setRecording(false);
+    mediaRecorderRef.current.stop();
+    mediaRecorderRef.current = null;
   };
 
   const formatDuration = (s: number) => {
