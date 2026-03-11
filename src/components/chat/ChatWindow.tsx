@@ -542,11 +542,18 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
             <Textarea
               ref={textareaRef}
               value={message}
-              onChange={(e) => handleMessageChange(e.target.value)}
+              onChange={(e) => {
+                handleMessageChange(e.target.value);
+                // Auto-grow
+                const el = e.target;
+                el.style.height = 'auto';
+                el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+              }}
               onKeyDown={handleKeyDown}
               placeholder="اكتب رسالة... أو / للردود السريعة"
-              className="flex-1 bg-secondary border-0 text-sm min-h-[40px] max-h-[120px] resize-none py-2.5"
+              className="flex-1 bg-secondary border-0 text-sm min-h-[40px] max-h-[160px] resize-none py-2.5 overflow-y-auto"
               rows={1}
+              style={{ height: '40px' }}
             />
             {attachmentPreview ? (
               <button onClick={() => uploadAndSendFile(attachmentPreview.file, message.trim())} disabled={uploading} className="p-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 disabled:opacity-40 mb-0.5">
