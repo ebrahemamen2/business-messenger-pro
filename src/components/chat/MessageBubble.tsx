@@ -186,6 +186,12 @@ const MessageBubble = ({ message, onReply, onReact, allMessages = [], highlight,
             {isAgent && renderStatus(message.status)}
           </div>
         )}
+        {/* Emoji reactions */}
+        <MessageReactions
+          reactions={reactions}
+          onReact={(emoji) => onReact?.(message.id, emoji)}
+          isCustomer={isCustomer}
+        />
       </div>
     </div>
   );
