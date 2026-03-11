@@ -535,9 +535,11 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
                 key={msg.id}
                 message={msg}
                 onReply={handleReply}
+                onReact={handleReact}
                 allMessages={allMessages}
                 highlight={searchQuery}
                 isHighlighted={msg.id === highlightedMsgId}
+                reactions={reactions[msg.id] || {}}
               />
             );
           })}
