@@ -16,7 +16,7 @@ interface MessageBubbleProps {
   reactions?: Record<string, number>;
 }
 
-const MessageBubble = ({ message, onReply, allMessages = [], highlight, isHighlighted }: MessageBubbleProps) => {
+const MessageBubble = ({ message, onReply, onReact, allMessages = [], highlight, isHighlighted, reactions = {} }: MessageBubbleProps) => {
   const isCustomer = message.sender === 'customer';
   const isStore = message.sender === 'store';
   const isAgent = message.sender === 'agent';
