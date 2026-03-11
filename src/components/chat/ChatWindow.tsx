@@ -148,6 +148,8 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
     setMessage('');
     setReplyTo(null);
     setShowQuickReplies(false);
+    // Reset textarea height
+    if (textareaRef.current) textareaRef.current.style.height = '40px';
 
     const optimisticMsg: ChatMessage = {
       id: `optimistic-${Date.now()}`,
