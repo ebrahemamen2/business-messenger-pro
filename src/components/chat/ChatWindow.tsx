@@ -60,6 +60,7 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [hasOlder, setHasOlder] = useState(true);
+  const [reactions, setReactions] = useState<Record<string, Record<string, number>>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
