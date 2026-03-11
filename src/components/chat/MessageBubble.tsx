@@ -4,13 +4,16 @@ import { useState } from 'react';
 import ImageLightbox from './ImageLightbox';
 import FormattedText from './FormattedText';
 import AudioPlayer from './AudioPlayer';
+import MessageReactions from './MessageReactions';
 
 interface MessageBubbleProps {
   message: ChatMessage;
   onReply?: (message: ChatMessage) => void;
+  onReact?: (messageId: string, emoji: string) => void;
   allMessages?: ChatMessage[];
   highlight?: string;
   isHighlighted?: boolean;
+  reactions?: Record<string, number>;
 }
 
 const MessageBubble = ({ message, onReply, allMessages = [], highlight, isHighlighted }: MessageBubbleProps) => {
