@@ -100,6 +100,69 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
     return () => el.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Load reactions for current conversation messages
+  const loadReactions = useCallback(async (messageIds: string[]) => {
+    if (messageIds.length === 0) return;
+    const { data } = await supabase
+      .from('message_reactions')
+      .select('message_id, emoji')
+      .in('message_id', messageIds);
+    if (!data) return;
+    const map: Record<string, Record<string, number>> = {};
+    for (const r of data) {
+      if (!map[r.message_id]) map[r.message_id] = {};
+      map[r.message_id][r.emoji] = (map[r.message_id][r.emoji] || 0) + 1;
+    }
+    setReactions(map);
+  }, []);
+
+  useEffect(() => {
+    const ids = allMessages.filter(m => !m.id.startsWith('optimistic')).map(m => m.id);
+    if (ids.length > 0) loadReactions(ids);
+  }, [allMessages.length]);
+
+  const handleReact = useCallback(async (messageId: string, emoji: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Toggle: check if already reacted
+    const { data: existing } = await supabase
+      .from('message_reactions')
+      .select('id')
+      .eq('message_id', messageId)
+      .eq('emoji', emoji)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (existing) {
+      await supabase.from('message_reactions').delete().eq('id', existing.id);
+    } else {
+      await supabase.from('message_reactions').insert({
+        message_id: messageId,
+        emoji,
+        user_id: user.id,
+        tenant_id: tenantId || undefined,
+      });
+    }
+
+    // Optimistically update
+    setReactions(prev => {
+      const updated = { ...prev };
+      if (!updated[messageId]) updated[messageId] = {};
+      const current = updated[messageId][emoji] || 0;
+      if (existing) {
+        if (current <= 1) {
+          delete updated[messageId][emoji];
+        } else {
+          updated[messageId] = { ...updated[messageId], [emoji]: current - 1 };
+        }
+      } else {
+        updated[messageId] = { ...updated[messageId], [emoji]: current + 1 };
+      }
+      return updated;
+    });
+  }, [tenantId]);
+
   // Reset state on conversation change
   useEffect(() => {
     setHasOlder(true);
@@ -109,6 +172,7 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
     setReplyTo(null);
     setMessage('');
     setOptimisticMessages([]);
+    setReactions({});
     setAttachmentPreview((prev) => {
       if (prev?.url) URL.revokeObjectURL(prev.url);
       return null;
