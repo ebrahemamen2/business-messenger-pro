@@ -4,16 +4,19 @@ import { useState } from 'react';
 import ImageLightbox from './ImageLightbox';
 import FormattedText from './FormattedText';
 import AudioPlayer from './AudioPlayer';
+import MessageReactions from './MessageReactions';
 
 interface MessageBubbleProps {
   message: ChatMessage;
   onReply?: (message: ChatMessage) => void;
+  onReact?: (messageId: string, emoji: string) => void;
   allMessages?: ChatMessage[];
   highlight?: string;
   isHighlighted?: boolean;
+  reactions?: Record<string, number>;
 }
 
-const MessageBubble = ({ message, onReply, allMessages = [], highlight, isHighlighted }: MessageBubbleProps) => {
+const MessageBubble = ({ message, onReply, onReact, allMessages = [], highlight, isHighlighted, reactions = {} }: MessageBubbleProps) => {
   const isCustomer = message.sender === 'customer';
   const isStore = message.sender === 'store';
   const isAgent = message.sender === 'agent';
@@ -183,6 +186,12 @@ const MessageBubble = ({ message, onReply, allMessages = [], highlight, isHighli
             {isAgent && renderStatus(message.status)}
           </div>
         )}
+        {/* Emoji reactions */}
+        <MessageReactions
+          reactions={reactions}
+          onReact={(emoji) => onReact?.(message.id, emoji)}
+          isCustomer={isCustomer}
+        />
       </div>
     </div>
   );
