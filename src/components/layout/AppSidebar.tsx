@@ -37,8 +37,8 @@ const AppSidebar = () => {
       {tenants.length > 0 ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="w-11 h-11 rounded-xl bg-primary flex items-center justify-center mb-2 hover:bg-primary/90 transition-colors" title={currentTenant?.name}>
-              <span className="text-sm font-bold text-primary-foreground">
+            <button className="w-11 h-11 rounded-xl bg-sidebar-accent flex items-center justify-center mb-2 hover:bg-sidebar-accent/80 transition-colors" title={currentTenant?.name}>
+              <span className="text-sm font-bold text-sidebar-foreground">
                 {currentTenant?.name?.charAt(0) || 'B'}
               </span>
             </button>
