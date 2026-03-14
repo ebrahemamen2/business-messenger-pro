@@ -133,7 +133,7 @@ const AppSidebar = () => {
           <TooltipTrigger asChild>
             <button
               onClick={signOut}
-              className="w-11 h-11 rounded-xl flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-secondary transition-all duration-200"
+              className="w-11 h-11 rounded-xl flex items-center justify-center text-sidebar-foreground/70 hover:text-destructive hover:bg-sidebar-accent transition-all duration-200"
             >
               <LogOut className="w-5 h-5" />
             </button>
