@@ -671,7 +671,7 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
               onClose={() => setShowQuickReplies(false)}
             />
           )}
-          <input ref={fileInputRef} type="file" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx" className="hidden" onChange={handleFileSelect} />
+          <input ref={fileInputRef} type="file" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx" className="hidden" onChange={handleFileSelect} multiple />
           <div className="flex items-end gap-2">
             <button
               onClick={() => !windowExpired && setShowEmoji(!showEmoji)}
