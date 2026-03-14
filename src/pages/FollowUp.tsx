@@ -65,6 +65,11 @@ const FollowUp = () => {
               <span className="hidden sm:inline">المحادثات</span>
               <span className="sm:hidden">الشات</span>
             </TabsTrigger>
+            <TabsTrigger value="tracking" className="gap-1.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+              <Table2 className="w-4 h-4" />
+              <span className="hidden sm:inline">جدول المتابعة</span>
+              <span className="sm:hidden">الجدول</span>
+            </TabsTrigger>
             <TabsTrigger value="auto-reply" className="gap-1.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <Bot className="w-4 h-4" />
               <span className="hidden sm:inline">الرد التلقائي</span>
