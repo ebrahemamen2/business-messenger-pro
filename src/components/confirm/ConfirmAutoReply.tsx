@@ -10,8 +10,6 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useTenantContext } from '@/contexts/TenantContext';
 
-const MODULE = 'confirm';
-
 interface AutoReplyRule {
   id: string;
   trigger: string;
@@ -20,7 +18,12 @@ interface AutoReplyRule {
   isNew?: boolean;
 }
 
-const ConfirmAutoReply = () => {
+interface AutoReplyProps {
+  module?: string;
+  title?: string;
+}
+
+const ConfirmAutoReply = ({ module = 'confirm', title = 'قسم التأكيد' }: AutoReplyProps) => {
   const { toast } = useToast();
   const { currentTenant } = useTenantContext();
   const [rules, setRules] = useState<AutoReplyRule[]>([]);
@@ -35,11 +38,10 @@ const ConfirmAutoReply = () => {
     const load = async () => {
       setLoading(true);
 
-      // Load wa_config for welcome/away messages
+      // Load wa_config for welcome/away messages (now per-tenant, no module filter)
       let configQuery = supabase
         .from('wa_config')
         .select('*')
-        .eq('module', MODULE)
         .order('updated_at', { ascending: false })
         .limit(1);
 
@@ -55,11 +57,11 @@ const ConfirmAutoReply = () => {
         setAwayEnabled(config.away_enabled ?? false);
       }
 
-      // Load auto reply rules
+      // Load auto reply rules (module still exists on auto_reply_rules)
       let rulesQuery = supabase
         .from('auto_reply_rules')
         .select('*')
-        .eq('module', MODULE)
+        .eq('module', module)
         .order('created_at', { ascending: true });
 
       if (currentTenant?.id) {
@@ -81,7 +83,7 @@ const ConfirmAutoReply = () => {
       setLoading(false);
     };
     load();
-  }, [currentTenant?.id]);
+  }, [currentTenant?.id, module]);
 
   const toggleRule = (id: string) => {
     setRules((prev) => prev.map((r) => (r.id === id ? { ...r, enabled: !r.enabled } : r)));
@@ -109,7 +111,6 @@ const ConfirmAutoReply = () => {
       let configQuery = supabase
         .from('wa_config')
         .select('id')
-        .eq('module', MODULE)
         .order('updated_at', { ascending: false })
         .limit(1);
 
@@ -135,7 +136,7 @@ const ConfirmAutoReply = () => {
       let deleteQuery = supabase
         .from('auto_reply_rules')
         .delete()
-        .eq('module', MODULE);
+        .eq('module', module);
 
       if (currentTenant?.id) {
         deleteQuery = deleteQuery.eq('tenant_id', currentTenant.id);
@@ -152,12 +153,12 @@ const ConfirmAutoReply = () => {
             response_text: r.response,
             is_active: r.enabled,
             tenant_id: currentTenant?.id || null,
-            module: MODULE,
+            module,
           }))
         );
       }
 
-      toast({ title: '✅ تم الحفظ', description: 'تم حفظ إعدادات الرد التلقائي لقسم التأكيد' });
+      toast({ title: '✅ تم الحفظ', description: `تم حفظ إعدادات الرد التلقائي لـ ${title}` });
     } catch (err) {
       toast({ title: '❌ خطأ', description: 'حدث خطأ أثناء الحفظ', variant: 'destructive' });
     } finally {
@@ -176,9 +177,9 @@ const ConfirmAutoReply = () => {
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6 overflow-y-auto h-full">
       <div>
-        <h2 className="text-xl font-bold text-foreground">الرد التلقائي - قسم التأكيد</h2>
+        <h2 className="text-xl font-bold text-foreground">الرد التلقائي - {title}</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          إعداد الردود التلقائية الخاصة برقم التأكيد - {currentTenant?.name || 'البراند'}
+          إعداد الردود التلقائية - {currentTenant?.name || 'البراند'}
         </p>
       </div>
 
@@ -191,7 +192,7 @@ const ConfirmAutoReply = () => {
             </div>
             <div>
               <h3 className="font-semibold text-foreground text-sm">رسالة الترحيب</h3>
-              <p className="text-xs text-muted-foreground">ترسل تلقائياً للعملاء الجدد في قسم التأكيد</p>
+              <p className="text-xs text-muted-foreground">ترسل تلقائياً للعملاء الجدد</p>
             </div>
           </div>
           <Switch checked={welcomeEnabled} onCheckedChange={setWelcomeEnabled} />

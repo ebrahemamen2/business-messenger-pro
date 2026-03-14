@@ -382,6 +382,20 @@ export function useConversations(tenantId?: string | null, module: string = 'con
     loadList();
   }, [loadList]);
 
+  const moveConversation = useCallback(async (dbId: string, newModule: string) => {
+    // Optimistic: remove from current list
+    setConversations((prev) => {
+      const next = prev.filter((c) => c.dbId !== dbId);
+      conversationsRef.current = next;
+      return next;
+    });
+
+    await supabase
+      .from('conversations')
+      .update({ module: newModule })
+      .eq('id', dbId);
+  }, []);
+
   useEffect(() => {
     if (!tenantId) return;
 

@@ -5,16 +5,16 @@ import { useAuth } from '@/contexts/AuthContext';
 import ChatList from '@/components/chat/ChatList';
 import ChatWindow from '@/components/chat/ChatWindow';
 import ContactPanel from '@/components/chat/ContactPanel';
-import { CheckCircle, Loader2, MessageSquare, Bot, ArrowRight } from 'lucide-react';
+import { PackageX, Loader2, MessageSquare, Bot, ArrowRight } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import ConfirmAutoReply from '@/components/confirm/ConfirmAutoReply';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 
-const Confirm = () => {
+const LostOrders = () => {
   const { currentTenant } = useTenantContext();
   const { user } = useAuth();
-  const { conversations, loading, reload, updateStatus, updateAssignment, selectConversation, loadOlderMessages, togglePin, toggleArchive, bulkUpdateChatStatus, moveConversation } = useConversations(currentTenant?.id, 'confirm');
+  const { conversations, loading, reload, updateStatus, updateAssignment, selectConversation, loadOlderMessages, togglePin, toggleArchive, bulkUpdateChatStatus, moveConversation } = useConversations(currentTenant?.id, 'lost');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showContact, setShowContact] = useState(false);
   const isMobile = useIsMobile();
@@ -41,7 +41,7 @@ const Confirm = () => {
 
   const chatWindowProps = (conv: typeof selected) => conv ? ({
     conversation: conv,
-    module: "confirm" as const,
+    module: "lost" as const,
     tenantId: currentTenant?.id,
     conversationDbId: conv.dbId,
     onStatusChange: updateStatus,
@@ -79,7 +79,7 @@ const Confirm = () => {
                   conversations={conversations}
                   selectedId={selectedId}
                   onSelect={handleSelect}
-                  title="محادثات التأكيد"
+                  title="الطلبات المفقودة"
                   tenantId={currentTenant?.id}
                   fullWidth
                   autoSelect={false}
@@ -127,11 +127,11 @@ const Confirm = () => {
               ) : (
                 <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-4 p-8">
                   <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
-                    <CheckCircle className="w-8 h-8 text-primary" />
+                    <PackageX className="w-8 h-8 text-primary" />
                   </div>
                   <div className="text-center">
-                    <p className="font-semibold text-foreground">قسم التأكيد</p>
-                    <p className="text-sm mt-1">{conversations.length === 0 ? 'لا توجد محادثات تأكيد بعد' : 'اختر محادثة للبدء'}</p>
+                    <p className="font-semibold text-foreground">الطلبات المفقودة</p>
+                    <p className="text-sm mt-1">{conversations.length === 0 ? 'لا توجد طلبات مفقودة بعد' : 'اختر محادثة للبدء'}</p>
                   </div>
                 </div>
               )}
@@ -142,7 +142,7 @@ const Confirm = () => {
                 conversations={conversations}
                 selectedId={selectedId}
                 onSelect={handleSelect}
-                title="محادثات التأكيد"
+                title="الطلبات المفقودة"
                 tenantId={currentTenant?.id}
                 currentUserId={user?.id}
                 onBulkUpdateChatStatus={bulkUpdateChatStatus}
@@ -169,12 +169,12 @@ const Confirm = () => {
               ) : (
                 <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-4">
                   <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center">
-                    <CheckCircle className="w-10 h-10 text-primary" />
+                    <PackageX className="w-10 h-10 text-primary" />
                   </div>
                   <div className="text-center">
-                    <p className="font-semibold text-foreground text-lg">قسم التأكيد</p>
+                    <p className="font-semibold text-foreground text-lg">الطلبات المفقودة</p>
                     <p className="text-sm mt-1">
-                      {conversations.length === 0 ? 'لا توجد محادثات تأكيد بعد' : 'اختر محادثة من القائمة للبدء'}
+                      {conversations.length === 0 ? 'لا توجد طلبات مفقودة بعد' : 'اختر محادثة من القائمة للبدء'}
                     </p>
                   </div>
                 </div>
@@ -184,11 +184,11 @@ const Confirm = () => {
         </TabsContent>
 
         <TabsContent value="auto-reply" className="flex-1 m-0 overflow-hidden">
-          <ConfirmAutoReply module="confirm" title="قسم التأكيد" />
+          <ConfirmAutoReply module="lost" title="الطلبات المفقودة" />
         </TabsContent>
       </Tabs>
     </div>
   );
 };
 
-export default Confirm;
+export default LostOrders;
