@@ -64,7 +64,7 @@ const AppSidebar = () => {
 
       {/* Tenant name */}
       {currentTenant && (
-        <p className="text-[9px] text-muted-foreground text-center mb-4 max-w-[60px] truncate">
+        <p className="text-[9px] text-sidebar-foreground/60 text-center mb-4 max-w-[60px] truncate">
           {currentTenant.name}
         </p>
       )}
