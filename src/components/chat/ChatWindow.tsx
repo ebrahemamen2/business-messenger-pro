@@ -65,6 +65,8 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [windowExpired, setWindowExpired] = useState(false);
+  const [windowRemainingText, setWindowRemainingText] = useState<string | null>(null);
   const { toast } = useToast();
 
   const allMessages = [
