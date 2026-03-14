@@ -32,7 +32,10 @@ const AISettings = () => {
 
   useEffect(() => {
     const load = async () => {
-      if (!currentTenant?.id) return;
+      if (!currentTenant?.id) {
+        setLoading(false);
+        return;
+      }
       setLoading(true);
 
       const { data } = await supabase
