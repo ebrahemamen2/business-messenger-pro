@@ -150,6 +150,7 @@ const Confirm = () => {
                 title="محادثات التأكيد"
                 tenantId={currentTenant?.id}
                 currentUserId={user?.id}
+                onBulkUpdateChatStatus={bulkUpdateChatStatus}
               />
               {selected ? (
                 <>
