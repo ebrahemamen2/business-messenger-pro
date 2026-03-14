@@ -49,7 +49,7 @@ function getDateLabel(dateStr: string): string {
   return d.toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
-const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantId, conversationDbId, onStatusChange, onLoadOlder, hideHeader, allConversations = [], onTogglePin, onToggleArchive, onAssign }: ChatWindowProps) => {
+const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantId, conversationDbId, onStatusChange, onLoadOlder, hideHeader, allConversations = [], onTogglePin, onToggleArchive, onAssign, onMoveConversation }: ChatWindowProps) => {
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [showQuickReplies, setShowQuickReplies] = useState(false);
