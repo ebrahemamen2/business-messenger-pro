@@ -81,8 +81,8 @@ const AppSidebar = () => {
                   to={item.path}
                   className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 ${
                     isActive
-                      ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                      ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-lg shadow-sidebar-primary/25'
+                      : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent'
                   }`}
                 >
                   <item.icon className="w-5 h-5" />
