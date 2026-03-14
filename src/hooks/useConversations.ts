@@ -28,6 +28,8 @@ export interface ConversationLabel {
   color: string;
 }
 
+export type ChatStatusType = 'unread' | 'awaiting_reply' | 'replied';
+
 export interface ChatConversation {
   id: string;
   dbId: string | null;
@@ -36,6 +38,7 @@ export interface ChatConversation {
   lastMessage: string;
   lastMessageTime: string;
   unreadCount: number;
+  chatStatus: ChatStatusType;
   lastMessageDirection: 'inbound' | 'outbound' | null;
   status: 'open' | 'pending' | 'resolved';
   assignedTo?: string | null;
@@ -94,13 +97,11 @@ export function useConversations(tenantId?: string | null, module: string = 'con
   const [loading, setLoading] = useState(true);
   const conversationsRef = useRef<ChatConversation[]>([]);
   const selectedPhoneRef = useRef<string | null>(null);
-  const openedInboundRef = useRef<Set<string>>(new Set());
-  const readStatusRef = useRef<Map<string, number>>(new Map()); // Track last read message timestamp
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
   const listRequestIdRef = useRef(0);
+
   // Load conversation list (lightweight - no messages)
   const loadList = useCallback(async () => {
-    // Don't fetch until tenantId is available (prevents cross-tenant flashes)
     if (!tenantId) return;
 
     const reqId = ++listRequestIdRef.current;
@@ -115,160 +116,109 @@ export function useConversations(tenantId?: string | null, module: string = 'con
         contactsQuery = contactsQuery.eq('tenant_id', tenantId);
       }
 
-    const [convsRes, contactsRes, labelsRes] = await Promise.all([convsQuery, contactsQuery, labelsQuery]);
+      const [convsRes, contactsRes, labelsRes] = await Promise.all([convsQuery, contactsQuery, labelsQuery]);
 
-    const dbConvs = convsRes.data || [];
-    const contacts = contactsRes.data || [];
-    const labelAssignments = labelsRes.data || [];
+      const dbConvs = convsRes.data || [];
+      const contacts = contactsRes.data || [];
+      const labelAssignments = labelsRes.data || [];
 
-    // Index contacts by normalized phone
-    const contactByPhone: Record<string, any> = {};
-    for (const c of contacts) {
-      contactByPhone[normalizePhone(c.phone)] = c;
-    }
+      // Index contacts by normalized phone
+      const contactByPhone: Record<string, any> = {};
+      for (const c of contacts) {
+        contactByPhone[normalizePhone(c.phone)] = c;
+      }
 
-    // Index labels by conversation_id
-    const labelsByConvId: Record<string, ConversationLabel[]> = {};
-    for (const la of labelAssignments) {
-      if (!labelsByConvId[la.conversation_id]) labelsByConvId[la.conversation_id] = [];
-      const lbl = la.conversation_labels as any;
-      if (lbl) labelsByConvId[la.conversation_id].push({ id: lbl.id, name: lbl.name, color: lbl.color });
-    }
+      // Index labels by conversation_id
+      const labelsByConvId: Record<string, ConversationLabel[]> = {};
+      for (const la of labelAssignments) {
+        if (!labelsByConvId[la.conversation_id]) labelsByConvId[la.conversation_id] = [];
+        const lbl = la.conversation_labels as any;
+        if (lbl) labelsByConvId[la.conversation_id].push({ id: lbl.id, name: lbl.name, color: lbl.color });
+      }
 
-    // Deduplicate by normalized phone (keep latest per phone since ordered by last_message_at desc)
-    const seenPhones = new Set<string>();
-    const dedupedConvs = dbConvs.filter((dbConv) => {
-      const phone = normalizePhone(dbConv.contact_phone);
-      if (seenPhones.has(phone)) return false;
-      seenPhones.add(phone);
-      return true;
-    });
+      // Deduplicate by normalized phone
+      const seenPhones = new Set<string>();
+      const dedupedConvs = dbConvs.filter((dbConv) => {
+        const phone = normalizePhone(dbConv.contact_phone);
+        if (seenPhones.has(phone)) return false;
+        seenPhones.add(phone);
+        return true;
+      });
 
-    const convs: ChatConversation[] = dedupedConvs.map((dbConv) => {
-      const phone = normalizePhone(dbConv.contact_phone);
-      const contact = contactByPhone[phone];
-
-      return {
-        id: phone,
-        dbId: dbConv.id,
-        contact: {
-          id: contact?.id || phone,
-          name: contact?.name || dbConv.contact_phone,
-          phone: dbConv.contact_phone,
-          email: contact?.email,
-          tags: contact?.tags || [],
-          notes: contact?.notes,
-        },
-        messages: [],
-        lastMessage: '',
-        lastMessageTime: dbConv.last_message_at || dbConv.created_at,
-        unreadCount: dbConv.unread_count || 0,
-        lastMessageDirection: null,
-        status: dbConv.status as any || 'open',
-        assignedTo: dbConv.assigned_to || null,
-        labels: labelsByConvId[dbConv.id] || [],
-      };
-    });
-
-    // For each conversation, get last few messages per phone for preview + unread
-    if (convs.length > 0) {
-      const unreadByPhone: Record<string, number> = {};
+      // Get last message preview for each conversation
+      const phones = [...new Set(dedupedConvs.flatMap((c) => getPhoneVariants(c.contact_phone)))];
       const lastByPhone: Record<string, string> = {};
       const lastAtByPhone: Record<string, string> = {};
 
-      // Include normalized/local variants so we don't miss messages بسبب اختلاف تنسيق الرقم
-      const phones = [...new Set(convs.flatMap((c) => getPhoneVariants(c.contact.phone)))];
-      // Fetch last message per phone using a smarter approach:
-      // get last 5 messages per phone to ensure preview coverage
-      let lastMsgsQuery = supabase
-        .from('messages')
-        .select('contact_phone, body, direction, created_at')
-        .in('contact_phone', phones)
-        .order('created_at', { ascending: false })
-        .limit(1000);
+      if (phones.length > 0) {
+        let lastMsgsQuery = supabase
+          .from('messages')
+          .select('contact_phone, body, created_at')
+          .in('contact_phone', phones)
+          .order('created_at', { ascending: false })
+          .limit(1000);
 
-      if (tenantId) {
-        lastMsgsQuery = lastMsgsQuery.or(`tenant_id.eq.${tenantId},tenant_id.is.null`);
-      }
-
-      const { data: lastMsgs } = await lastMsgsQuery;
-
-      if (lastMsgs) {
-        const messagesByPhone: Record<string, typeof lastMsgs> = {};
-        const lastDirByPhone: Record<string, string> = {};
-
-        for (const m of lastMsgs) {
-          const p = normalizePhone(m.contact_phone);
-          if (!lastByPhone[p]) {
-            lastByPhone[p] = m.body;
-            lastDirByPhone[p] = m.direction;
-            lastAtByPhone[p] = m.created_at;
-          }
-          if (!messagesByPhone[p]) messagesByPhone[p] = [];
-          if (messagesByPhone[p].length < 20) {
-            messagesByPhone[p].push(m);
-          }
+        if (tenantId) {
+          lastMsgsQuery = lastMsgsQuery.or(`tenant_id.eq.${tenantId},tenant_id.is.null`);
         }
 
-        // Count consecutive inbound from newest, respecting read status
-        for (const [p, msgs] of Object.entries(messagesByPhone)) {
-          let count = 0;
-          const lastReadTimestamp = readStatusRef.current.get(p) || 0;
-          
-          // If conversation was opened by agent, consider all messages as read
-          if (openedInboundRef.current.has(p)) {
-            count = 0;
-          } else {
-            // Count unread inbound messages
-            for (const msg of msgs) {
-              const msgTimestamp = new Date(msg.created_at).getTime();
-              if (msg.direction === 'inbound' && msgTimestamp > lastReadTimestamp) {
-                count++;
-              } else if (msg.direction === 'outbound') {
-                // If we find an outbound message, stop counting
-                break;
-              }
-            }
-          }
-          unreadByPhone[p] = count;
-        }
-
-        for (const conv of convs) {
-          conv.lastMessage = lastByPhone[conv.id] || conv.lastMessage;
-          conv.lastMessageTime = lastAtByPhone[conv.id] || conv.lastMessageTime;
-          conv.unreadCount = unreadByPhone[conv.id] ?? conv.unreadCount;
-          conv.lastMessageDirection = (lastDirByPhone[conv.id] as any) || conv.lastMessageDirection;
-
-          // Ensure opened conversations remain read
-          if (openedInboundRef.current.has(conv.id)) {
-            conv.unreadCount = 0;
-            // Update read timestamp for this conversation
-            if (conv.lastMessageTime) {
-              readStatusRef.current.set(conv.id, new Date(conv.lastMessageTime).getTime());
+        const { data: lastMsgs } = await lastMsgsQuery;
+        if (lastMsgs) {
+          for (const m of lastMsgs) {
+            const p = normalizePhone(m.contact_phone);
+            if (!lastByPhone[p]) {
+              lastByPhone[p] = m.body;
+              lastAtByPhone[p] = m.created_at;
             }
           }
         }
       }
-    }
 
-    if (reqId !== listRequestIdRef.current) return;
+      const convs: ChatConversation[] = dedupedConvs.map((dbConv) => {
+        const phone = normalizePhone(dbConv.contact_phone);
+        const contact = contactByPhone[phone];
+        const chatStatus = (dbConv as any).chat_status as ChatStatusType || 'replied';
 
-    setConversations((prev) => {
-      // Preserve loaded messages for the selected conversation
-      const next = convs.map((newConv) => {
-        const existing = prev.find((p) => p.id === newConv.id);
-        if (existing && existing.messages.length > 0) {
-          return { ...newConv, messages: existing.messages };
-        }
-        return newConv;
+        return {
+          id: phone,
+          dbId: dbConv.id,
+          contact: {
+            id: contact?.id || phone,
+            name: contact?.name || dbConv.contact_phone,
+            phone: dbConv.contact_phone,
+            email: contact?.email,
+            tags: contact?.tags || [],
+            notes: contact?.notes,
+          },
+          messages: [],
+          lastMessage: lastByPhone[phone] || '',
+          lastMessageTime: lastAtByPhone[phone] || dbConv.last_message_at || dbConv.created_at,
+          unreadCount: chatStatus === 'unread' ? 1 : 0,
+          chatStatus,
+          lastMessageDirection: null,
+          status: dbConv.status as any || 'open',
+          assignedTo: dbConv.assigned_to || null,
+          labels: labelsByConvId[dbConv.id] || [],
+        };
       });
 
-      next.sort((a, b) => toTimestamp(b.lastMessageTime) - toTimestamp(a.lastMessageTime));
+      if (reqId !== listRequestIdRef.current) return;
 
-      conversationsRef.current = next;
-      return next;
-    });
-    setLoading(false);
+      setConversations((prev) => {
+        const next = convs.map((newConv) => {
+          const existing = prev.find((p) => p.id === newConv.id);
+          if (existing && existing.messages.length > 0) {
+            return { ...newConv, messages: existing.messages };
+          }
+          return newConv;
+        });
+
+        next.sort((a, b) => toTimestamp(b.lastMessageTime) - toTimestamp(a.lastMessageTime));
+
+        conversationsRef.current = next;
+        return next;
+      });
+      setLoading(false);
     } catch (err) {
       console.error('Error loading conversations:', err);
       setLoading(false);
@@ -276,7 +226,7 @@ export function useConversations(tenantId?: string | null, module: string = 'con
   }, [tenantId, module]);
 
   // Load messages for a specific conversation (by phone)
-  const loadMessages = useCallback(async (phone: string, markAsRead: boolean = false) => {
+  const loadMessages = useCallback(async (phone: string) => {
     const normalizedPhone = normalizePhone(phone);
 
     const phonesToQuery = new Set<string>(getPhoneVariants(phone));
@@ -298,26 +248,11 @@ export function useConversations(tenantId?: string | null, module: string = 'con
     if (!rawMsgs) return;
     const msgs = rawMsgs.reverse();
 
-    let unread = 0;
-    for (let i = msgs.length - 1; i >= 0; i--) {
-      if (msgs[i].direction === 'inbound') unread++;
-      else break;
-    }
-
     const latest = msgs[msgs.length - 1];
     const latestDirection: ChatConversation['lastMessageDirection'] =
       latest?.direction === 'inbound' || latest?.direction === 'outbound'
         ? latest.direction
         : null;
-
-    const shouldMarkAsRead = markAsRead || openedInboundRef.current.has(normalizedPhone);
-    if (shouldMarkAsRead) {
-      openedInboundRef.current.add(normalizedPhone);
-      // Update read timestamp to latest message timestamp
-      if (latest?.created_at) {
-        readStatusRef.current.set(normalizedPhone, new Date(latest.created_at).getTime());
-      }
-    }
 
     setConversations((prev) => {
       const next = prev.map((c) =>
@@ -325,7 +260,6 @@ export function useConversations(tenantId?: string | null, module: string = 'con
           ? {
               ...c,
               messages: msgs.map(mapDbMessage),
-              unreadCount: shouldMarkAsRead ? 0 : unread,
               lastMessageDirection: latestDirection,
               lastMessage: latest?.body || c.lastMessage,
               lastMessageTime: latest?.created_at || c.lastMessageTime,
@@ -340,7 +274,7 @@ export function useConversations(tenantId?: string | null, module: string = 'con
     });
   }, [tenantId]);
 
-  // Load older messages (pagination) — returns true if there are more
+  // Load older messages (pagination)
   const loadOlderMessages = useCallback(async (phone: string): Promise<boolean> => {
     const normalizedPhone = normalizePhone(phone);
     const conv = conversationsRef.current.find((c) => c.id === normalizedPhone);
@@ -377,19 +311,38 @@ export function useConversations(tenantId?: string | null, module: string = 'con
       return next;
     });
 
-    return rawMsgs.length >= 50; // has more if we got a full page
+    return rawMsgs.length >= 50;
   }, [tenantId]);
 
-  // Select a conversation and load its messages
+  // Select a conversation: mark as awaiting_reply if unread
   const selectConversation = useCallback((phone: string | null) => {
     const normalized = phone ? normalizePhone(phone) : null;
     selectedPhoneRef.current = normalized;
 
     if (normalized) {
-      // Mark as opened and read
-      openedInboundRef.current.add(normalized);
-      readStatusRef.current.set(normalized, Date.now());
-      loadMessages(normalized, true);
+      const conv = conversationsRef.current.find((c) => c.id === normalized);
+      
+      // If unread, update to awaiting_reply in DB
+      if (conv?.chatStatus === 'unread' && conv.dbId) {
+        supabase
+          .from('conversations')
+          .update({ chat_status: 'awaiting_reply', unread_count: 0 })
+          .eq('id', conv.dbId)
+          .then(() => {
+            // Optimistic update
+            setConversations((prev) => {
+              const next = prev.map((c) =>
+                c.id === normalized
+                  ? { ...c, chatStatus: 'awaiting_reply' as ChatStatusType, unreadCount: 0 }
+                  : c
+              );
+              conversationsRef.current = next;
+              return next;
+            });
+          });
+      }
+
+      loadMessages(normalized);
     }
   }, [loadMessages]);
 
@@ -417,13 +370,8 @@ export function useConversations(tenantId?: string | null, module: string = 'con
 
         const phone = normalizePhone(newMsg.contact_phone);
 
-        // If it's the selected conversation and it's an inbound message, keep it read
-        if (phone === selectedPhoneRef.current && openedInboundRef.current.has(phone)) {
-          readStatusRef.current.set(phone, new Date(newMsg.created_at).getTime());
-        }
-
         loadList();
-        if (phone === selectedPhoneRef.current) loadMessages(phone, true);
+        if (phone === selectedPhoneRef.current) loadMessages(phone);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => loadList())
       .subscribe((status) => {

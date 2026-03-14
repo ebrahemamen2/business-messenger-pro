@@ -199,6 +199,7 @@ export type Database = {
       conversations: {
         Row: {
           assigned_to: string | null
+          chat_status: string
           contact_phone: string
           created_at: string
           id: string
@@ -211,6 +212,7 @@ export type Database = {
         }
         Insert: {
           assigned_to?: string | null
+          chat_status?: string
           contact_phone: string
           created_at?: string
           id?: string
@@ -223,6 +225,7 @@ export type Database = {
         }
         Update: {
           assigned_to?: string | null
+          chat_status?: string
           contact_phone?: string
           created_at?: string
           id?: string
