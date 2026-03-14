@@ -1,4 +1,4 @@
-import { CheckCheck, Check, Clock, Store, Reply, FileText, Download, Ban } from 'lucide-react';
+import { CheckCheck, Check, Clock, Store, Reply, FileText, Download, Ban, RefreshCw, Forward } from 'lucide-react';
 import type { ChatMessage } from '@/hooks/useConversations';
 import { useState } from 'react';
 import ImageLightbox from './ImageLightbox';
@@ -10,16 +10,19 @@ interface MessageBubbleProps {
   message: ChatMessage;
   onReply?: (message: ChatMessage) => void;
   onReact?: (messageId: string, emoji: string) => void;
+  onRetry?: (message: ChatMessage) => void;
+  onForward?: (message: ChatMessage) => void;
   allMessages?: ChatMessage[];
   highlight?: string;
   isHighlighted?: boolean;
   reactions?: Record<string, number>;
 }
 
-const MessageBubble = ({ message, onReply, onReact, allMessages = [], highlight, isHighlighted, reactions = {} }: MessageBubbleProps) => {
+const MessageBubble = ({ message, onReply, onReact, onRetry, onForward, allMessages = [], highlight, isHighlighted, reactions = {} }: MessageBubbleProps) => {
   const isCustomer = message.sender === 'customer';
   const isStore = message.sender === 'store';
   const isAgent = message.sender === 'agent';
+  const isFailed = message.status === 'failed';
   const [imgLoaded, setImgLoaded] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
@@ -140,16 +143,28 @@ const MessageBubble = ({ message, onReply, onReact, allMessages = [], highlight,
 
   return (
     <div className={`group flex ${isCustomer ? 'justify-start' : 'justify-end'} animate-fade-in mb-0.5 ${isHighlighted ? 'scroll-mt-20' : ''}`} id={`msg-${message.id}`}>
-      <div className={`${bubbleClass} ${paddingClass} ${isHighlighted ? 'ring-2 ring-primary/50 transition-all duration-500' : ''}`}>
-        {/* Reply button on hover */}
-        {onReply && (
-          <button
-            onClick={() => onReply(message)}
-            className={`absolute -top-2 ${isCustomer ? '-left-2' : '-right-2'} opacity-0 group-hover:opacity-100 transition-opacity bg-card text-foreground p-1.5 rounded-full shadow-lg border border-border z-10`}
-          >
-            <Reply className="w-3 h-3" />
-          </button>
-        )}
+      <div className={`${bubbleClass} ${paddingClass} ${isHighlighted ? 'ring-2 ring-primary/50 transition-all duration-500' : ''} ${isFailed ? 'opacity-70' : ''}`}>
+        {/* Hover action buttons */}
+        <div className={`absolute -top-2 ${isCustomer ? '-left-2' : '-right-2'} opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 z-10`}>
+          {onReply && (
+            <button
+              onClick={() => onReply(message)}
+              className="bg-card text-foreground p-1.5 rounded-full shadow-lg border border-border"
+              title="رد"
+            >
+              <Reply className="w-3 h-3" />
+            </button>
+          )}
+          {onForward && !message.id.startsWith('optimistic') && (
+            <button
+              onClick={() => onForward(message)}
+              className="bg-card text-foreground p-1.5 rounded-full shadow-lg border border-border"
+              title="إعادة توجيه"
+            >
+              <Forward className="w-3 h-3" />
+            </button>
+          )}
+        </div>
 
         {/* Store badge */}
         {isStore && (
@@ -186,6 +201,18 @@ const MessageBubble = ({ message, onReply, onReact, allMessages = [], highlight,
             {isAgent && renderStatus(message.status)}
           </div>
         )}
+
+        {/* Failed message retry */}
+        {isFailed && onRetry && (
+          <button
+            onClick={() => onRetry(message)}
+            className="mt-1 flex items-center gap-1.5 text-[11px] text-destructive hover:text-destructive/80 transition-colors w-full justify-center py-1 rounded-lg bg-destructive/10 hover:bg-destructive/15"
+          >
+            <RefreshCw className="w-3 h-3" />
+            إعادة الإرسال
+          </button>
+        )}
+
         {/* Emoji reactions */}
         <MessageReactions
           reactions={reactions}

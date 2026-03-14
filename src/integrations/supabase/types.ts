@@ -198,6 +198,7 @@ export type Database = {
       }
       conversations: {
         Row: {
+          archived_at: string | null
           assigned_to: string | null
           chat_status: string
           contact_phone: string
@@ -206,12 +207,14 @@ export type Database = {
           last_customer_message_at: string | null
           last_message_at: string | null
           module: string
+          pinned_at: string | null
           status: string
           tenant_id: string | null
           unread_count: number
           updated_at: string
         }
         Insert: {
+          archived_at?: string | null
           assigned_to?: string | null
           chat_status?: string
           contact_phone: string
@@ -220,12 +223,14 @@ export type Database = {
           last_customer_message_at?: string | null
           last_message_at?: string | null
           module?: string
+          pinned_at?: string | null
           status?: string
           tenant_id?: string | null
           unread_count?: number
           updated_at?: string
         }
         Update: {
+          archived_at?: string | null
           assigned_to?: string | null
           chat_status?: string
           contact_phone?: string
@@ -234,6 +239,7 @@ export type Database = {
           last_customer_message_at?: string | null
           last_message_at?: string | null
           module?: string
+          pinned_at?: string | null
           status?: string
           tenant_id?: string | null
           unread_count?: number

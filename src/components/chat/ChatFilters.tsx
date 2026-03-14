@@ -1,11 +1,11 @@
-import { Tag, Settings } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { Tag, Settings, Archive, User } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import LabelManager from './LabelManager';
 import type { ChatConversation } from '@/hooks/useConversations';
 
-export type ChatFilter = 'all' | 'unread' | 'no_reply' | `label:${string}`;
+export type ChatFilter = 'all' | 'unread' | 'no_reply' | 'archived' | 'my_conversations' | `label:${string}`;
 
 export interface LabelOption {
   id: string;
@@ -18,17 +18,37 @@ interface ChatFiltersProps {
   onFilterChange: (f: ChatFilter) => void;
   tenantId?: string | null;
   conversations?: ChatConversation[];
+  currentUserId?: string | null;
 }
 
-const baseFilters: { value: ChatFilter; label: string }[] = [
-  { value: 'all', label: 'الكل' },
-  { value: 'unread', label: 'غير مقروء' },
-  { value: 'no_reply', label: 'لم يتم الرد' },
-];
-
-const ChatFilters = ({ activeFilter, onFilterChange, tenantId, conversations = [] }: ChatFiltersProps) => {
+const ChatFilters = ({ activeFilter, onFilterChange, tenantId, conversations = [], currentUserId }: ChatFiltersProps) => {
   const [labels, setLabels] = useState<LabelOption[]>([]);
   const [labelManagerOpen, setLabelManagerOpen] = useState(false);
+
+  // Compute filter counts
+  const counts = useMemo(() => {
+    const unread = conversations.filter(c => c.chatStatus === 'unread').length;
+    const noReply = conversations.filter(c => c.chatStatus === 'awaiting_reply').length;
+    const archived = conversations.filter(c => !!(c as any).archivedAt).length;
+    const mine = currentUserId ? conversations.filter(c => c.assignedTo === currentUserId).length : 0;
+    return { unread, noReply, archived, mine };
+  }, [conversations, currentUserId]);
+
+  const baseFilters: { value: ChatFilter; label: string; count?: number }[] = [
+    { value: 'all', label: 'الكل' },
+    { value: 'unread', label: 'غير مقروء', count: counts.unread },
+    { value: 'no_reply', label: 'لم يتم الرد', count: counts.noReply },
+  ];
+
+  // Only show "my conversations" if user is logged in
+  if (currentUserId) {
+    baseFilters.push({ value: 'my_conversations', label: 'محادثاتي', count: counts.mine });
+  }
+
+  // Show archive filter if there are archived convs or if it's active
+  if (counts.archived > 0 || activeFilter === 'archived') {
+    baseFilters.push({ value: 'archived', label: 'الأرشيف', count: counts.archived });
+  }
 
   useEffect(() => {
     const loadLabels = async () => {
@@ -46,7 +66,6 @@ const ChatFilters = ({ activeFilter, onFilterChange, tenantId, conversations = [
   );
 
   const handleLabelsChanged = () => {
-    // Reload labels and inform parent to reload conversations
     const loadLabels = async () => {
       let query = supabase.from('conversation_labels').select('*').order('name');
       if (tenantId) query = query.eq('tenant_id', tenantId);
@@ -64,13 +83,24 @@ const ChatFilters = ({ activeFilter, onFilterChange, tenantId, conversations = [
           <button
             key={f.value}
             onClick={() => onFilterChange(f.value)}
-            className={`px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap transition-colors ${
+            className={`px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap transition-colors flex items-center gap-1 ${
               activeFilter === f.value
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-secondary text-muted-foreground hover:text-foreground'
             }`}
           >
+            {f.value === 'archived' && <Archive className="w-3 h-3" />}
+            {f.value === 'my_conversations' && <User className="w-3 h-3" />}
             {f.label}
+            {f.count !== undefined && f.count > 0 && (
+              <span className={`text-[9px] font-bold min-w-[16px] h-4 rounded-full flex items-center justify-center px-1 ${
+                activeFilter === f.value
+                  ? 'bg-primary-foreground/20 text-primary-foreground'
+                  : 'bg-primary/15 text-primary'
+              }`}>
+                {f.count}
+              </span>
+            )}
           </button>
         ))}
 
@@ -85,6 +115,7 @@ const ChatFilters = ({ activeFilter, onFilterChange, tenantId, conversations = [
         {labelsWithConversations.map((label) => {
           const filterValue = `label:${label.id}` as ChatFilter;
           const isActive = activeFilter === filterValue;
+          const labelCount = conversations.filter(conv => conv.labels.some(l => l.id === label.id)).length;
           return (
             <button
               key={label.id}
@@ -100,6 +131,15 @@ const ChatFilters = ({ activeFilter, onFilterChange, tenantId, conversations = [
                 style={{ backgroundColor: isActive ? 'currentColor' : label.color }}
               />
               {label.name}
+              {labelCount > 0 && (
+                <span className={`text-[9px] font-bold min-w-[16px] h-4 rounded-full flex items-center justify-center px-1 ${
+                  isActive
+                    ? 'bg-primary-foreground/20 text-primary-foreground'
+                    : 'bg-primary/15 text-primary'
+                }`}>
+                  {labelCount}
+                </span>
+              )}
             </button>
           );
         })}
