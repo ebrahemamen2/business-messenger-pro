@@ -192,6 +192,10 @@ const FollowUp = () => {
         <TabsContent value="auto-reply" className="flex-1 m-0 overflow-hidden">
           <ConfirmAutoReply module="followup" title="قسم المتابعة" />
         </TabsContent>
+
+        <TabsContent value="ai-prompt" className="flex-1 m-0 overflow-hidden">
+          <AIModulePrompt module="followup" title="قسم المتابعة" />
+        </TabsContent>
       </Tabs>
     </div>
   );
