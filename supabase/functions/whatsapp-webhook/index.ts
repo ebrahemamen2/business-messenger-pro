@@ -497,6 +497,18 @@ Deno.serve(async (req) => {
               // 3. If no keyword/welcome match, try AI auto-reply
               if (!autoResponse && config?.tenant_id) {
                 try {
+                  // Detect conversation module dynamically
+                  let convModule = "confirm";
+                  const { data: convData } = await supabase
+                    .from("conversations")
+                    .select("module")
+                    .eq("contact_phone", contactPhone)
+                    .eq("tenant_id", config.tenant_id)
+                    .order("updated_at", { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+                  if (convData?.module) convModule = convData.module;
+
                   const aiRes = await fetch(`${supabaseUrl}/functions/v1/ai-reply`, {
                     method: "POST",
                     headers: {
@@ -507,7 +519,7 @@ Deno.serve(async (req) => {
                     body: JSON.stringify({
                       tenantId: config.tenant_id,
                       contactPhone,
-                      module: "confirm",
+                      module: convModule,
                       incomingMessage: body,
                     }),
                   });
