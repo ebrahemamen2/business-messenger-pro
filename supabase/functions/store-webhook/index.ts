@@ -134,7 +134,7 @@ Deno.serve(async (req) => {
       return json({ error: "Failed to store message" }, 500);
     }
 
-    const conversationModule = config.module || "confirm";
+    const conversationModule = "confirm";
     let conversationLookup = supabase
       .from("conversations")
       .select("id")

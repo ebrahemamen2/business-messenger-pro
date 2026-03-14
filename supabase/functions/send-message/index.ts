@@ -330,7 +330,7 @@ Deno.serve(async (req) => {
     const nowIso = new Date().toISOString();
 
     const effectiveTenantId = config.tenant_id || tenantId || null;
-    const conversationModule = module || config.module || "confirm";
+    const conversationModule = module || "confirm";
 
     const { error: messageInsertErr } = await supabase.from("messages").insert({
       wa_message_id: waResult.messages?.[0]?.id,
