@@ -4,8 +4,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation, Link } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
+import { useTheme } from "next-themes";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import { TenantProvider } from "@/contexts/TenantContext";
+import { TenantProvider, useTenantContext } from "@/contexts/TenantContext";
 import AppSidebar from "./components/layout/AppSidebar";
 import Auth from "./pages/Auth";
 import MainDashboard from "./pages/MainDashboard";
@@ -15,8 +16,15 @@ import Settings from "./pages/Settings";
 import Contacts from "./pages/Contacts";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
-import { Loader2, LayoutDashboard, CheckCircle, Truck, Users, Settings as SettingsIcon } from "lucide-react";
+import { Loader2, LayoutDashboard, CheckCircle, Truck, Users, Settings as SettingsIcon, Building2, ChevronDown, Sun, Moon, LogOut } from "lucide-react";
 import { useIsMobile } from "./hooks/use-mobile";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const queryClient = new QueryClient();
 
