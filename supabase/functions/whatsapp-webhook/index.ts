@@ -352,6 +352,20 @@ Deno.serve(async (req) => {
             const body = extractBody(message);
             const media = extractMediaInfo(message);
 
+            // Extract reply context (quoted message)
+            let replyToMessageId: string | null = null;
+            if (message.context?.id) {
+              const { data: replyMsg } = await supabase
+                .from("messages")
+                .select("id")
+                .eq("wa_message_id", message.context.id)
+                .limit(1)
+                .maybeSingle();
+              if (replyMsg) {
+                replyToMessageId = replyMsg.id;
+              }
+            }
+
             // Download and store media if present
             let storedMediaUrl: string | null = null;
             let storedMediaType: string | null = null;
@@ -379,6 +393,7 @@ Deno.serve(async (req) => {
               status: "delivered",
               media_url: storedMediaUrl,
               media_type: storedMediaType,
+              reply_to_message_id: replyToMessageId,
               tenant_id: config?.tenant_id || null,
               created_at: inboundAt,
             });
