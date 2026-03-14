@@ -192,6 +192,10 @@ const LostOrders = () => {
         <TabsContent value="auto-reply" className="flex-1 m-0 overflow-hidden">
           <ConfirmAutoReply module="lost" title="الطلبات المفقودة" />
         </TabsContent>
+
+        <TabsContent value="ai-prompt" className="flex-1 m-0 overflow-hidden">
+          <AIModulePrompt module="lost" title="الطلبات المفقودة" />
+        </TabsContent>
       </Tabs>
     </div>
   );
