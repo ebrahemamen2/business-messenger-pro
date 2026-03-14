@@ -436,6 +436,27 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
     }
   };
 
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items || windowExpired) return;
+    const mediaFiles: File[] = [];
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.kind === 'file' && (item.type.startsWith('image/') || item.type.startsWith('video/'))) {
+        const file = item.getAsFile();
+        if (file) mediaFiles.push(file);
+      }
+    }
+    if (mediaFiles.length > 0) {
+      e.preventDefault();
+      const newPreviews = mediaFiles.map(file => ({
+        url: URL.createObjectURL(file),
+        file,
+      }));
+      setAttachmentPreviews(prev => [...prev, ...newPreviews]);
+    }
+  };
+
   const uploadAndSendFiles = async (files: { url: string; file: File }[], caption?: string) => {
     setUploading(true);
     try {
