@@ -34,6 +34,7 @@ interface ChatWindowProps {
   onTogglePin?: (dbId: string, currentlyPinned: boolean) => void;
   onToggleArchive?: (dbId: string, currentlyArchived: boolean) => void;
   onAssign?: (dbId: string, userId: string | null) => void;
+  onMoveConversation?: (dbId: string, newModule: string) => void;
 }
 
 const SUPABASE_PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'mhbmxvgcdzhqwpznmgei';
