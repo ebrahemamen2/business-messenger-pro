@@ -149,35 +149,6 @@ export function useConversations(tenantId?: string | null, module: string = 'con
         return true;
       });
 
-      // Get last message preview for each conversation
-      const phones = [...new Set(dedupedConvs.flatMap((c) => getPhoneVariants(c.contact_phone)))];
-      const lastByPhone: Record<string, string> = {};
-      const lastAtByPhone: Record<string, string> = {};
-
-      if (phones.length > 0) {
-        let lastMsgsQuery = supabase
-          .from('messages')
-          .select('contact_phone, body, created_at')
-          .in('contact_phone', phones)
-          .order('created_at', { ascending: false })
-          .limit(1000);
-
-        if (tenantId) {
-          lastMsgsQuery = lastMsgsQuery.or(`tenant_id.eq.${tenantId},tenant_id.is.null`);
-        }
-
-        const { data: lastMsgs } = await lastMsgsQuery;
-        if (lastMsgs) {
-          for (const m of lastMsgs) {
-            const p = normalizePhone(m.contact_phone);
-            if (!lastByPhone[p]) {
-              lastByPhone[p] = m.body;
-              lastAtByPhone[p] = m.created_at;
-            }
-          }
-        }
-      }
-
       const convs: ChatConversation[] = dedupedConvs.map((dbConv) => {
         const phone = normalizePhone(dbConv.contact_phone);
         const contact = contactByPhone[phone];
