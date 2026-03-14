@@ -60,6 +60,66 @@ const MobileBottomNav = () => {
   );
 };
 
+const MobileTopBar = () => {
+  const { tenants, currentTenant, selectTenant } = useTenantContext();
+  const { signOut, isSuperAdmin } = useAuth();
+  const { theme, setTheme } = useTheme();
+
+  return (
+    <div className="h-11 bg-card border-b border-border flex items-center justify-between px-3 flex-shrink-0">
+      {/* Tenant Selector */}
+      {tenants.length > 1 ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-secondary transition-colors">
+              <div className="w-6 h-6 rounded-md bg-primary/15 flex items-center justify-center flex-shrink-0">
+                <span className="text-[10px] font-bold text-primary">{currentTenant?.name?.charAt(0) || 'B'}</span>
+              </div>
+              <span className="text-xs font-semibold text-foreground max-w-[120px] truncate">{currentTenant?.name || 'البراند'}</span>
+              <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="min-w-[180px]">
+            {tenants.map((t) => (
+              <DropdownMenuItem
+                key={t.id}
+                onClick={() => selectTenant(t)}
+                className={`gap-2 ${t.id === currentTenant?.id ? 'bg-secondary' : ''}`}
+              >
+                <Building2 className="w-4 h-4 text-primary" />
+                <span className="font-medium">{t.name}</span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-md bg-primary/15 flex items-center justify-center">
+            <span className="text-[10px] font-bold text-primary">{currentTenant?.name?.charAt(0) || 'B'}</span>
+          </div>
+          <span className="text-xs font-semibold text-foreground">{currentTenant?.name || 'البراند'}</span>
+        </div>
+      )}
+
+      {/* Right actions */}
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+        >
+          {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+        </button>
+        <button
+          onClick={signOut}
+          className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-secondary transition-colors"
+        >
+          <LogOut className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const ProtectedLayout = () => {
   const { user, loading } = useAuth();
   const isMobile = useIsMobile();
@@ -80,18 +140,23 @@ const ProtectedLayout = () => {
         {/* Sidebar: hidden on mobile */}
         {!isMobile && <AppSidebar />}
 
-        <main className={`flex-1 overflow-hidden ${isMobile ? 'pb-[calc(56px+env(safe-area-inset-bottom,0px))]' : ''}`}>
-          <Routes>
-            <Route path="/dashboard" element={<MainDashboard />} />
-            <Route path="/confirm" element={<Confirm />} />
-            <Route path="/follow-up" element={<FollowUp />} />
-            <Route path="/contacts" element={<Contacts />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/admin" element={<Admin />} />
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </main>
+        <div className={`flex-1 flex flex-col overflow-hidden ${isMobile ? 'pb-[calc(56px+env(safe-area-inset-bottom,0px))]' : ''}`}>
+          {/* Mobile top bar with tenant selector */}
+          {isMobile && <MobileTopBar />}
+
+          <main className="flex-1 overflow-hidden">
+            <Routes>
+              <Route path="/dashboard" element={<MainDashboard />} />
+              <Route path="/confirm" element={<Confirm />} />
+              <Route path="/follow-up" element={<FollowUp />} />
+              <Route path="/contacts" element={<Contacts />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/admin" element={<Admin />} />
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </main>
+        </div>
 
         {/* Bottom nav: only on mobile */}
         {isMobile && <MobileBottomNav />}
