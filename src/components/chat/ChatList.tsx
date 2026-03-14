@@ -1,4 +1,4 @@
-import { Search } from 'lucide-react';
+import { Search, Clock } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useState, useEffect, useMemo } from 'react';
 import type { ChatConversation } from '@/hooks/useConversations';
@@ -130,6 +130,11 @@ const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادث
               {conv.unreadCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center">
                   {conv.unreadCount}
+                </span>
+              )}
+              {conv.lastCustomerMessageAt && (Date.now() - new Date(conv.lastCustomerMessageAt).getTime() > 24 * 60 * 60 * 1000) && (
+                <span className="absolute -bottom-1 -left-1 w-4 h-4 bg-destructive/15 text-destructive rounded-full flex items-center justify-center" title="انتهت نافذة الـ 24 ساعة">
+                  <Clock className="w-2.5 h-2.5" />
                 </span>
               )}
             </div>

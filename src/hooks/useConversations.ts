@@ -43,6 +43,7 @@ export interface ChatConversation {
   status: 'open' | 'pending' | 'resolved';
   assignedTo?: string | null;
   labels: ConversationLabel[];
+  lastCustomerMessageAt: string | null;
 }
 
 function normalizePhone(phone: string): string {
@@ -199,6 +200,7 @@ export function useConversations(tenantId?: string | null, module: string = 'con
           status: dbConv.status as any || 'open',
           assignedTo: dbConv.assigned_to || null,
           labels: labelsByConvId[dbConv.id] || [],
+          lastCustomerMessageAt: (dbConv as any).last_customer_message_at || null,
         };
       });
 

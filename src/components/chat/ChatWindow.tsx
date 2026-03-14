@@ -1,4 +1,4 @@
-import { Send, Paperclip, Smile, Phone, UserCircle, MoreVertical, StickyNote, Reply, X, Loader2, Ban, CheckCircle, Clock, Copy, Search } from 'lucide-react';
+import { Send, Paperclip, Smile, Phone, UserCircle, MoreVertical, StickyNote, Reply, X, Loader2, Ban, CheckCircle, Clock, Copy, Search, AlertTriangle, Timer } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -65,6 +65,8 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [windowExpired, setWindowExpired] = useState(false);
+  const [windowRemainingText, setWindowRemainingText] = useState<string | null>(null);
   const { toast } = useToast();
 
   const allMessages = [
@@ -99,6 +101,39 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
     el.addEventListener('scroll', handleScroll);
     return () => el.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // 24-hour window check
+  useEffect(() => {
+    const check24hWindow = () => {
+      const lastAt = conversation.lastCustomerMessageAt;
+      if (!lastAt) {
+        setWindowExpired(false);
+        setWindowRemainingText(null);
+        return;
+      }
+      const diff = Date.now() - new Date(lastAt).getTime();
+      const twentyFourH = 24 * 60 * 60 * 1000;
+      if (diff > twentyFourH) {
+        setWindowExpired(true);
+        setWindowRemainingText(null);
+      } else {
+        setWindowExpired(false);
+        const remaining = twentyFourH - diff;
+        const hours = Math.floor(remaining / (60 * 60 * 1000));
+        const minutes = Math.floor((remaining % (60 * 60 * 1000)) / (60 * 1000));
+        if (hours < 1) {
+          setWindowRemainingText(`⏰ متبقي ${minutes} دقيقة للرد`);
+        } else if (hours < 3) {
+          setWindowRemainingText(`⏰ متبقي ${hours} ساعة و ${minutes} دقيقة للرد`);
+        } else {
+          setWindowRemainingText(null);
+        }
+      }
+    };
+    check24hWindow();
+    const timer = setInterval(check24hWindow, 60000);
+    return () => clearInterval(timer);
+  }, [conversation.lastCustomerMessageAt, conversation.id]);
 
   // Load reactions for current conversation messages
   const loadReactions = useCallback(async (messageIds: string[]) => {
@@ -583,10 +618,26 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
           </div>
         )}
 
+        {/* 24h window warning */}
+        {windowExpired && (
+          <div className="px-4 py-3 bg-destructive/10 border-t border-destructive/20 flex items-center gap-3 text-sm">
+            <AlertTriangle className="w-5 h-5 text-destructive flex-shrink-0" />
+            <p className="text-destructive font-medium">
+              ⚠️ انتهت نافذة الـ 24 ساعة - لا يمكن الرد على هذه المحادثة حالياً. يجب أن يرسل العميل رسالة جديدة أولاً.
+            </p>
+          </div>
+        )}
+        {!windowExpired && windowRemainingText && (
+          <div className="px-4 py-2 bg-[hsl(var(--status-pending)/0.1)] border-t border-[hsl(var(--status-pending)/0.2)] flex items-center gap-2 text-xs">
+            <Timer className="w-4 h-4 text-[hsl(var(--status-pending))] flex-shrink-0" />
+            <p className="text-[hsl(var(--status-pending))] font-medium">{windowRemainingText}</p>
+          </div>
+        )}
+
         {/* Input */}
         <div className="p-3 border-t border-border bg-card flex-shrink-0 relative">
-          {showEmoji && <EmojiPicker onSelect={handleEmojiSelect} onClose={() => setShowEmoji(false)} />}
-          {showQuickReplies && (
+          {showEmoji && !windowExpired && <EmojiPicker onSelect={handleEmojiSelect} onClose={() => setShowEmoji(false)} />}
+          {showQuickReplies && !windowExpired && (
             <QuickReplies
               query={quickReplyQuery}
               tenantId={tenantId}
@@ -600,12 +651,17 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
           <input ref={fileInputRef} type="file" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx" className="hidden" onChange={handleFileSelect} />
           <div className="flex items-end gap-2">
             <button
-              onClick={() => setShowEmoji(!showEmoji)}
-              className={`p-2 transition-colors rounded-lg hover:bg-secondary mb-0.5 ${showEmoji ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+              onClick={() => !windowExpired && setShowEmoji(!showEmoji)}
+              disabled={windowExpired}
+              className={`p-2 transition-colors rounded-lg hover:bg-secondary mb-0.5 ${showEmoji ? 'text-primary' : 'text-muted-foreground hover:text-foreground'} ${windowExpired ? 'opacity-40 cursor-not-allowed' : ''}`}
             >
               <Smile className="w-5 h-5" />
             </button>
-            <button onClick={() => fileInputRef.current?.click()} className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-secondary mb-0.5">
+            <button
+              onClick={() => !windowExpired && fileInputRef.current?.click()}
+              disabled={windowExpired}
+              className={`p-2 text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-secondary mb-0.5 ${windowExpired ? 'opacity-40 cursor-not-allowed' : ''}`}
+            >
               <Paperclip className="w-5 h-5" />
             </button>
             <Textarea
@@ -613,18 +669,22 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
               value={message}
               onChange={(e) => {
                 handleMessageChange(e.target.value);
-                // Auto-grow
                 const el = e.target;
                 el.style.height = 'auto';
                 el.style.height = Math.min(el.scrollHeight, 160) + 'px';
               }}
               onKeyDown={handleKeyDown}
-              placeholder="اكتب رسالة... أو / للردود السريعة"
+              placeholder={windowExpired ? "انتهت نافذة الـ 24 ساعة..." : "اكتب رسالة... أو / للردود السريعة"}
               className="flex-1 bg-secondary border-0 text-sm min-h-[40px] max-h-[160px] resize-none py-2.5 overflow-y-auto"
               rows={1}
               style={{ height: '40px' }}
+              disabled={windowExpired}
             />
-            {attachmentPreview ? (
+            {windowExpired ? (
+              <div className="p-2.5 rounded-xl bg-muted text-muted-foreground mb-0.5 cursor-not-allowed">
+                <Ban className="w-5 h-5" />
+              </div>
+            ) : attachmentPreview ? (
               <button onClick={() => uploadAndSendFile(attachmentPreview.file, message.trim())} disabled={uploading} className="p-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 disabled:opacity-40 mb-0.5">
                 {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
               </button>
@@ -633,7 +693,7 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
                 <Send className="w-5 h-5" />
               </button>
             ) : (
-              <VoiceRecorder onRecordComplete={handleVoiceRecordComplete} onError={handleVoiceRecordError} disabled={uploading} />
+              <VoiceRecorder onRecordComplete={handleVoiceRecordComplete} onError={handleVoiceRecordError} disabled={uploading || windowExpired} />
             )}
           </div>
         </div>

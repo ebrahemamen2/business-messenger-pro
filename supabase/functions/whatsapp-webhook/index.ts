@@ -183,6 +183,7 @@ async function upsertConversationFromMessage(params: {
     // Only update chat_status if inbound (set to unread) or if agent is replying
     if (direction === "inbound") {
       updateData.chat_status = "unread";
+      updateData.last_customer_message_at = atIso;
     } else {
       updateData.chat_status = "replied";
     }
@@ -196,7 +197,7 @@ async function upsertConversationFromMessage(params: {
   }
 
   const unreadCount = direction === "inbound" ? 1 : 0;
-  const { error: insertErr } = await supabase.from("conversations").insert({
+  const insertData: Record<string, any> = {
     contact_phone: contactPhone,
     tenant_id: tenantId,
     module,
@@ -206,7 +207,11 @@ async function upsertConversationFromMessage(params: {
     last_message_at: atIso,
     created_at: atIso,
     updated_at: atIso,
-  });
+  };
+  if (direction === "inbound") {
+    insertData.last_customer_message_at = atIso;
+  }
+  const { error: insertErr } = await supabase.from("conversations").insert(insertData);
 
   if (insertErr) throw insertErr;
 }

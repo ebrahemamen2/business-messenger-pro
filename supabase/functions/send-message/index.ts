@@ -144,6 +144,26 @@ Deno.serve(async (req) => {
       return json({ error: "Missing 'to' or 'message'/'mediaUrl'" }, 400);
     }
 
+    // --- 24-hour window check (Meta policy) ---
+    if (conversationId) {
+      const { data: convData } = await supabase
+        .from("conversations")
+        .select("last_customer_message_at")
+        .eq("id", conversationId)
+        .single();
+
+      if (convData?.last_customer_message_at) {
+        const lastMsg = new Date(convData.last_customer_message_at).getTime();
+        const now = Date.now();
+        const twentyFourHours = 24 * 60 * 60 * 1000;
+        if (now - lastMsg > twentyFourHours) {
+          return json({
+            error: "انتهت نافذة الـ 24 ساعة - لا يمكن الرد على هذه المحادثة حالياً. يجب أن يرسل العميل رسالة جديدة أولاً.",
+          }, 403);
+        }
+      }
+    }
+
     let configQuery = supabase
       .from("wa_config")
       .select("access_token, phone_number_id, tenant_id, module")

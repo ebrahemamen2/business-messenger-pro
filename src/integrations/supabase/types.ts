@@ -203,6 +203,7 @@ export type Database = {
           contact_phone: string
           created_at: string
           id: string
+          last_customer_message_at: string | null
           last_message_at: string | null
           module: string
           status: string
@@ -216,6 +217,7 @@ export type Database = {
           contact_phone: string
           created_at?: string
           id?: string
+          last_customer_message_at?: string | null
           last_message_at?: string | null
           module?: string
           status?: string
@@ -229,6 +231,7 @@ export type Database = {
           contact_phone?: string
           created_at?: string
           id?: string
+          last_customer_message_at?: string | null
           last_message_at?: string | null
           module?: string
           status?: string
