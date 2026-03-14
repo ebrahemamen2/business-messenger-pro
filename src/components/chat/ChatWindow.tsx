@@ -484,18 +484,20 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
         replyToMessageId: replyTo?.id || undefined,
       });
 
-      const optimisticMsg: ChatMessage = {
-        id: `optimistic-${Date.now()}`,
-        text: '[رسالة صوتية]',
-        timestamp: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
-        rawTimestamp: new Date().toISOString(),
-        sender: 'agent' as const,
-        status: 'sent',
-        mediaType: file.type || 'audio/ogg',
-        mediaUrl: publicUrl,
-      };
-      setOptimisticMessages(prev => [...prev, optimisticMsg]);
-      setReplyTo(null);
+      if (conversationIdRef.current === conversation.id) {
+        const optimisticMsg: ChatMessage = {
+          id: `optimistic-${Date.now()}`,
+          text: '[رسالة صوتية]',
+          timestamp: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+          rawTimestamp: new Date().toISOString(),
+          sender: 'agent' as const,
+          status: 'sent',
+          mediaType: file.type || 'audio/ogg',
+          mediaUrl: publicUrl,
+        };
+        setOptimisticMessages(prev => [...prev, optimisticMsg]);
+        setReplyTo(null);
+      }
 
       toast({ title: '✅ تم إرسال الرسالة الصوتية' });
     } catch (err) {
