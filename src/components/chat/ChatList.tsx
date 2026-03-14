@@ -132,6 +132,11 @@ const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادث
                   {conv.unreadCount}
                 </span>
               )}
+              {conv.lastCustomerMessageAt && (Date.now() - new Date(conv.lastCustomerMessageAt).getTime() > 24 * 60 * 60 * 1000) && (
+                <span className="absolute -bottom-1 -left-1 w-4 h-4 bg-destructive/15 text-destructive rounded-full flex items-center justify-center" title="انتهت نافذة الـ 24 ساعة">
+                  <Clock className="w-2.5 h-2.5" />
+                </span>
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
