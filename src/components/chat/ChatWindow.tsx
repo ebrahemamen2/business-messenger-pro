@@ -208,9 +208,9 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
     setMessage('');
     setOptimisticMessages([]);
     setReactions({});
-    setAttachmentPreview((prev) => {
-      if (prev?.url) URL.revokeObjectURL(prev.url);
-      return null;
+    setAttachmentPreviews((prev) => {
+      prev.forEach(p => URL.revokeObjectURL(p.url));
+      return [];
     });
   }, [conversation.id]);
 
