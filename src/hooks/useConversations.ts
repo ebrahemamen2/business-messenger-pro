@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { playNotificationSound } from '@/lib/notificationSound';
 
 export interface ChatContact {
   id: string;
@@ -44,6 +45,8 @@ export interface ChatConversation {
   assignedTo?: string | null;
   labels: ConversationLabel[];
   lastCustomerMessageAt: string | null;
+  pinnedAt?: string | null;
+  archivedAt?: string | null;
 }
 
 function normalizePhone(phone: string): string {
@@ -201,6 +204,8 @@ export function useConversations(tenantId?: string | null, module: string = 'con
           assignedTo: dbConv.assigned_to || null,
           labels: labelsByConvId[dbConv.id] || [],
           lastCustomerMessageAt: (dbConv as any).last_customer_message_at || null,
+          pinnedAt: (dbConv as any).pinned_at || null,
+          archivedAt: (dbConv as any).archived_at || null,
         };
       });
 
@@ -215,7 +220,13 @@ export function useConversations(tenantId?: string | null, module: string = 'con
           return newConv;
         });
 
-        next.sort((a, b) => toTimestamp(b.lastMessageTime) - toTimestamp(a.lastMessageTime));
+        // Sort: pinned first, then by last message time
+        next.sort((a, b) => {
+          const aPinned = a.pinnedAt ? 1 : 0;
+          const bPinned = b.pinnedAt ? 1 : 0;
+          if (aPinned !== bPinned) return bPinned - aPinned;
+          return toTimestamp(b.lastMessageTime) - toTimestamp(a.lastMessageTime);
+        });
 
         conversationsRef.current = next;
         return next;
@@ -269,7 +280,12 @@ export function useConversations(tenantId?: string | null, module: string = 'con
           : c
       );
 
-      next.sort((a, b) => toTimestamp(b.lastMessageTime) - toTimestamp(a.lastMessageTime));
+      next.sort((a, b) => {
+        const aPinned = a.pinnedAt ? 1 : 0;
+        const bPinned = b.pinnedAt ? 1 : 0;
+        if (aPinned !== bPinned) return bPinned - aPinned;
+        return toTimestamp(b.lastMessageTime) - toTimestamp(a.lastMessageTime);
+      });
 
       conversationsRef.current = next;
       return next;
@@ -358,6 +374,22 @@ export function useConversations(tenantId?: string | null, module: string = 'con
     loadList();
   }, [loadList]);
 
+  const togglePin = useCallback(async (conversationDbId: string, currentlyPinned: boolean) => {
+    await supabase
+      .from('conversations')
+      .update({ pinned_at: currentlyPinned ? null : new Date().toISOString() } as any)
+      .eq('id', conversationDbId);
+    loadList();
+  }, [loadList]);
+
+  const toggleArchive = useCallback(async (conversationDbId: string, currentlyArchived: boolean) => {
+    await supabase
+      .from('conversations')
+      .update({ archived_at: currentlyArchived ? null : new Date().toISOString() } as any)
+      .eq('id', conversationDbId);
+    loadList();
+  }, [loadList]);
+
   useEffect(() => {
     if (!tenantId) return;
 
@@ -371,6 +403,11 @@ export function useConversations(tenantId?: string | null, module: string = 'con
         if (tenantId && newMsg.tenant_id && newMsg.tenant_id !== tenantId) return;
 
         const phone = normalizePhone(newMsg.contact_phone);
+
+        // Play notification sound for inbound messages
+        if (newMsg.direction === 'inbound') {
+          playNotificationSound();
+        }
 
         loadList();
         if (phone === selectedPhoneRef.current) loadMessages(phone);
@@ -399,5 +436,7 @@ export function useConversations(tenantId?: string | null, module: string = 'con
     selectConversation,
     loadMessages,
     loadOlderMessages,
+    togglePin,
+    toggleArchive,
   };
 }
