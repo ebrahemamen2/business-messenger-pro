@@ -700,6 +700,26 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
                       {isArchived ? 'إلغاء الأرشفة' : 'أرشفة المحادثة'}
                     </DropdownMenuItem>
                   )}
+                  {onMoveConversation && conversationDbId && (
+                    <>
+                      <DropdownMenuSeparator />
+                      {module !== 'confirm' && (
+                        <DropdownMenuItem onClick={() => { onMoveConversation(conversationDbId, 'confirm'); toast({ title: '✅ تم النقل للتأكيد' }); }} className="gap-2">
+                          <ArrowRightLeft className="w-3.5 h-3.5" /> نقل للتأكيد
+                        </DropdownMenuItem>
+                      )}
+                      {module !== 'followup' && (
+                        <DropdownMenuItem onClick={() => { onMoveConversation(conversationDbId, 'followup'); toast({ title: '✅ تم النقل للمتابعة' }); }} className="gap-2">
+                          <ArrowRightLeft className="w-3.5 h-3.5" /> نقل للمتابعة
+                        </DropdownMenuItem>
+                      )}
+                      {module !== 'lost' && (
+                        <DropdownMenuItem onClick={() => { onMoveConversation(conversationDbId, 'lost'); toast({ title: '✅ تم النقل للمفقود' }); }} className="gap-2">
+                          <ArrowRightLeft className="w-3.5 h-3.5" /> نقل للمفقود
+                        </DropdownMenuItem>
+                      )}
+                    </>
+                  )}
                   <DropdownMenuSeparator />
                   {onAssign && conversationDbId && teamMembers.length > 0 && (
                     <>
