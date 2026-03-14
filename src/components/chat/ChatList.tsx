@@ -1,4 +1,4 @@
-import { Search } from 'lucide-react';
+import { Search, Clock } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useState, useEffect, useMemo } from 'react';
 import type { ChatConversation } from '@/hooks/useConversations';
