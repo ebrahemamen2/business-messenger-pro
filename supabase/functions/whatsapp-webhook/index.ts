@@ -349,6 +349,53 @@ Deno.serve(async (req) => {
             const contact = contacts.find((c: any) => normalizePhone(c?.wa_id || "") === contactPhone) || contacts[0];
             const contactName = contact?.profile?.name || rawPhone;
 
+            // Handle reactions separately — store in message_reactions, not as a message
+            if (message.type === 'reaction' && message.reaction?.message_id) {
+              const reactionEmoji = message.reaction.emoji || null;
+              const targetWaId = message.reaction.message_id;
+
+              // Find the original message in our DB
+              const { data: targetMsg } = await supabase
+                .from("messages")
+                .select("id")
+                .eq("wa_message_id", targetWaId)
+                .limit(1)
+                .maybeSingle();
+
+              if (targetMsg) {
+                if (reactionEmoji) {
+                  // Add or update reaction — use a deterministic user_id for the customer
+                  const reactorId = contactPhone;
+                  // Remove any previous reaction from this customer on this message
+                  await supabase
+                    .from("message_reactions")
+                    .delete()
+                    .eq("message_id", targetMsg.id)
+                    .eq("user_id", reactorId);
+
+                  await supabase.from("message_reactions").insert({
+                    message_id: targetMsg.id,
+                    emoji: reactionEmoji,
+                    user_id: reactorId,
+                    tenant_id: config?.tenant_id || null,
+                  });
+                  console.log("Reaction stored:", reactionEmoji, "on message", targetMsg.id);
+                } else {
+                  // Empty emoji = reaction removed
+                  await supabase
+                    .from("message_reactions")
+                    .delete()
+                    .eq("message_id", targetMsg.id)
+                    .eq("user_id", contactPhone);
+                  console.log("Reaction removed on message", targetMsg.id);
+                }
+              } else {
+                console.log("Reaction target message not found:", targetWaId);
+              }
+              totalMessages += 1;
+              continue; // Skip normal message insertion
+            }
+
             const body = extractBody(message);
             const media = extractMediaInfo(message);
 
