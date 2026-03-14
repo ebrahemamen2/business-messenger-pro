@@ -707,8 +707,8 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
               <div className="p-2.5 rounded-xl bg-muted text-muted-foreground mb-0.5 cursor-not-allowed">
                 <Ban className="w-5 h-5" />
               </div>
-            ) : attachmentPreview ? (
-              <button onClick={() => uploadAndSendFile(attachmentPreview.file, message.trim())} disabled={uploading} className="p-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 disabled:opacity-40 mb-0.5">
+            ) : attachmentPreviews.length > 0 ? (
+              <button onClick={() => uploadAndSendFiles(attachmentPreviews, message.trim())} disabled={uploading} className="p-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 disabled:opacity-40 mb-0.5">
                 {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
               </button>
             ) : message.trim() ? (
