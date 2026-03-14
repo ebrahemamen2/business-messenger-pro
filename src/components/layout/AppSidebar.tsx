@@ -25,6 +25,7 @@ const AppSidebar = () => {
   const location = useLocation();
   const { signOut, isSuperAdmin } = useAuth();
   const { tenants, currentTenant, selectTenant } = useTenantContext();
+  const { theme, setTheme } = useTheme();
 
   const navItems = isSuperAdmin
     ? [...mainNav, { icon: Shield, label: 'إدارة المنصة', path: '/admin' }]
