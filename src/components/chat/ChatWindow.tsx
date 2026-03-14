@@ -245,21 +245,27 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
     });
   }, [conversation.id]);
 
-  const sendToWhatsApp = async (opts: { message?: string; mediaUrl?: string; mediaType?: string; replyToMessageId?: string; targetPhone?: string }) => {
+  const sendToWhatsApp = useCallback(async (opts: { message?: string; mediaUrl?: string; mediaType?: string; replyToMessageId?: string; targetPhone?: string }) => {
+    // Capture current values at call time to prevent race conditions
+    const targetPhone = opts.targetPhone || conversation.contact.phone;
+    const currentTenantId = tenantId;
+    const currentModule = module;
+    const currentConvDbId = conversationDbId;
+
     const res = await fetch(
       `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/send-message`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          to: opts.targetPhone || conversation.contact.phone,
+          to: targetPhone,
           message: opts.message || '',
           mediaUrl: opts.mediaUrl || undefined,
           mediaType: opts.mediaType || undefined,
           replyToMessageId: opts.replyToMessageId || undefined,
-          tenantId: tenantId || undefined,
-          module,
-          conversationId: conversationDbId || undefined,
+          tenantId: currentTenantId || undefined,
+          module: currentModule,
+          conversationId: currentConvDbId || undefined,
         }),
       }
     );
@@ -269,7 +275,7 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
       const details = payload?.details?.error_data?.details || payload?.details?.message || payload?.error || 'Failed to send';
       throw new Error(details);
     }
-  };
+  }, [conversation.contact.phone, tenantId, module, conversationDbId]);
 
   const handleSend = async () => {
     if (!message.trim() || sending) return;
