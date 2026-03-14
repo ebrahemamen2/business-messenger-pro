@@ -53,7 +53,7 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
   const [showEmoji, setShowEmoji] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [attachmentPreview, setAttachmentPreview] = useState<{ url: string; file: File } | null>(null);
+  const [attachmentPreviews, setAttachmentPreviews] = useState<{ url: string; file: File }[]>([]);
   const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
   const [highlightedMsgId, setHighlightedMsgId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -208,9 +208,9 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
     setMessage('');
     setOptimisticMessages([]);
     setReactions({});
-    setAttachmentPreview((prev) => {
-      if (prev?.url) URL.revokeObjectURL(prev.url);
-      return null;
+    setAttachmentPreviews((prev) => {
+      prev.forEach(p => URL.revokeObjectURL(p.url));
+      return [];
     });
   }, [conversation.id]);
 
@@ -308,38 +308,45 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const previewUrl = URL.createObjectURL(file);
-    setAttachmentPreview({ url: previewUrl, file });
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const newPreviews = Array.from(files).map(file => ({
+      url: URL.createObjectURL(file),
+      file,
+    }));
+    setAttachmentPreviews(prev => [...prev, ...newPreviews]);
+    // Reset input so same files can be re-selected
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const uploadAndSendFile = async (file: File, caption?: string) => {
+  const uploadAndSendFiles = async (files: { url: string; file: File }[], caption?: string) => {
     setUploading(true);
     try {
-      const ext = file.name.split('.').pop();
-      const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from('chat-attachments').upload(path, file, {
-        contentType: file.type || undefined,
-        upsert: false,
-      });
-      if (uploadError) throw uploadError;
-      const { data: { publicUrl } } = supabase.storage.from('chat-attachments').getPublicUrl(path);
+      for (let i = 0; i < files.length; i++) {
+        const { file, url } = files[i];
+        const ext = file.name.split('.').pop();
+        const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        const { error: uploadError } = await supabase.storage.from('chat-attachments').upload(path, file, {
+          contentType: file.type || undefined,
+          upsert: false,
+        });
+        if (uploadError) throw uploadError;
+        const { data: { publicUrl } } = supabase.storage.from('chat-attachments').getPublicUrl(path);
 
-      await sendToWhatsApp({
-        message: caption || undefined,
-        mediaUrl: publicUrl,
-        mediaType: file.type,
-        replyToMessageId: replyTo?.id || undefined,
-      });
+        await sendToWhatsApp({
+          message: i === 0 ? (caption || undefined) : undefined,
+          mediaUrl: publicUrl,
+          mediaType: file.type,
+          replyToMessageId: i === 0 ? (replyTo?.id || undefined) : undefined,
+        });
+
+        URL.revokeObjectURL(url);
+      }
 
       setMessage('');
       setReplyTo(null);
-      setAttachmentPreview((prev) => {
-        if (prev?.url) URL.revokeObjectURL(prev.url);
-        return null;
-      });
-      toast({ title: '✅ تم الإرسال (قيد التأكيد)' });
+      setAttachmentPreviews([]);
+      toast({ title: `✅ تم إرسال ${files.length > 1 ? files.length + ' ملفات' : 'الملف'}` });
     } catch (err) {
       toast({ title: '❌ خطأ', description: err instanceof Error ? err.message : 'فشل رفع الملف', variant: 'destructive' });
     } finally {
@@ -598,23 +605,39 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
           </div>
         )}
 
-        {/* Attachment preview */}
-        {attachmentPreview && (
-          <div className="px-4 py-2 bg-secondary/50 border-t border-border flex items-center gap-3">
-            {attachmentPreview.file.type.startsWith('image') ? (
-              <img src={attachmentPreview.url} alt="" className="w-16 h-16 rounded-lg object-cover" />
-            ) : (
-              <div className="w-16 h-16 rounded-lg bg-secondary flex items-center justify-center">
-                <Paperclip className="w-6 h-6 text-muted-foreground" />
-              </div>
-            )}
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-foreground truncate">{attachmentPreview.file.name}</p>
-              <p className="text-[10px] text-muted-foreground">{(attachmentPreview.file.size / 1024).toFixed(0)} KB</p>
+        {/* Attachment previews (multiple) */}
+        {attachmentPreviews.length > 0 && (
+          <div className="px-4 py-2 bg-secondary/50 border-t border-border">
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              {attachmentPreviews.map((ap, idx) => (
+                <div key={idx} className="relative flex-shrink-0 group/att">
+                  {ap.file.type.startsWith('image') ? (
+                    <img src={ap.url} alt="" className="w-16 h-16 rounded-lg object-cover" />
+                  ) : (
+                    <div className="w-16 h-16 rounded-lg bg-secondary flex items-center justify-center">
+                      <Paperclip className="w-6 h-6 text-muted-foreground" />
+                    </div>
+                  )}
+                  <button
+                    onClick={() => {
+                      URL.revokeObjectURL(ap.url);
+                      setAttachmentPreviews(prev => prev.filter((_, i) => i !== idx));
+                    }}
+                    className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover/att:opacity-100 transition-opacity"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                  <p className="text-[9px] text-muted-foreground truncate w-16 text-center mt-0.5">{ap.file.name}</p>
+                </div>
+              ))}
+              {/* Add more button */}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="w-16 h-16 rounded-lg border-2 border-dashed border-muted-foreground/30 flex items-center justify-center hover:border-primary/50 transition-colors flex-shrink-0"
+              >
+                <Paperclip className="w-5 h-5 text-muted-foreground/50" />
+              </button>
             </div>
-            <button onClick={() => setAttachmentPreview(null)} className="p-1 hover:bg-secondary rounded">
-              <X className="w-3.5 h-3.5 text-muted-foreground" />
-            </button>
           </div>
         )}
 
@@ -648,7 +671,7 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
               onClose={() => setShowQuickReplies(false)}
             />
           )}
-          <input ref={fileInputRef} type="file" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx" className="hidden" onChange={handleFileSelect} />
+          <input ref={fileInputRef} type="file" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx" className="hidden" onChange={handleFileSelect} multiple />
           <div className="flex items-end gap-2">
             <button
               onClick={() => !windowExpired && setShowEmoji(!showEmoji)}
@@ -684,8 +707,8 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
               <div className="p-2.5 rounded-xl bg-muted text-muted-foreground mb-0.5 cursor-not-allowed">
                 <Ban className="w-5 h-5" />
               </div>
-            ) : attachmentPreview ? (
-              <button onClick={() => uploadAndSendFile(attachmentPreview.file, message.trim())} disabled={uploading} className="p-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 disabled:opacity-40 mb-0.5">
+            ) : attachmentPreviews.length > 0 ? (
+              <button onClick={() => uploadAndSendFiles(attachmentPreviews, message.trim())} disabled={uploading} className="p-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 disabled:opacity-40 mb-0.5">
                 {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
               </button>
             ) : message.trim() ? (
