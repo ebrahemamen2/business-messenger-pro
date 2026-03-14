@@ -49,24 +49,24 @@ const Admin = () => {
   };
 
   return (
-    <div className="h-full overflow-y-auto p-6 space-y-6">
+    <div className="h-full overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
       <div className="flex items-center gap-3">
-        <Shield className="w-6 h-6 text-primary" />
+        <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-primary flex-shrink-0" />
         <div>
-          <h1 className="text-2xl font-bold text-foreground">إدارة المنصة</h1>
-          <p className="text-muted-foreground text-sm">إدارة البراندات والمستخدمين</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">إدارة المنصة</h1>
+          <p className="text-muted-foreground text-xs sm:text-sm">إدارة البراندات والمستخدمين</p>
         </div>
       </div>
 
       <Card className="border-border">
         <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
+          <CardTitle className="text-sm sm:text-base flex items-center gap-2">
             <Plus className="w-4 h-4" />
             إضافة براند جديد
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={createTenant} className="flex gap-3">
+          <form onSubmit={createTenant} className="flex flex-col sm:flex-row gap-3">
             <Input
               placeholder="اسم البراند"
               value={newName}
@@ -80,10 +80,10 @@ const Admin = () => {
               placeholder="slug (رابط مختصر)"
               value={newSlug}
               onChange={(e) => setNewSlug(e.target.value)}
-              className="w-48"
+              className="sm:w-48"
               dir="ltr"
             />
-            <Button type="submit" disabled={creating || !newName || !newSlug}>
+            <Button type="submit" disabled={creating || !newName || !newSlug} className="w-full sm:w-auto">
               {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
               إنشاء
             </Button>

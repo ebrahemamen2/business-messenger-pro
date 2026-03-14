@@ -586,17 +586,17 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
 
         {/* Header - conditionally hidden on mobile */}
         {!hideHeader && (
-          <div className="h-16 border-b border-border flex items-center justify-between px-5 bg-card flex-shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center">
-                <span className="text-sm font-bold text-primary">{conversation.contact.name.charAt(0)}</span>
+          <div className="h-14 sm:h-16 border-b border-border flex items-center justify-between px-3 sm:px-5 bg-card flex-shrink-0">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
+                <span className="text-xs sm:text-sm font-bold text-primary">{conversation.contact.name.charAt(0)}</span>
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  {isPinned && <Pin className="w-3 h-3 text-primary rotate-45" />}
-                  <h3 className="font-semibold text-sm text-foreground">{conversation.contact.name}</h3>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  {isPinned && <Pin className="w-3 h-3 text-primary rotate-45 flex-shrink-0" />}
+                  <h3 className="font-semibold text-xs sm:text-sm text-foreground truncate">{conversation.contact.name}</h3>
                   <span
-                    className="text-[9px] font-medium px-1.5 py-0.5 rounded-full"
+                    className="text-[8px] sm:text-[9px] font-medium px-1 sm:px-1.5 py-0.5 rounded-full flex-shrink-0 hidden sm:inline"
                     style={{
                       backgroundColor: `hsl(var(${st.cssVar}) / 0.15)`,
                       color: `hsl(var(${st.cssVar}))`,
@@ -605,37 +605,44 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
                     {st.label}
                   </span>
                 </div>
-                <p className="text-xs text-muted-foreground">{conversation.contact.phone}</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground truncate">{conversation.contact.phone}</p>
               </div>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
               <button
                 onClick={() => setShowSearch(!showSearch)}
-                className={`p-2.5 rounded-lg transition-colors ${showSearch ? 'bg-primary/15 text-primary' : 'hover:bg-secondary text-muted-foreground'}`}
+                className={`p-2 sm:p-2.5 rounded-lg transition-colors ${showSearch ? 'bg-primary/15 text-primary' : 'hover:bg-secondary text-muted-foreground'}`}
                 title="بحث في الرسائل"
               >
                 <Search className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setShowNotes(!showNotes)}
-                className={`p-2.5 rounded-lg transition-colors ${showNotes ? 'bg-primary/15 text-primary' : 'hover:bg-secondary text-muted-foreground'}`}
+                className={`p-2 sm:p-2.5 rounded-lg transition-colors hidden sm:flex ${showNotes ? 'bg-primary/15 text-primary' : 'hover:bg-secondary text-muted-foreground'}`}
                 title="ملاحظات داخلية"
               >
                 <StickyNote className="w-4 h-4" />
               </button>
-              <button onClick={copyPhone} className="p-2.5 rounded-lg hover:bg-secondary text-muted-foreground transition-colors" title="نسخ رقم الهاتف">
+              <button onClick={copyPhone} className="p-2 sm:p-2.5 rounded-lg hover:bg-secondary text-muted-foreground transition-colors hidden sm:flex" title="نسخ رقم الهاتف">
                 <Phone className="w-4 h-4" />
               </button>
-              <button onClick={onToggleContact} className="p-2.5 rounded-lg hover:bg-secondary text-muted-foreground transition-colors" title="معلومات العميل">
+              <button onClick={onToggleContact} className="p-2 sm:p-2.5 rounded-lg hover:bg-secondary text-muted-foreground transition-colors" title="معلومات العميل">
                 <UserCircle className="w-4 h-4" />
               </button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="p-2.5 rounded-lg hover:bg-secondary text-muted-foreground transition-colors">
+                  <button className="p-2 sm:p-2.5 rounded-lg hover:bg-secondary text-muted-foreground transition-colors">
                     <MoreVertical className="w-4 h-4" />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuItem onClick={() => setShowNotes(!showNotes)} className="gap-2 sm:hidden">
+                    <StickyNote className="w-3.5 h-3.5" /> الملاحظات
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={copyPhone} className="gap-2 sm:hidden">
+                    <Copy className="w-3.5 h-3.5" /> نسخ رقم الهاتف
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="sm:hidden" />
                   <DropdownMenuItem onClick={() => handleMarkStatus('open')} className="gap-2">
                     <CheckCircle className="w-3.5 h-3.5 text-[hsl(var(--status-active))]" /> تحديد كمفتوح
                   </DropdownMenuItem>
@@ -646,14 +653,12 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
                     <Ban className="w-3.5 h-3.5 text-[hsl(var(--status-resolved))]" /> إغلاق المحادثة
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  {/* Pin / Unpin */}
                   {onTogglePin && conversationDbId && (
                     <DropdownMenuItem onClick={() => onTogglePin(conversationDbId, isPinned)} className="gap-2">
                       <Pin className={`w-3.5 h-3.5 ${isPinned ? 'text-primary' : ''}`} />
                       {isPinned ? 'إلغاء التثبيت' : 'تثبيت المحادثة'}
                     </DropdownMenuItem>
                   )}
-                  {/* Archive / Unarchive */}
                   {onToggleArchive && conversationDbId && (
                     <DropdownMenuItem onClick={() => onToggleArchive(conversationDbId, isArchived)} className="gap-2">
                       <Archive className={`w-3.5 h-3.5 ${isArchived ? 'text-primary' : ''}`} />
@@ -661,7 +666,6 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator />
-                  {/* Assign to agent */}
                   {onAssign && conversationDbId && teamMembers.length > 0 && (
                     <>
                       {conversation.assignedTo && (
@@ -681,8 +685,8 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
                       ))}
                     </>
                   )}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={copyPhone} className="gap-2">
+                  <DropdownMenuSeparator className="hidden sm:block" />
+                  <DropdownMenuItem onClick={copyPhone} className="gap-2 hidden sm:flex">
                     <Copy className="w-3.5 h-3.5" /> نسخ رقم الهاتف
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -881,11 +885,18 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
         </div>
       </div>
 
-      {/* Notes panel */}
+      {/* Notes panel - Sheet on mobile, side panel on desktop */}
       {showNotes && (
-        <div className="w-[280px] border-l border-border bg-card flex-shrink-0">
-          <ChatNotes conversationId={conversationDbId || null} onClose={() => setShowNotes(false)} />
-        </div>
+        <>
+          <div className="hidden sm:block w-[280px] border-l border-border bg-card flex-shrink-0">
+            <ChatNotes conversationId={conversationDbId || null} onClose={() => setShowNotes(false)} />
+          </div>
+          <div className="sm:hidden fixed inset-0 z-50 bg-background/80 backdrop-blur-sm" onClick={() => setShowNotes(false)}>
+            <div className="absolute left-0 top-0 bottom-0 w-[280px] bg-card border-r border-border shadow-xl" onClick={(e) => e.stopPropagation()}>
+              <ChatNotes conversationId={conversationDbId || null} onClose={() => setShowNotes(false)} />
+            </div>
+          </div>
+        </>
       )}
 
       {/* Forward modal */}
