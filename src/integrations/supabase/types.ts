@@ -206,6 +206,7 @@ export type Database = {
           id: string
           last_customer_message_at: string | null
           last_message_at: string | null
+          last_message_body: string | null
           module: string
           pinned_at: string | null
           status: string
@@ -222,6 +223,7 @@ export type Database = {
           id?: string
           last_customer_message_at?: string | null
           last_message_at?: string | null
+          last_message_body?: string | null
           module?: string
           pinned_at?: string | null
           status?: string
@@ -238,6 +240,7 @@ export type Database = {
           id?: string
           last_customer_message_at?: string | null
           last_message_at?: string | null
+          last_message_body?: string | null
           module?: string
           pinned_at?: string | null
           status?: string
