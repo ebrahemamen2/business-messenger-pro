@@ -1,4 +1,4 @@
-import { Send, Paperclip, Smile, Phone, UserCircle, MoreVertical, StickyNote, Reply, X, Loader2, Ban, CheckCircle, Clock, Copy, Search, AlertTriangle, Timer } from 'lucide-react';
+import { Send, Paperclip, Smile, Phone, UserCircle, MoreVertical, StickyNote, Reply, X, Loader2, Ban, CheckCircle, Clock, Copy, Search, AlertTriangle, Timer, Pin, Archive, UserCheck, Upload } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,6 +12,7 @@ import EmojiPicker from './EmojiPicker';
 import VoiceRecorder from './VoiceRecorder';
 import MessageSearch from './MessageSearch';
 import ScrollToBottom from './ScrollToBottom';
+import ForwardModal from './ForwardModal';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,6 +30,10 @@ interface ChatWindowProps {
   onStatusChange?: (dbId: string, status: string) => void;
   onLoadOlder?: (phone: string) => Promise<boolean>;
   hideHeader?: boolean;
+  allConversations?: ChatConversation[];
+  onTogglePin?: (dbId: string, currentlyPinned: boolean) => void;
+  onToggleArchive?: (dbId: string, currentlyArchived: boolean) => void;
+  onAssign?: (dbId: string, userId: string | null) => void;
 }
 
 const SUPABASE_PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'mhbmxvgcdzhqwpznmgei';
@@ -43,7 +48,7 @@ function getDateLabel(dateStr: string): string {
   return d.toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
-const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantId, conversationDbId, onStatusChange, onLoadOlder, hideHeader }: ChatWindowProps) => {
+const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantId, conversationDbId, onStatusChange, onLoadOlder, hideHeader, allConversations = [], onTogglePin, onToggleArchive, onAssign }: ChatWindowProps) => {
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [showQuickReplies, setShowQuickReplies] = useState(false);
@@ -61,10 +66,14 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [hasOlder, setHasOlder] = useState(true);
   const [reactions, setReactions] = useState<Record<string, Record<string, number>>>({});
+  const [isDragging, setIsDragging] = useState(false);
+  const [forwardMessage, setForwardMessage] = useState<ChatMessage | null>(null);
+  const [teamMembers, setTeamMembers] = useState<{ id: string; name: string }[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dragCounterRef = useRef(0);
   const [windowExpired, setWindowExpired] = useState(false);
   const [windowRemainingText, setWindowRemainingText] = useState<string | null>(null);
   const { toast } = useToast();
@@ -160,7 +169,6 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Toggle: check if already reacted
     const { data: existing } = await supabase
       .from('message_reactions')
       .select('id')
@@ -180,7 +188,6 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
       });
     }
 
-    // Optimistically update
     setReactions(prev => {
       const updated = { ...prev };
       if (!updated[messageId]) updated[messageId] = {};
@@ -198,6 +205,27 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
     });
   }, [tenantId]);
 
+  // Load team members for assignment
+  useEffect(() => {
+    if (!tenantId) return;
+    const loadMembers = async () => {
+      const { data: members } = await supabase
+        .from('tenant_members')
+        .select('user_id')
+        .eq('tenant_id', tenantId);
+      if (!members || members.length === 0) return;
+      const userIds = members.map(m => m.user_id);
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', userIds);
+      if (profiles) {
+        setTeamMembers(profiles.map(p => ({ id: p.id, name: p.full_name || 'موظف' })));
+      }
+    };
+    loadMembers();
+  }, [tenantId]);
+
   // Reset state on conversation change
   useEffect(() => {
     setHasOlder(true);
@@ -208,20 +236,21 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
     setMessage('');
     setOptimisticMessages([]);
     setReactions({});
+    setForwardMessage(null);
     setAttachmentPreviews((prev) => {
       prev.forEach(p => URL.revokeObjectURL(p.url));
       return [];
     });
   }, [conversation.id]);
 
-  const sendToWhatsApp = async (opts: { message?: string; mediaUrl?: string; mediaType?: string; replyToMessageId?: string }) => {
+  const sendToWhatsApp = async (opts: { message?: string; mediaUrl?: string; mediaType?: string; replyToMessageId?: string; targetPhone?: string }) => {
     const res = await fetch(
       `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/send-message`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          to: conversation.contact.phone,
+          to: opts.targetPhone || conversation.contact.phone,
           message: opts.message || '',
           mediaUrl: opts.mediaUrl || undefined,
           mediaType: opts.mediaType || undefined,
@@ -248,7 +277,6 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
     setMessage('');
     setReplyTo(null);
     setShowQuickReplies(false);
-    // Reset textarea height
     if (textareaRef.current) textareaRef.current.style.height = '40px';
 
     const optimisticMsg: ChatMessage = {
@@ -272,6 +300,43 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
       setSending(false);
     }
   };
+
+  const handleRetry = useCallback(async (msg: ChatMessage) => {
+    try {
+      await sendToWhatsApp({
+        message: msg.text || '',
+        mediaUrl: msg.mediaUrl || undefined,
+        mediaType: msg.mediaType || undefined,
+        replyToMessageId: msg.replyToId || undefined,
+      });
+      // Update DB message status
+      if (!msg.id.startsWith('optimistic')) {
+        await supabase.from('messages').update({ status: 'sent' }).eq('id', msg.id);
+      }
+      toast({ title: '✅ تم إعادة الإرسال' });
+    } catch (err) {
+      toast({ title: '❌ فشل إعادة الإرسال', description: err instanceof Error ? err.message : '', variant: 'destructive' });
+    }
+  }, [conversation.contact.phone, tenantId, module, conversationDbId]);
+
+  const handleForward = useCallback((msg: ChatMessage) => {
+    setForwardMessage(msg);
+  }, []);
+
+  const handleForwardSend = useCallback(async (targetPhone: string, msg: ChatMessage) => {
+    try {
+      await sendToWhatsApp({
+        message: msg.text || '',
+        mediaUrl: msg.mediaUrl || undefined,
+        mediaType: msg.mediaType || undefined,
+        targetPhone,
+      });
+      toast({ title: '✅ تم إعادة التوجيه' });
+      setForwardMessage(null);
+    } catch (err) {
+      toast({ title: '❌ فشل إعادة التوجيه', description: err instanceof Error ? err.message : '', variant: 'destructive' });
+    }
+  }, [tenantId, module, conversationDbId]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -315,8 +380,49 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
       file,
     }));
     setAttachmentPreviews(prev => [...prev, ...newPreviews]);
-    // Reset input so same files can be re-selected
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const addFilesFromDrop = (files: FileList) => {
+    const newPreviews = Array.from(files).map(file => ({
+      url: URL.createObjectURL(file),
+      file,
+    }));
+    setAttachmentPreviews(prev => [...prev, ...newPreviews]);
+  };
+
+  // Drag & Drop handlers
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current++;
+    if (e.dataTransfer.types.includes('Files')) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) {
+      setIsDragging(false);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = 0;
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0 && !windowExpired) {
+      addFilesFromDrop(e.dataTransfer.files);
+    }
   };
 
   const uploadAndSendFiles = async (files: { url: string; file: File }[], caption?: string) => {
@@ -357,7 +463,6 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
   const handleVoiceRecordComplete = async (file: File) => {
     setUploading(true);
     try {
-      // Upload voice file to storage (same as other files)
       const ext = file.name.split('.').pop() || 'ogg';
       const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
       const { error: uploadError } = await supabase.storage.from('chat-attachments').upload(path, file, {
@@ -367,7 +472,6 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
       if (uploadError) throw uploadError;
       const { data: { publicUrl } } = supabase.storage.from('chat-attachments').getPublicUrl(path);
 
-      // Send voice message
       await sendToWhatsApp({
         message: '[رسالة صوتية]',
         mediaUrl: publicUrl,
@@ -375,7 +479,6 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
         replyToMessageId: replyTo?.id || undefined,
       });
 
-      // Add optimistic message
       const optimisticMsg: ChatMessage = {
         id: `optimistic-${Date.now()}`,
         text: '[رسالة صوتية]',
@@ -422,7 +525,6 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
     const prevHeight = el?.scrollHeight || 0;
     const hasMore = await onLoadOlder(conversation.contact.phone);
     setHasOlder(hasMore);
-    // Preserve scroll position after older messages load
     requestAnimationFrame(() => {
       if (el) el.scrollTop = el.scrollHeight - prevHeight;
     });
@@ -440,6 +542,9 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
       toast({ title: '✅ تم تحديث الحالة' });
     }
   };
+
+  const isPinned = !!(conversation as any).pinnedAt;
+  const isArchived = !!(conversation as any).archivedAt;
 
   // Group messages by date
   const messagesWithDates: (ChatMessage | { type: 'date'; label: string })[] = [];
@@ -462,7 +567,23 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
 
   return (
     <div className="flex-1 flex h-full min-w-0">
-      <div className="flex-1 flex flex-col h-full min-w-0">
+      <div
+        className="flex-1 flex flex-col h-full min-w-0 relative"
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
+        {/* Drag overlay */}
+        {isDragging && (
+          <div className="absolute inset-0 z-40 bg-primary/10 backdrop-blur-sm border-2 border-dashed border-primary rounded-lg flex items-center justify-center pointer-events-none">
+            <div className="flex flex-col items-center gap-3 text-primary">
+              <Upload className="w-12 h-12" />
+              <span className="text-lg font-semibold">أفلت الملفات هنا</span>
+            </div>
+          </div>
+        )}
+
         {/* Header - conditionally hidden on mobile */}
         {!hideHeader && (
           <div className="h-16 border-b border-border flex items-center justify-between px-5 bg-card flex-shrink-0">
@@ -472,6 +593,7 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
               </div>
               <div>
                 <div className="flex items-center gap-2">
+                  {isPinned && <Pin className="w-3 h-3 text-primary rotate-45" />}
                   <h3 className="font-semibold text-sm text-foreground">{conversation.contact.name}</h3>
                   <span
                     className="text-[9px] font-medium px-1.5 py-0.5 rounded-full"
@@ -513,7 +635,7 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
                     <MoreVertical className="w-4 h-4" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuContent align="end" className="w-52">
                   <DropdownMenuItem onClick={() => handleMarkStatus('open')} className="gap-2">
                     <CheckCircle className="w-3.5 h-3.5 text-[hsl(var(--status-active))]" /> تحديد كمفتوح
                   </DropdownMenuItem>
@@ -523,6 +645,42 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
                   <DropdownMenuItem onClick={() => handleMarkStatus('resolved')} className="gap-2">
                     <Ban className="w-3.5 h-3.5 text-[hsl(var(--status-resolved))]" /> إغلاق المحادثة
                   </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  {/* Pin / Unpin */}
+                  {onTogglePin && conversationDbId && (
+                    <DropdownMenuItem onClick={() => onTogglePin(conversationDbId, isPinned)} className="gap-2">
+                      <Pin className={`w-3.5 h-3.5 ${isPinned ? 'text-primary' : ''}`} />
+                      {isPinned ? 'إلغاء التثبيت' : 'تثبيت المحادثة'}
+                    </DropdownMenuItem>
+                  )}
+                  {/* Archive / Unarchive */}
+                  {onToggleArchive && conversationDbId && (
+                    <DropdownMenuItem onClick={() => onToggleArchive(conversationDbId, isArchived)} className="gap-2">
+                      <Archive className={`w-3.5 h-3.5 ${isArchived ? 'text-primary' : ''}`} />
+                      {isArchived ? 'إلغاء الأرشفة' : 'أرشفة المحادثة'}
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  {/* Assign to agent */}
+                  {onAssign && conversationDbId && teamMembers.length > 0 && (
+                    <>
+                      {conversation.assignedTo && (
+                        <DropdownMenuItem onClick={() => onAssign(conversationDbId, null)} className="gap-2">
+                          <UserCheck className="w-3.5 h-3.5 text-destructive" /> إلغاء التعيين
+                        </DropdownMenuItem>
+                      )}
+                      {teamMembers.map(member => (
+                        <DropdownMenuItem
+                          key={member.id}
+                          onClick={() => onAssign(conversationDbId, member.id)}
+                          className={`gap-2 ${conversation.assignedTo === member.id ? 'bg-primary/10' : ''}`}
+                        >
+                          <UserCheck className={`w-3.5 h-3.5 ${conversation.assignedTo === member.id ? 'text-primary' : ''}`} />
+                          تعيين لـ {member.name}
+                        </DropdownMenuItem>
+                      ))}
+                    </>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={copyPhone} className="gap-2">
                     <Copy className="w-3.5 h-3.5" /> نسخ رقم الهاتف
@@ -578,6 +736,8 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
                 message={msg}
                 onReply={handleReply}
                 onReact={handleReact}
+                onRetry={handleRetry}
+                onForward={handleForward}
                 allMessages={allMessages}
                 highlight={searchQuery}
                 isHighlighted={msg.id === highlightedMsgId}
@@ -630,7 +790,6 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
                   <p className="text-[9px] text-muted-foreground truncate w-16 text-center mt-0.5">{ap.file.name}</p>
                 </div>
               ))}
-              {/* Add more button */}
               <button
                 onClick={() => fileInputRef.current?.click()}
                 className="w-16 h-16 rounded-lg border-2 border-dashed border-muted-foreground/30 flex items-center justify-center hover:border-primary/50 transition-colors flex-shrink-0"
@@ -727,6 +886,17 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
         <div className="w-[280px] border-l border-border bg-card flex-shrink-0">
           <ChatNotes conversationId={conversationDbId || null} onClose={() => setShowNotes(false)} />
         </div>
+      )}
+
+      {/* Forward modal */}
+      {forwardMessage && (
+        <ForwardModal
+          message={forwardMessage}
+          conversations={allConversations}
+          currentConversationId={conversation.id}
+          onForward={handleForwardSend}
+          onClose={() => setForwardMessage(null)}
+        />
       )}
     </div>
   );
