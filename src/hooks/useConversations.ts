@@ -363,6 +363,18 @@ export function useConversations(tenantId?: string | null, module: string = 'con
 
   const bulkUpdateChatStatus = useCallback(async (dbIds: string[], newStatus: ChatStatusType) => {
     if (dbIds.length === 0) return;
+
+    const dbIdSet = new Set(dbIds);
+    setConversations((prev) => {
+      const next = prev.map((c) =>
+        c.dbId && dbIdSet.has(c.dbId)
+          ? { ...c, chatStatus: newStatus, unreadCount: newStatus === 'unread' ? 1 : 0 }
+          : c
+      );
+      conversationsRef.current = next;
+      return next;
+    });
+
     await supabase
       .from('conversations')
       .update({ chat_status: newStatus, unread_count: newStatus === 'unread' ? 1 : 0 })
