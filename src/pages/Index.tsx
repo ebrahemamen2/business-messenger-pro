@@ -6,7 +6,7 @@ import ContactPanel from '@/components/chat/ContactPanel';
 import { MessageSquare, Loader2 } from 'lucide-react';
 
 const Index = () => {
-  const { conversations, loading } = useConversations();
+  const { conversations, loading, togglePin, toggleArchive, updateAssignment, updateStatus, loadOlderMessages } = useConversations();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showContact, setShowContact] = useState(false);
 
@@ -32,6 +32,13 @@ const Index = () => {
           <ChatWindow
             conversation={selected}
             onToggleContact={() => setShowContact(!showContact)}
+            conversationDbId={selected.dbId}
+            onStatusChange={updateStatus}
+            onLoadOlder={loadOlderMessages}
+            allConversations={conversations}
+            onTogglePin={togglePin}
+            onToggleArchive={toggleArchive}
+            onAssign={updateAssignment}
           />
           {showContact && (
             <ContactPanel

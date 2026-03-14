@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useConversations } from '@/hooks/useConversations';
 import { useTenantContext } from '@/contexts/TenantContext';
+import { useAuth } from '@/contexts/AuthContext';
 import ChatList from '@/components/chat/ChatList';
 import ChatWindow from '@/components/chat/ChatWindow';
 import ContactPanel from '@/components/chat/ContactPanel';
@@ -11,7 +12,8 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 
 const FollowUp = () => {
   const { currentTenant } = useTenantContext();
-  const { conversations, loading, reload, updateStatus, selectConversation, loadOlderMessages } = useConversations(currentTenant?.id, 'followup');
+  const { user } = useAuth();
+  const { conversations, loading, reload, updateStatus, updateAssignment, selectConversation, loadOlderMessages, togglePin, toggleArchive } = useConversations(currentTenant?.id, 'followup');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showContact, setShowContact] = useState(false);
   const isMobile = useIsMobile();
@@ -35,6 +37,19 @@ const FollowUp = () => {
       </div>
     );
   }
+
+  const chatWindowProps = (conv: typeof selected) => conv ? ({
+    conversation: conv,
+    module: "followup" as const,
+    tenantId: currentTenant?.id,
+    conversationDbId: conv.dbId,
+    onStatusChange: updateStatus,
+    onLoadOlder: loadOlderMessages,
+    allConversations: conversations,
+    onTogglePin: togglePin,
+    onToggleArchive: toggleArchive,
+    onAssign: updateAssignment,
+  }) : null;
 
   return (
     <div className="flex flex-col h-full">
@@ -61,7 +76,6 @@ const FollowUp = () => {
 
         <TabsContent value="chat" className="flex-1 m-0 overflow-hidden">
           {isMobile ? (
-            /* ====== MOBILE: Single pane ====== */
             <div className="flex flex-col h-full">
               {!selectedId ? (
                 <ChatList
@@ -72,14 +86,12 @@ const FollowUp = () => {
                   tenantId={currentTenant?.id}
                   fullWidth
                   autoSelect={false}
+                  currentUserId={user?.id}
                 />
               ) : selected ? (
                 <div className="flex flex-col h-full">
                   <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-card flex-shrink-0">
-                    <button
-                      onClick={handleBack}
-                      className="p-2 rounded-lg hover:bg-secondary text-muted-foreground transition-colors"
-                    >
+                    <button onClick={handleBack} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground transition-colors">
                       <ArrowRight className="w-5 h-5" />
                     </button>
                     <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -94,13 +106,8 @@ const FollowUp = () => {
                   </div>
                   <div className="flex-1 overflow-hidden">
                     <ChatWindow
-                      conversation={selected}
+                      {...chatWindowProps(selected)!}
                       onToggleContact={() => setShowContact(true)}
-                      module="followup"
-                      tenantId={currentTenant?.id}
-                      conversationDbId={selected.dbId}
-                      onStatusChange={updateStatus}
-                      onLoadOlder={loadOlderMessages}
                       hideHeader
                     />
                   </div>
@@ -132,7 +139,6 @@ const FollowUp = () => {
               )}
             </div>
           ) : (
-            /* ====== DESKTOP: Multi pane ====== */
             <div className="flex h-full">
               <ChatList
                 conversations={conversations}
@@ -140,17 +146,13 @@ const FollowUp = () => {
                 onSelect={handleSelect}
                 title="محادثات المتابعة"
                 tenantId={currentTenant?.id}
+                currentUserId={user?.id}
               />
               {selected ? (
                 <>
                   <ChatWindow
-                    conversation={selected}
+                    {...chatWindowProps(selected)!}
                     onToggleContact={() => setShowContact(!showContact)}
-                    module="followup"
-                    tenantId={currentTenant?.id}
-                    conversationDbId={selected.dbId}
-                    onStatusChange={updateStatus}
-                    onLoadOlder={loadOlderMessages}
                   />
                   {showContact && (
                     <ContactPanel
