@@ -1,4 +1,4 @@
-import { Search, Clock } from 'lucide-react';
+import { Search, Clock, Pin } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useState, useEffect, useMemo } from 'react';
 import type { ChatConversation } from '@/hooks/useConversations';
@@ -12,6 +12,7 @@ interface ChatListProps {
   tenantId?: string | null;
   fullWidth?: boolean;
   autoSelect?: boolean;
+  currentUserId?: string | null;
 }
 
 function normalizeForSearch(text: string): string {
@@ -36,7 +37,7 @@ function toTimestamp(value?: string | null): number {
   return Number.isNaN(ts) ? 0 : ts;
 }
 
-const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادثات', tenantId, fullWidth, autoSelect = true }: ChatListProps) => {
+const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادثات', tenantId, fullWidth, autoSelect = true, currentUserId }: ChatListProps) => {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<ChatFilter>('all');
 
@@ -55,17 +56,23 @@ const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادث
       // Filter
       if (filter === 'unread') return c.chatStatus === 'unread';
       if (filter === 'no_reply') return c.chatStatus === 'awaiting_reply';
+      if (filter === 'archived') return !!(c as any).archivedAt;
+      if (filter === 'my_conversations') return c.assignedTo === currentUserId;
       if (filter.startsWith('label:')) {
         const labelId = filter.replace('label:', '');
         return c.labels.some((l) => l.id === labelId);
       }
-      return true; // 'all'
+      // 'all' - exclude archived
+      return !(c as any).archivedAt;
     });
-  }, [conversations, search, filter]);
+  }, [conversations, search, filter, currentUserId]);
 
-  // Always sort by newest first (like WhatsApp)
+  // Always sort by pinned first, then newest
   const filteredAndSorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
+      const aPinned = (a as any).pinnedAt ? 1 : 0;
+      const bPinned = (b as any).pinnedAt ? 1 : 0;
+      if (aPinned !== bPinned) return bPinned - aPinned;
       const aTime = toTimestamp(a.lastMessageTime);
       const bTime = toTimestamp(b.lastMessageTime);
       return bTime - aTime;
@@ -75,7 +82,6 @@ const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادث
   useEffect(() => {
     if (!autoSelect) return;
     if (filteredAndSorted.length === 0) return;
-    // Only auto-select first conversation for 'all' filter or when no selection exists
     if (!selectedId) {
       onSelect(filteredAndSorted[0].id);
     } else if (filter === 'all' && !filteredAndSorted.some((c) => c.id === selectedId)) {
@@ -108,6 +114,7 @@ const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادث
         onFilterChange={setFilter}
         tenantId={tenantId}
         conversations={conversations}
+        currentUserId={currentUserId}
       />
 
       <div className="flex-1 overflow-y-auto">
@@ -141,6 +148,9 @@ const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادث
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 min-w-0">
+                  {(conv as any).pinnedAt && (
+                    <Pin className="w-3 h-3 text-primary flex-shrink-0 rotate-45" />
+                  )}
                   <span className="font-semibold text-sm text-foreground truncate">
                     {conv.contact.name}
                   </span>
