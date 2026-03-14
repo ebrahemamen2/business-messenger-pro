@@ -183,6 +183,7 @@ async function upsertConversationFromMessage(params: {
     // Only update chat_status if inbound (set to unread) or if agent is replying
     if (direction === "inbound") {
       updateData.chat_status = "unread";
+      updateData.last_customer_message_at = atIso;
     } else {
       updateData.chat_status = "replied";
     }
