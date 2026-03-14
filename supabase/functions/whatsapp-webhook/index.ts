@@ -393,6 +393,7 @@ Deno.serve(async (req) => {
               status: "delivered",
               media_url: storedMediaUrl,
               media_type: storedMediaType,
+              reply_to_message_id: replyToMessageId,
               tenant_id: config?.tenant_id || null,
               created_at: inboundAt,
             });
