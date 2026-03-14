@@ -74,6 +74,8 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
+  const conversationIdRef = useRef(conversation.id);
+  conversationIdRef.current = conversation.id;
   const [windowExpired, setWindowExpired] = useState(false);
   const [windowRemainingText, setWindowRemainingText] = useState<string | null>(null);
   const { toast } = useToast();
