@@ -72,7 +72,7 @@ const ProtectedLayout = () => {
         {/* Sidebar: hidden on mobile */}
         {!isMobile && <AppSidebar />}
 
-        <main className={`flex-1 overflow-hidden ${isMobile ? 'pb-14' : ''}`}>
+        <main className={`flex-1 overflow-hidden ${isMobile ? 'pb-[calc(56px+env(safe-area-inset-bottom,0px))]' : ''}`}>
           <Routes>
             <Route path="/dashboard" element={<MainDashboard />} />
             <Route path="/confirm" element={<Confirm />} />
