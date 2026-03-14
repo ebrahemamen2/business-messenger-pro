@@ -504,6 +504,72 @@ export type Database = {
           },
         ]
       }
+      shipment_tracking: {
+        Row: {
+          conversation_id: string | null
+          created_at: string
+          customer_name: string | null
+          customer_phone: string
+          id: string
+          notes: string | null
+          order_code: string | null
+          shipment_code: string
+          shipping_company: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+          uploaded_at: string
+          wa_template_sent: boolean
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string
+          customer_name?: string | null
+          customer_phone: string
+          id?: string
+          notes?: string | null
+          order_code?: string | null
+          shipment_code: string
+          shipping_company?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          uploaded_at?: string
+          wa_template_sent?: boolean
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string
+          customer_name?: string | null
+          customer_phone?: string
+          id?: string
+          notes?: string | null
+          order_code?: string | null
+          shipment_code?: string
+          shipping_company?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          uploaded_at?: string
+          wa_template_sent?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipment_tracking_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_tracking_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_members: {
         Row: {
           created_at: string
