@@ -177,7 +177,7 @@ Deno.serve(async (req) => {
     if (!config) {
       const { data: fallbackConfig } = await supabase
         .from("wa_config")
-        .select("access_token, phone_number_id, tenant_id, module")
+        .select("access_token, phone_number_id, tenant_id")
         .order("updated_at", { ascending: false })
         .limit(1)
         .maybeSingle();
