@@ -461,7 +461,7 @@ Deno.serve(async (req) => {
               supabase,
               contactPhone,
               tenantId: config?.tenant_id || null,
-              module: config?.module || "confirm",
+              module: "confirm",
               direction: "inbound",
               atIso: inboundAt,
             });
