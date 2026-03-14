@@ -192,6 +192,10 @@ const Confirm = () => {
         <TabsContent value="auto-reply" className="flex-1 m-0 overflow-hidden">
           <ConfirmAutoReply module="confirm" title="قسم التأكيد" />
         </TabsContent>
+
+        <TabsContent value="ai-prompt" className="flex-1 m-0 overflow-hidden">
+          <AIModulePrompt module="confirm" title="قسم التأكيد" />
+        </TabsContent>
       </Tabs>
     </div>
   );
