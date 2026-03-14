@@ -89,6 +89,7 @@ const Confirm = () => {
                   fullWidth
                   autoSelect={false}
                   currentUserId={user?.id}
+                  onBulkUpdateChatStatus={bulkUpdateChatStatus}
                 />
               ) : selected ? (
                 <div className="flex flex-col h-full">
