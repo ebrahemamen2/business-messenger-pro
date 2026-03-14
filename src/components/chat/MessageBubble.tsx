@@ -174,13 +174,46 @@ const MessageBubble = ({ message, onReply, onReact, onRetry, onForward, allMessa
           </div>
         )}
 
-        {/* Reply quote */}
+        {/* Reply quote - WhatsApp style */}
         {replyTarget && (
-          <div className={`mb-1.5 ${isMediaOnly ? 'mx-1' : ''} px-2.5 py-1.5 rounded-lg bg-background/10 border-r-2 border-primary/50`}>
-            <span className="text-[10px] font-bold opacity-80">
-              {replyTarget.sender === 'customer' ? 'العميل' : 'أنت'}
-            </span>
-            <p className="text-[11px] opacity-70 truncate mt-0.5">{replyTarget.text}</p>
+          <div
+            className={`mb-1.5 ${isMediaOnly ? 'mx-1' : ''} flex items-stretch rounded-lg overflow-hidden bg-background/10 border-r-2 border-primary/50 cursor-pointer`}
+            onClick={() => {
+              const el = document.getElementById(`msg-${replyTarget.id}`);
+              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }}
+          >
+            <div className="flex-1 px-2.5 py-1.5 min-w-0">
+              <span className="text-[10px] font-bold opacity-80">
+                {replyTarget.sender === 'customer' ? 'العميل' : 'أنت'}
+              </span>
+              {replyTarget.mediaUrl && replyTarget.mediaType?.startsWith('image') && !replyTarget.text?.replace(/^\[.*?\]/, '').trim() ? (
+                <p className="text-[11px] opacity-70 mt-0.5 flex items-center gap-1">📷 صورة</p>
+              ) : replyTarget.mediaUrl && replyTarget.mediaType?.startsWith('video') ? (
+                <p className="text-[11px] opacity-70 mt-0.5 flex items-center gap-1">🎥 فيديو</p>
+              ) : replyTarget.mediaUrl && (replyTarget.mediaType?.startsWith('audio') || replyTarget.mediaType?.includes('ogg')) ? (
+                <p className="text-[11px] opacity-70 mt-0.5 flex items-center gap-1">🎤 رسالة صوتية</p>
+              ) : replyTarget.mediaUrl && replyTarget.mediaType?.includes('document') ? (
+                <p className="text-[11px] opacity-70 mt-0.5 flex items-center gap-1">📄 مستند</p>
+              ) : (
+                <p className="text-[11px] opacity-70 truncate mt-0.5">
+                  {replyTarget.text && replyTarget.text.length > 80
+                    ? replyTarget.text.slice(0, 80) + '…'
+                    : replyTarget.text}
+                </p>
+              )}
+            </div>
+            {/* Thumbnail for images */}
+            {replyTarget.mediaUrl && replyTarget.mediaType?.startsWith('image') && (
+              <div className="w-12 h-12 flex-shrink-0">
+                <img
+                  src={replyTarget.mediaUrl}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+              </div>
+            )}
           </div>
         )}
 
