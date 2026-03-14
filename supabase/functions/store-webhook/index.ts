@@ -152,6 +152,7 @@ Deno.serve(async (req) => {
           last_message_at: messageCreatedAt,
           updated_at: messageCreatedAt,
           unread_count: 0,
+          chat_status: "replied",
         })
         .eq("id", existingConversation.id);
     } else {
@@ -161,6 +162,7 @@ Deno.serve(async (req) => {
         module: conversationModule,
         status: "open",
         unread_count: 0,
+        chat_status: "replied",
         last_message_at: messageCreatedAt,
         created_at: messageCreatedAt,
         updated_at: messageCreatedAt,

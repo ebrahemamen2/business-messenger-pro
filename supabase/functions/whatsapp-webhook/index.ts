@@ -161,7 +161,7 @@ async function upsertConversationFromMessage(params: {
 
   let lookup = supabase
     .from("conversations")
-    .select("id, unread_count")
+    .select("id, unread_count, chat_status")
     .eq("contact_phone", contactPhone)
     .eq("module", module)
     .limit(1);
@@ -171,15 +171,24 @@ async function upsertConversationFromMessage(params: {
   const { data: existingConv, error: lookupErr } = await lookup.maybeSingle();
   if (lookupErr) throw lookupErr;
 
+  const newChatStatus = direction === "inbound" ? "unread" : "replied";
+
   if (existingConv) {
     const nextUnread = direction === "inbound" ? (existingConv.unread_count || 0) + 1 : 0;
+    const updateData: Record<string, any> = {
+      last_message_at: atIso,
+      updated_at: atIso,
+      unread_count: nextUnread,
+    };
+    // Only update chat_status if inbound (set to unread) or if agent is replying
+    if (direction === "inbound") {
+      updateData.chat_status = "unread";
+    } else {
+      updateData.chat_status = "replied";
+    }
     const { error: updateErr } = await supabase
       .from("conversations")
-      .update({
-        last_message_at: atIso,
-        updated_at: atIso,
-        unread_count: nextUnread,
-      })
+      .update(updateData)
       .eq("id", existingConv.id);
 
     if (updateErr) throw updateErr;
@@ -193,6 +202,7 @@ async function upsertConversationFromMessage(params: {
     module,
     status: "open",
     unread_count: unreadCount,
+    chat_status: newChatStatus,
     last_message_at: atIso,
     created_at: atIso,
     updated_at: atIso,

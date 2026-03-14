@@ -78,6 +78,7 @@ async function upsertConversationAfterOutbound(params: {
         last_message_at: atIso,
         unread_count: 0,
         updated_at: atIso,
+        chat_status: "replied",
       })
       .eq("id", conversationId);
 
@@ -104,6 +105,7 @@ async function upsertConversationAfterOutbound(params: {
         last_message_at: atIso,
         unread_count: 0,
         updated_at: atIso,
+        chat_status: "replied",
       })
       .eq("id", existing.id);
 
@@ -117,6 +119,7 @@ async function upsertConversationAfterOutbound(params: {
     module,
     status: "open",
     unread_count: 0,
+    chat_status: "replied",
     last_message_at: atIso,
     created_at: atIso,
     updated_at: atIso,
