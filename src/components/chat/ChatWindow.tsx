@@ -605,23 +605,39 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
           </div>
         )}
 
-        {/* Attachment preview */}
-        {attachmentPreview && (
-          <div className="px-4 py-2 bg-secondary/50 border-t border-border flex items-center gap-3">
-            {attachmentPreview.file.type.startsWith('image') ? (
-              <img src={attachmentPreview.url} alt="" className="w-16 h-16 rounded-lg object-cover" />
-            ) : (
-              <div className="w-16 h-16 rounded-lg bg-secondary flex items-center justify-center">
-                <Paperclip className="w-6 h-6 text-muted-foreground" />
-              </div>
-            )}
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-foreground truncate">{attachmentPreview.file.name}</p>
-              <p className="text-[10px] text-muted-foreground">{(attachmentPreview.file.size / 1024).toFixed(0)} KB</p>
+        {/* Attachment previews (multiple) */}
+        {attachmentPreviews.length > 0 && (
+          <div className="px-4 py-2 bg-secondary/50 border-t border-border">
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              {attachmentPreviews.map((ap, idx) => (
+                <div key={idx} className="relative flex-shrink-0 group/att">
+                  {ap.file.type.startsWith('image') ? (
+                    <img src={ap.url} alt="" className="w-16 h-16 rounded-lg object-cover" />
+                  ) : (
+                    <div className="w-16 h-16 rounded-lg bg-secondary flex items-center justify-center">
+                      <Paperclip className="w-6 h-6 text-muted-foreground" />
+                    </div>
+                  )}
+                  <button
+                    onClick={() => {
+                      URL.revokeObjectURL(ap.url);
+                      setAttachmentPreviews(prev => prev.filter((_, i) => i !== idx));
+                    }}
+                    className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover/att:opacity-100 transition-opacity"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                  <p className="text-[9px] text-muted-foreground truncate w-16 text-center mt-0.5">{ap.file.name}</p>
+                </div>
+              ))}
+              {/* Add more button */}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="w-16 h-16 rounded-lg border-2 border-dashed border-muted-foreground/30 flex items-center justify-center hover:border-primary/50 transition-colors flex-shrink-0"
+              >
+                <Paperclip className="w-5 h-5 text-muted-foreground/50" />
+              </button>
             </div>
-            <button onClick={() => setAttachmentPreview(null)} className="p-1 hover:bg-secondary rounded">
-              <X className="w-3.5 h-3.5 text-muted-foreground" />
-            </button>
           </div>
         )}
 
