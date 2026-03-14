@@ -71,7 +71,7 @@ const AISettings = () => {
     if (!currentTenant?.id) return;
     setSaving(true);
     try {
-      const configData: Record<string, any> = {
+      const configData = {
         tenant_id: currentTenant.id,
         provider,
         api_key: provider === 'lovable' ? null : apiKey || null,
@@ -80,9 +80,9 @@ const AISettings = () => {
       };
 
       if (existingId) {
-        await supabase.from('ai_config').update(configData).eq('id', existingId);
+        await supabase.from('ai_config').update(configData as any).eq('id', existingId);
       } else {
-        await supabase.from('ai_config').insert(configData);
+        await supabase.from('ai_config').insert(configData as any);
       }
 
       toast({ title: '✅ تم الحفظ', description: 'تم حفظ إعدادات الذكاء الاصطناعي' });

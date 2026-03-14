@@ -445,5 +445,6 @@ export function useConversations(tenantId?: string | null, module: string = 'con
     togglePin,
     toggleArchive,
     bulkUpdateChatStatus,
+    moveConversation,
   };
 }
