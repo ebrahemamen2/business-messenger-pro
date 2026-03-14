@@ -873,6 +873,7 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
                 el.style.height = Math.min(el.scrollHeight, 160) + 'px';
               }}
               onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
               placeholder={windowExpired ? "انتهت نافذة الـ 24 ساعة..." : "اكتب رسالة... أو / للردود السريعة"}
               className="flex-1 bg-secondary border-0 text-sm min-h-[40px] max-h-[160px] resize-none py-2.5 overflow-y-auto"
               rows={1}
