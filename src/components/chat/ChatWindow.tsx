@@ -308,10 +308,15 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const previewUrl = URL.createObjectURL(file);
-    setAttachmentPreview({ url: previewUrl, file });
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const newPreviews = Array.from(files).map(file => ({
+      url: URL.createObjectURL(file),
+      file,
+    }));
+    setAttachmentPreviews(prev => [...prev, ...newPreviews]);
+    // Reset input so same files can be re-selected
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const uploadAndSendFile = async (file: File, caption?: string) => {
