@@ -53,8 +53,8 @@ const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادث
       }
 
       // Filter
-      if (filter === 'unread') return c.unreadCount > 0;
-      if (filter === 'no_reply') return c.lastMessageDirection === 'inbound' && c.unreadCount === 0;
+      if (filter === 'unread') return c.chatStatus === 'unread';
+      if (filter === 'no_reply') return c.chatStatus === 'awaiting_reply';
       if (filter.startsWith('label:')) {
         const labelId = filter.replace('label:', '');
         return c.labels.some((l) => l.id === labelId);
