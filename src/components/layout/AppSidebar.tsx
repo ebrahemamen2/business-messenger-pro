@@ -32,7 +32,7 @@ const AppSidebar = () => {
     : mainNav;
 
   return (
-    <div className="w-[72px] h-screen bg-card border-r border-border flex flex-col items-center py-4 flex-shrink-0">
+    <div className="w-[72px] h-screen bg-sidebar border-r border-sidebar-border flex flex-col items-center py-4 flex-shrink-0">
       {/* Tenant Selector */}
       {tenants.length > 0 ? (
         <DropdownMenu>
