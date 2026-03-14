@@ -1,7 +1,9 @@
-import { Search, Clock, Pin } from 'lucide-react';
+import { Search, Clock, Pin, CheckSquare, X, Mail, MailOpen } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { useState, useEffect, useMemo } from 'react';
-import type { ChatConversation } from '@/hooks/useConversations';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import type { ChatConversation, ChatStatusType } from '@/hooks/useConversations';
 import ChatFilters, { type ChatFilter } from './ChatFilters';
 
 interface ChatListProps {
@@ -13,6 +15,7 @@ interface ChatListProps {
   fullWidth?: boolean;
   autoSelect?: boolean;
   currentUserId?: string | null;
+  onBulkUpdateChatStatus?: (dbIds: string[], status: ChatStatusType) => Promise<void>;
 }
 
 function normalizeForSearch(text: string): string {
@@ -37,13 +40,14 @@ function toTimestamp(value?: string | null): number {
   return Number.isNaN(ts) ? 0 : ts;
 }
 
-const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادثات', tenantId, fullWidth, autoSelect = true, currentUserId }: ChatListProps) => {
+const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادثات', tenantId, fullWidth, autoSelect = true, currentUserId, onBulkUpdateChatStatus }: ChatListProps) => {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<ChatFilter>('all');
+  const [multiSelectMode, setMultiSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const filtered = useMemo(() => {
     return conversations.filter((c) => {
-      // Search
       if (search) {
         const q = normalizeForSearch(search.toLowerCase());
         const matches =
@@ -53,7 +57,6 @@ const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادث
         if (!matches) return false;
       }
 
-      // Filter
       if (filter === 'unread') return c.chatStatus === 'unread';
       if (filter === 'no_reply') return c.chatStatus === 'awaiting_reply';
       if (filter === 'archived') return !!(c as any).archivedAt;
@@ -62,12 +65,10 @@ const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادث
         const labelId = filter.replace('label:', '');
         return c.labels.some((l) => l.id === labelId);
       }
-      // 'all' - exclude archived
       return !(c as any).archivedAt;
     });
   }, [conversations, search, filter, currentUserId]);
 
-  // Always sort by pinned first, then newest
   const filteredAndSorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
       const aPinned = (a as any).pinnedAt ? 1 : 0;
@@ -89,14 +90,52 @@ const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادث
     }
   }, [selectedId, filteredAndSorted, onSelect, filter, autoSelect]);
 
+  const exitMultiSelect = useCallback(() => {
+    setMultiSelectMode(false);
+    setSelectedIds(new Set());
+  }, []);
+
+  const toggleId = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const selectAll = useCallback(() => {
+    setSelectedIds(new Set(filteredAndSorted.map((c) => c.id)));
+  }, [filteredAndSorted]);
+
+  const handleBulkAction = useCallback(async (status: ChatStatusType) => {
+    if (!onBulkUpdateChatStatus) return;
+    const dbIds = filteredAndSorted
+      .filter((c) => selectedIds.has(c.id) && c.dbId)
+      .map((c) => c.dbId!);
+    await onBulkUpdateChatStatus(dbIds, status);
+    exitMultiSelect();
+  }, [onBulkUpdateChatStatus, filteredAndSorted, selectedIds, exitMultiSelect]);
+
   return (
     <div className={`h-full border-r border-border flex flex-col bg-card flex-shrink-0 ${fullWidth ? 'w-full' : 'w-[340px]'}`}>
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-bold text-foreground">{title}</h2>
-          <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded-full">
-            {filteredAndSorted.length}
-          </span>
+          <div className="flex items-center gap-2">
+            {onBulkUpdateChatStatus && (
+              <button
+                onClick={() => multiSelectMode ? exitMultiSelect() : setMultiSelectMode(true)}
+                className={`p-1.5 rounded-lg transition-colors ${multiSelectMode ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-secondary'}`}
+                title={multiSelectMode ? 'إلغاء التحديد' : 'تحديد متعدد'}
+              >
+                {multiSelectMode ? <X className="w-4 h-4" /> : <CheckSquare className="w-4 h-4" />}
+              </button>
+            )}
+            <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded-full">
+              {filteredAndSorted.length}
+            </span>
+          </div>
         </div>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -108,6 +147,38 @@ const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادث
           />
         </div>
       </div>
+
+      {multiSelectMode && (
+        <div className="flex items-center gap-1 px-3 py-2 border-b border-border bg-secondary/50 flex-shrink-0">
+          <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={selectAll}>
+            تحديد الكل
+          </Button>
+          <div className="flex-1" />
+          <span className="text-xs text-muted-foreground ml-1">{selectedIds.size} محدد</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs h-7 px-2 gap-1"
+            disabled={selectedIds.size === 0}
+            onClick={() => handleBulkAction('unread')}
+            title="غير مقروء"
+          >
+            <Mail className="w-3.5 h-3.5" />
+            غير مقروء
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs h-7 px-2 gap-1"
+            disabled={selectedIds.size === 0}
+            onClick={() => handleBulkAction('replied')}
+            title="مقروء"
+          >
+            <MailOpen className="w-3.5 h-3.5" />
+            مقروء
+          </Button>
+        </div>
+      )}
 
       <ChatFilters
         activeFilter={filter}
@@ -121,13 +192,23 @@ const ChatList = ({ conversations, selectedId, onSelect, title = 'المحادث
         {filteredAndSorted.map((conv) => (
           <button
             key={conv.id}
-            onClick={() => onSelect(conv.id)}
+            onClick={() => multiSelectMode ? toggleId(conv.id) : onSelect(conv.id)}
             className={`w-full p-3.5 flex gap-3 items-center border-b border-border/50 transition-all duration-150 text-right ${
-              selectedId === conv.id
-                ? 'bg-secondary/80'
-                : 'hover:bg-secondary/40'
+              multiSelectMode && selectedIds.has(conv.id)
+                ? 'bg-primary/10'
+                : selectedId === conv.id
+                  ? 'bg-secondary/80'
+                  : 'hover:bg-secondary/40'
             }`}
           >
+            {multiSelectMode && (
+              <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  checked={selectedIds.has(conv.id)}
+                  onCheckedChange={() => toggleId(conv.id)}
+                />
+              </div>
+            )}
             <div className="relative flex-shrink-0">
               <div className="w-11 h-11 rounded-full bg-primary/15 flex items-center justify-center">
                 <span className="text-sm font-bold text-primary">
