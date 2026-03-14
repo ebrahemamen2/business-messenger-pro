@@ -12,17 +12,18 @@ import Auth from "./pages/Auth";
 import MainDashboard from "./pages/MainDashboard";
 import Confirm from "./pages/Confirm";
 import FollowUp from "./pages/FollowUp";
+import LostOrders from "./pages/LostOrders";
+import NewOrders from "./pages/NewOrders";
 import Settings from "./pages/Settings";
 import Contacts from "./pages/Contacts";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
-import { Loader2, LayoutDashboard, CheckCircle, Truck, Users, Settings as SettingsIcon, Building2, ChevronDown, Sun, Moon, LogOut } from "lucide-react";
+import { Loader2, LayoutDashboard, CheckCircle, Truck, Users, Settings as SettingsIcon, Building2, ChevronDown, Sun, Moon, LogOut, PackageX, ShoppingBag } from "lucide-react";
 import { useIsMobile } from "./hooks/use-mobile";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -32,7 +33,7 @@ const mobileNav = [
   { icon: LayoutDashboard, label: 'الرئيسية', path: '/dashboard' },
   { icon: CheckCircle, label: 'التأكيد', path: '/confirm' },
   { icon: Truck, label: 'المتابعة', path: '/follow-up' },
-  { icon: Users, label: 'الاتصال', path: '/contacts' },
+  { icon: PackageX, label: 'المفقود', path: '/lost-orders' },
   { icon: SettingsIcon, label: 'المزيد', path: '/settings' },
 ];
 
@@ -67,7 +68,6 @@ const MobileTopBar = () => {
 
   return (
     <div className="h-11 bg-card border-b border-border flex items-center justify-between px-3 flex-shrink-0">
-      {/* Tenant Selector */}
       {tenants.length > 0 ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -106,7 +106,6 @@ const MobileTopBar = () => {
         </div>
       )}
 
-      {/* Right actions */}
       <div className="flex items-center gap-0.5">
         <button
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
@@ -142,11 +141,9 @@ const ProtectedLayout = () => {
   return (
     <TenantProvider>
       <div className="flex h-screen overflow-hidden">
-        {/* Sidebar: hidden on mobile */}
         {!isMobile && <AppSidebar />}
 
         <div className={`flex-1 flex flex-col overflow-hidden ${isMobile ? 'pb-[calc(56px+env(safe-area-inset-bottom,0px))]' : ''}`}>
-          {/* Mobile top bar with tenant selector */}
           {isMobile && <MobileTopBar />}
 
           <main className="flex-1 overflow-hidden">
@@ -154,6 +151,8 @@ const ProtectedLayout = () => {
               <Route path="/dashboard" element={<MainDashboard />} />
               <Route path="/confirm" element={<Confirm />} />
               <Route path="/follow-up" element={<FollowUp />} />
+              <Route path="/lost-orders" element={<LostOrders />} />
+              <Route path="/new-orders" element={<NewOrders />} />
               <Route path="/contacts" element={<Contacts />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/admin" element={<Admin />} />
@@ -163,7 +162,6 @@ const ProtectedLayout = () => {
           </main>
         </div>
 
-        {/* Bottom nav: only on mobile */}
         {isMobile && <MobileBottomNav />}
       </div>
     </TenantProvider>

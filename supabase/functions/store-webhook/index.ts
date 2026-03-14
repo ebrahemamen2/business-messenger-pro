@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
 
     const { data: config, error: configErr } = await supabase
       .from("wa_config")
-      .select("tenant_id, module")
+      .select("tenant_id")
       .eq("store_api_key", apiKey)
       .maybeSingle();
 
@@ -134,7 +134,7 @@ Deno.serve(async (req) => {
       return json({ error: "Failed to store message" }, 500);
     }
 
-    const conversationModule = config.module || "confirm";
+    const conversationModule = "confirm";
     let conversationLookup = supabase
       .from("conversations")
       .select("id")

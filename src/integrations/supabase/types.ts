@@ -14,6 +14,88 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_config: {
+        Row: {
+          api_key: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          model: string
+          provider: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          api_key?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          model?: string
+          provider?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          api_key?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          model?: string
+          provider?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_config_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_module_prompts: {
+        Row: {
+          created_at: string
+          escalation_keywords: string[] | null
+          id: string
+          is_active: boolean
+          module: string
+          system_prompt: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          escalation_keywords?: string[] | null
+          id?: string
+          is_active?: boolean
+          module: string
+          system_prompt?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          escalation_keywords?: string[] | null
+          id?: string
+          is_active?: boolean
+          module?: string
+          system_prompt?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_module_prompts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       auto_reply_rules: {
         Row: {
           created_at: string
@@ -510,7 +592,6 @@ export type Database = {
           business_account_id: string | null
           created_at: string
           id: string
-          module: string
           phone_number_id: string | null
           store_api_key: string | null
           tenant_id: string | null
@@ -526,7 +607,6 @@ export type Database = {
           business_account_id?: string | null
           created_at?: string
           id?: string
-          module?: string
           phone_number_id?: string | null
           store_api_key?: string | null
           tenant_id?: string | null
@@ -542,7 +622,6 @@ export type Database = {
           business_account_id?: string | null
           created_at?: string
           id?: string
-          module?: string
           phone_number_id?: string | null
           store_api_key?: string | null
           tenant_id?: string | null
@@ -555,7 +634,7 @@ export type Database = {
           {
             foreignKeyName: "wa_config_tenant_id_fkey"
             columns: ["tenant_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },

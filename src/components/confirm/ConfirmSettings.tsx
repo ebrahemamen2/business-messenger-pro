@@ -11,7 +11,6 @@ import { useTenantContext } from '@/contexts/TenantContext';
 import WebhookDiagnostics from '@/components/settings/WebhookDiagnostics';
 
 const SUPABASE_PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'mhbmxvgcdzhqwpznmgei';
-const MODULE = 'confirm';
 
 function generateApiKey() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -41,7 +40,6 @@ const ConfirmSettings = () => {
       let query = supabase
         .from('wa_config')
         .select('*')
-        .eq('module', MODULE)
         .order('updated_at', { ascending: false })
         .limit(1);
 
@@ -57,7 +55,7 @@ const ConfirmSettings = () => {
         setBusinessId(data.business_account_id || '');
         setVerifyToken(data.verify_token || '');
         setWelcomeEnabled(data.welcome_enabled ?? true);
-        setStoreApiKey((data as any).store_api_key || '');
+        setStoreApiKey(data.store_api_key || '');
       } else {
         setToken('');
         setPhoneId('');
@@ -77,7 +75,6 @@ const ConfirmSettings = () => {
       let existingQuery = supabase
         .from('wa_config')
         .select('id')
-        .eq('module', MODULE)
         .order('updated_at', { ascending: false })
         .limit(1);
 
@@ -87,14 +84,13 @@ const ConfirmSettings = () => {
 
       const { data: existing } = await existingQuery.maybeSingle();
 
-      const configData: any = {
+      const configData: Record<string, any> = {
         access_token: token,
         phone_number_id: phoneId,
         business_account_id: businessId,
         verify_token: verifyToken,
         welcome_enabled: welcomeEnabled,
         store_api_key: storeApiKey || null,
-        module: MODULE,
       };
 
       if (currentTenant?.id) {
@@ -120,7 +116,7 @@ const ConfirmSettings = () => {
       } else {
         toast({
           title: '✅ تم الحفظ والتفعيل',
-          description: 'تم حفظ إعدادات التأكيد وتفعيل اشتراك استقبال الرسائل بنجاح',
+          description: 'تم حفظ إعدادات الواتساب وتفعيل اشتراك استقبال الرسائل بنجاح',
         });
       }
     } catch (err) {
@@ -154,9 +150,9 @@ const ConfirmSettings = () => {
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6 overflow-y-auto h-full">
       <div>
-        <h2 className="text-xl font-bold text-foreground">إعدادات واتساب التأكيد</h2>
+        <h2 className="text-xl font-bold text-foreground">إعدادات الواتساب</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          رقم الواتساب الخاص بقسم التأكيد - {currentTenant?.name || 'البراند'}
+          رقم واتساب موحد للبراند - {currentTenant?.name || 'البراند'}
         </p>
       </div>
 
@@ -168,7 +164,7 @@ const ConfirmSettings = () => {
           </div>
           <div>
             <h3 className="text-lg font-semibold text-foreground">ربط واتساب API</h3>
-            <p className="text-xs text-muted-foreground">بيانات Meta WhatsApp Business API لقسم التأكيد</p>
+            <p className="text-xs text-muted-foreground">بيانات Meta WhatsApp Business API</p>
           </div>
         </div>
 
@@ -249,7 +245,7 @@ const ConfirmSettings = () => {
         <div className="flex items-center justify-between mt-6 p-3 rounded-xl bg-secondary/50">
           <div>
             <p className="text-sm font-medium text-foreground">رسالة الترحيب التلقائية</p>
-            <p className="text-xs text-muted-foreground">ترسل للعملاء الجدد في قسم التأكيد</p>
+            <p className="text-xs text-muted-foreground">ترسل للعملاء الجدد</p>
           </div>
           <Switch checked={welcomeEnabled} onCheckedChange={setWelcomeEnabled} />
         </div>
@@ -264,7 +260,7 @@ const ConfirmSettings = () => {
           <div>
             <h3 className="text-lg font-semibold text-foreground">ربط المتجر</h3>
             <p className="text-xs text-muted-foreground">
-              استقبال نسخة من رسائل المتجر لعرضها في الشات — لا تُرسل للعميل مرة أخرى
+              استقبال نسخة من رسائل المتجر لعرضها في الشات
             </p>
           </div>
         </div>
@@ -287,7 +283,6 @@ const ConfirmSettings = () => {
                 نسخ
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">حط الرابط ده في إعدادات الشات الخارجي في المتجر</p>
           </div>
 
           <div className="space-y-2">
@@ -308,13 +303,12 @@ const ConfirmSettings = () => {
                 توليد
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">كود فريد للبراند — حطه في إعدادات المتجر عشان نعرف الرسائل دي تبع مين</p>
           </div>
         </div>
 
         <div className="mt-4 p-3 rounded-xl bg-secondary/50">
           <p className="text-xs text-muted-foreground leading-relaxed">
-            <strong className="text-foreground">طريقة الربط:</strong> المتجر يبعت POST request للـ Webhook URL بالبيانات دي:
+            <strong className="text-foreground">طريقة الربط:</strong> المتجر يبعت POST request للـ Webhook URL
           </p>
           <pre className="mt-2 p-3 rounded-lg bg-background text-xs text-muted-foreground overflow-x-auto" dir="ltr">
 {`{

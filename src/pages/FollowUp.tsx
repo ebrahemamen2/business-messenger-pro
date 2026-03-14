@@ -5,15 +5,16 @@ import { useAuth } from '@/contexts/AuthContext';
 import ChatList from '@/components/chat/ChatList';
 import ChatWindow from '@/components/chat/ChatWindow';
 import ContactPanel from '@/components/chat/ContactPanel';
-import { Truck, Loader2, MessageSquare, Settings, Bot, ArrowRight } from 'lucide-react';
+import { Truck, Loader2, MessageSquare, Bot, ArrowRight } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import ConfirmAutoReply from '@/components/confirm/ConfirmAutoReply';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 
 const FollowUp = () => {
   const { currentTenant } = useTenantContext();
   const { user } = useAuth();
-  const { conversations, loading, reload, updateStatus, updateAssignment, selectConversation, loadOlderMessages, togglePin, toggleArchive } = useConversations(currentTenant?.id, 'followup');
+  const { conversations, loading, reload, updateStatus, updateAssignment, selectConversation, loadOlderMessages, togglePin, toggleArchive, bulkUpdateChatStatus, moveConversation } = useConversations(currentTenant?.id, 'followup');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showContact, setShowContact] = useState(false);
   const isMobile = useIsMobile();
@@ -49,6 +50,7 @@ const FollowUp = () => {
     onTogglePin: togglePin,
     onToggleArchive: toggleArchive,
     onAssign: updateAssignment,
+    onMoveConversation: moveConversation,
   }) : null;
 
   return (
@@ -60,11 +62,6 @@ const FollowUp = () => {
               <MessageSquare className="w-4 h-4" />
               <span className="hidden sm:inline">المحادثات</span>
               <span className="sm:hidden">الشات</span>
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="gap-1.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
-              <Settings className="w-4 h-4" />
-              <span className="hidden sm:inline">إعدادات الواتساب</span>
-              <span className="sm:hidden">الإعدادات</span>
             </TabsTrigger>
             <TabsTrigger value="auto-reply" className="gap-1.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <Bot className="w-4 h-4" />
@@ -87,6 +84,7 @@ const FollowUp = () => {
                   fullWidth
                   autoSelect={false}
                   currentUserId={user?.id}
+                  onBulkUpdateChatStatus={bulkUpdateChatStatus}
                 />
               ) : selected ? (
                 <div className="flex flex-col h-full">
@@ -147,6 +145,7 @@ const FollowUp = () => {
                 title="محادثات المتابعة"
                 tenantId={currentTenant?.id}
                 currentUserId={user?.id}
+                onBulkUpdateChatStatus={bulkUpdateChatStatus}
               />
               {selected ? (
                 <>
@@ -184,12 +183,8 @@ const FollowUp = () => {
           )}
         </TabsContent>
 
-        <TabsContent value="settings" className="flex-1 m-0 overflow-hidden">
-          <div className="p-8 text-center text-muted-foreground"><p>إعدادات المتابعة - قريباً</p></div>
-        </TabsContent>
-
         <TabsContent value="auto-reply" className="flex-1 m-0 overflow-hidden">
-          <div className="p-8 text-center text-muted-foreground"><p>الرد التلقائي للمتابعة - قريباً</p></div>
+          <ConfirmAutoReply module="followup" title="قسم المتابعة" />
         </TabsContent>
       </Tabs>
     </div>

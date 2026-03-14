@@ -283,7 +283,7 @@ Deno.serve(async (req) => {
         .select("trigger_keyword, response_text")
         .eq("is_active", true);
       if (config.tenant_id) rulesQuery = rulesQuery.eq("tenant_id", config.tenant_id);
-      if (config.module) rulesQuery = rulesQuery.eq("module", config.module);
+      // Rules are per-module but we don't know the module here yet; load all for tenant
       const { data } = await rulesQuery;
       rules = data || [];
     }
@@ -461,7 +461,7 @@ Deno.serve(async (req) => {
               supabase,
               contactPhone,
               tenantId: config?.tenant_id || null,
-              module: config?.module || "confirm",
+              module: "confirm",
               direction: "inbound",
               atIso: inboundAt,
             });
@@ -532,7 +532,7 @@ Deno.serve(async (req) => {
                       supabase,
                       contactPhone,
                       tenantId: config?.tenant_id || null,
-                      module: config?.module || "confirm",
+                      module: "confirm",
                       direction: "outbound",
                       atIso: outboundAt,
                     });

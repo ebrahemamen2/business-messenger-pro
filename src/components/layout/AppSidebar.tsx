@@ -1,6 +1,7 @@
 import { 
   MessageSquare, LayoutDashboard, Settings, Users, Bot, LogOut, 
-  CheckCircle, Truck, Shield, Building2, ChevronDown, Sun, Moon
+  CheckCircle, Truck, Shield, Building2, ChevronDown, Sun, Moon,
+  PackageX, ShoppingBag
 } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -18,6 +19,8 @@ const mainNav = [
   { icon: LayoutDashboard, label: 'لوحة التحكم', path: '/dashboard' },
   { icon: CheckCircle, label: 'التأكيد', path: '/confirm' },
   { icon: Truck, label: 'المتابعة', path: '/follow-up' },
+  { icon: PackageX, label: 'المفقود', path: '/lost-orders' },
+  { icon: ShoppingBag, label: 'الطلبات', path: '/new-orders' },
   { icon: Users, label: 'جهات الاتصال', path: '/contacts' },
 ];
 

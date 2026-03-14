@@ -1,4 +1,4 @@
-import { Send, Paperclip, Smile, Phone, UserCircle, MoreVertical, StickyNote, Reply, X, Loader2, Ban, CheckCircle, Clock, Copy, Search, AlertTriangle, Timer, Pin, Archive, UserCheck, Upload } from 'lucide-react';
+import { Send, Paperclip, Smile, Phone, UserCircle, MoreVertical, StickyNote, Reply, X, Loader2, Ban, CheckCircle, Clock, Copy, Search, AlertTriangle, Timer, Pin, Archive, UserCheck, Upload, ArrowRightLeft } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -34,6 +34,7 @@ interface ChatWindowProps {
   onTogglePin?: (dbId: string, currentlyPinned: boolean) => void;
   onToggleArchive?: (dbId: string, currentlyArchived: boolean) => void;
   onAssign?: (dbId: string, userId: string | null) => void;
+  onMoveConversation?: (dbId: string, newModule: string) => void;
 }
 
 const SUPABASE_PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'mhbmxvgcdzhqwpznmgei';
@@ -48,7 +49,7 @@ function getDateLabel(dateStr: string): string {
   return d.toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
-const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantId, conversationDbId, onStatusChange, onLoadOlder, hideHeader, allConversations = [], onTogglePin, onToggleArchive, onAssign }: ChatWindowProps) => {
+const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantId, conversationDbId, onStatusChange, onLoadOlder, hideHeader, allConversations = [], onTogglePin, onToggleArchive, onAssign, onMoveConversation }: ChatWindowProps) => {
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [showQuickReplies, setShowQuickReplies] = useState(false);
@@ -698,6 +699,26 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
                       <Archive className={`w-3.5 h-3.5 ${isArchived ? 'text-primary' : ''}`} />
                       {isArchived ? 'إلغاء الأرشفة' : 'أرشفة المحادثة'}
                     </DropdownMenuItem>
+                  )}
+                  {onMoveConversation && conversationDbId && (
+                    <>
+                      <DropdownMenuSeparator />
+                      {module !== 'confirm' && (
+                        <DropdownMenuItem onClick={() => { onMoveConversation(conversationDbId, 'confirm'); toast({ title: '✅ تم النقل للتأكيد' }); }} className="gap-2">
+                          <ArrowRightLeft className="w-3.5 h-3.5" /> نقل للتأكيد
+                        </DropdownMenuItem>
+                      )}
+                      {module !== 'followup' && (
+                        <DropdownMenuItem onClick={() => { onMoveConversation(conversationDbId, 'followup'); toast({ title: '✅ تم النقل للمتابعة' }); }} className="gap-2">
+                          <ArrowRightLeft className="w-3.5 h-3.5" /> نقل للمتابعة
+                        </DropdownMenuItem>
+                      )}
+                      {module !== 'lost' && (
+                        <DropdownMenuItem onClick={() => { onMoveConversation(conversationDbId, 'lost'); toast({ title: '✅ تم النقل للمفقود' }); }} className="gap-2">
+                          <ArrowRightLeft className="w-3.5 h-3.5" /> نقل للمفقود
+                        </DropdownMenuItem>
+                      )}
+                    </>
                   )}
                   <DropdownMenuSeparator />
                   {onAssign && conversationDbId && teamMembers.length > 0 && (

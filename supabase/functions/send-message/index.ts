@@ -166,19 +166,18 @@ Deno.serve(async (req) => {
 
     let configQuery = supabase
       .from("wa_config")
-      .select("access_token, phone_number_id, tenant_id, module")
+      .select("access_token, phone_number_id, tenant_id")
       .order("updated_at", { ascending: false })
       .limit(1);
 
     if (tenantId) configQuery = configQuery.eq("tenant_id", tenantId);
-    if (module) configQuery = configQuery.eq("module", module);
 
     let { data: config } = await configQuery.maybeSingle();
 
     if (!config) {
       const { data: fallbackConfig } = await supabase
         .from("wa_config")
-        .select("access_token, phone_number_id, tenant_id, module")
+        .select("access_token, phone_number_id, tenant_id")
         .order("updated_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -331,7 +330,7 @@ Deno.serve(async (req) => {
     const nowIso = new Date().toISOString();
 
     const effectiveTenantId = config.tenant_id || tenantId || null;
-    const conversationModule = module || config.module || "confirm";
+    const conversationModule = module || "confirm";
 
     const { error: messageInsertErr } = await supabase.from("messages").insert({
       wa_message_id: waResult.messages?.[0]?.id,
