@@ -361,6 +361,15 @@ export function useConversations(tenantId?: string | null, module: string = 'con
     loadList();
   }, [loadList]);
 
+  const bulkUpdateChatStatus = useCallback(async (dbIds: string[], newStatus: ChatStatusType) => {
+    if (dbIds.length === 0) return;
+    await supabase
+      .from('conversations')
+      .update({ chat_status: newStatus, unread_count: newStatus === 'unread' ? 1 : 0 })
+      .in('id', dbIds);
+    loadList();
+  }, [loadList]);
+
   useEffect(() => {
     if (!tenantId) return;
 
