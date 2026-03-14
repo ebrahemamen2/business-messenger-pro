@@ -468,11 +468,12 @@ Deno.serve(async (req) => {
 
             totalMessages += 1;
 
-            // Auto-reply logic
+            // Auto-reply logic (keyword-based + AI)
             if (config?.access_token && config?.phone_number_id) {
               const msgText = body.toLowerCase();
               let autoResponse: string | null = null;
 
+              // 1. Check keyword-based rules first
               for (const rule of rules) {
                 if (msgText.includes(rule.trigger_keyword.toLowerCase())) {
                   autoResponse = rule.response_text;
@@ -480,6 +481,7 @@ Deno.serve(async (req) => {
                 }
               }
 
+              // 2. Welcome message for first-time contacts
               if (!autoResponse && config.welcome_enabled) {
                 const { count } = await supabase
                   .from("messages")
@@ -489,6 +491,39 @@ Deno.serve(async (req) => {
 
                 if (count === 1) {
                   autoResponse = config.welcome_message;
+                }
+              }
+
+              // 3. If no keyword/welcome match, try AI auto-reply
+              if (!autoResponse && config?.tenant_id) {
+                try {
+                  const aiRes = await fetch(`${supabaseUrl}/functions/v1/ai-reply`, {
+                    method: "POST",
+                    headers: {
+                      Authorization: `Bearer ${serviceKey}`,
+                      apikey: serviceKey,
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                      tenantId: config.tenant_id,
+                      contactPhone,
+                      module: "confirm",
+                      incomingMessage: body,
+                    }),
+                  });
+
+                  const aiData = await aiRes.json();
+                  if (aiData.reply && !aiData.skip) {
+                    autoResponse = aiData.reply;
+                    console.log("AI auto-reply generated for", contactPhone);
+                  } else if (aiData.escalated) {
+                    console.log("AI escalated to human for", contactPhone);
+                  } else if (aiData.skip) {
+                    console.log("AI skipped:", aiData.reason);
+                  }
+                } catch (aiErr) {
+                  console.error("AI auto-reply error:", aiErr);
+                  // Don't block on AI errors - just skip
                 }
               }
 

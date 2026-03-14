@@ -5,9 +5,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import ChatList from '@/components/chat/ChatList';
 import ChatWindow from '@/components/chat/ChatWindow';
 import ContactPanel from '@/components/chat/ContactPanel';
-import { PackageX, Loader2, MessageSquare, Bot, ArrowRight } from 'lucide-react';
+import { PackageX, Loader2, MessageSquare, Bot, Brain, ArrowRight } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import ConfirmAutoReply from '@/components/confirm/ConfirmAutoReply';
+import AIModulePrompt from '@/components/settings/AIModulePrompt';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 
@@ -67,6 +68,11 @@ const LostOrders = () => {
               <Bot className="w-4 h-4" />
               <span className="hidden sm:inline">الرد التلقائي</span>
               <span className="sm:hidden">الرد</span>
+            </TabsTrigger>
+            <TabsTrigger value="ai-prompt" className="gap-1.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+              <Brain className="w-4 h-4" />
+              <span className="hidden sm:inline">توجيهات AI</span>
+              <span className="sm:hidden">AI</span>
             </TabsTrigger>
           </TabsList>
         </div>
@@ -185,6 +191,10 @@ const LostOrders = () => {
 
         <TabsContent value="auto-reply" className="flex-1 m-0 overflow-hidden">
           <ConfirmAutoReply module="lost" title="الطلبات المفقودة" />
+        </TabsContent>
+
+        <TabsContent value="ai-prompt" className="flex-1 m-0 overflow-hidden">
+          <AIModulePrompt module="lost" title="الطلبات المفقودة" />
         </TabsContent>
       </Tabs>
     </div>
