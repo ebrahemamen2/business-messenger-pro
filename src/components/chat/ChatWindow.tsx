@@ -74,6 +74,8 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
+  const conversationIdRef = useRef(conversation.id);
+  conversationIdRef.current = conversation.id;
   const [windowExpired, setWindowExpired] = useState(false);
   const [windowRemainingText, setWindowRemainingText] = useState<string | null>(null);
   const { toast } = useToast();
@@ -243,21 +245,27 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
     });
   }, [conversation.id]);
 
-  const sendToWhatsApp = async (opts: { message?: string; mediaUrl?: string; mediaType?: string; replyToMessageId?: string; targetPhone?: string }) => {
+  const sendToWhatsApp = useCallback(async (opts: { message?: string; mediaUrl?: string; mediaType?: string; replyToMessageId?: string; targetPhone?: string }) => {
+    // Capture current values at call time to prevent race conditions
+    const targetPhone = opts.targetPhone || conversation.contact.phone;
+    const currentTenantId = tenantId;
+    const currentModule = module;
+    const currentConvDbId = conversationDbId;
+
     const res = await fetch(
       `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/send-message`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          to: opts.targetPhone || conversation.contact.phone,
+          to: targetPhone,
           message: opts.message || '',
           mediaUrl: opts.mediaUrl || undefined,
           mediaType: opts.mediaType || undefined,
           replyToMessageId: opts.replyToMessageId || undefined,
-          tenantId: tenantId || undefined,
-          module,
-          conversationId: conversationDbId || undefined,
+          tenantId: currentTenantId || undefined,
+          module: currentModule,
+          conversationId: currentConvDbId || undefined,
         }),
       }
     );
@@ -267,7 +275,7 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
       const details = payload?.details?.error_data?.details || payload?.details?.message || payload?.error || 'Failed to send';
       throw new Error(details);
     }
-  };
+  }, [conversation.contact.phone, tenantId, module, conversationDbId]);
 
   const handleSend = async () => {
     if (!message.trim() || sending) return;
@@ -279,6 +287,7 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
     setShowQuickReplies(false);
     if (textareaRef.current) textareaRef.current.style.height = '40px';
 
+    const sendConversationId = conversation.id;
     const optimisticMsg: ChatMessage = {
       id: `optimistic-${Date.now()}`,
       text,
@@ -294,8 +303,10 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
       await sendToWhatsApp({ message: text, replyToMessageId: replyId });
     } catch (err) {
       toast({ title: '❌ خطأ', description: err instanceof Error ? err.message : 'فشل إرسال الرسالة', variant: 'destructive' });
-      setOptimisticMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
-      setMessage(text);
+      if (conversationIdRef.current === sendConversationId) {
+        setOptimisticMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
+        setMessage(text);
+      }
     } finally {
       setSending(false);
     }
@@ -479,18 +490,20 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
         replyToMessageId: replyTo?.id || undefined,
       });
 
-      const optimisticMsg: ChatMessage = {
-        id: `optimistic-${Date.now()}`,
-        text: '[رسالة صوتية]',
-        timestamp: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
-        rawTimestamp: new Date().toISOString(),
-        sender: 'agent' as const,
-        status: 'sent',
-        mediaType: file.type || 'audio/ogg',
-        mediaUrl: publicUrl,
-      };
-      setOptimisticMessages(prev => [...prev, optimisticMsg]);
-      setReplyTo(null);
+      if (conversationIdRef.current === conversation.id) {
+        const optimisticMsg: ChatMessage = {
+          id: `optimistic-${Date.now()}`,
+          text: '[رسالة صوتية]',
+          timestamp: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+          rawTimestamp: new Date().toISOString(),
+          sender: 'agent' as const,
+          status: 'sent',
+          mediaType: file.type || 'audio/ogg',
+          mediaUrl: publicUrl,
+        };
+        setOptimisticMessages(prev => [...prev, optimisticMsg]);
+        setReplyTo(null);
+      }
 
       toast({ title: '✅ تم إرسال الرسالة الصوتية' });
     } catch (err) {
