@@ -15,7 +15,7 @@ import Settings from "./pages/Settings";
 import Contacts from "./pages/Contacts";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
-import { Loader2, LayoutDashboard, CheckCircle, Truck, Users } from "lucide-react";
+import { Loader2, LayoutDashboard, CheckCircle, Truck, Users, Settings as SettingsIcon } from "lucide-react";
 import { useIsMobile } from "./hooks/use-mobile";
 
 const queryClient = new QueryClient();
