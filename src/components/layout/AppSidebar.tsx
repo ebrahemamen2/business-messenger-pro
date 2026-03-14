@@ -1,11 +1,12 @@
 import { 
   MessageSquare, LayoutDashboard, Settings, Users, Bot, LogOut, 
-  CheckCircle, Truck, Shield, Building2, ChevronDown
+  CheckCircle, Truck, Shield, Building2, ChevronDown, Sun, Moon
 } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenantContext } from '@/contexts/TenantContext';
+import { useTheme } from 'next-themes';
 import {
   DropdownMenu,
   DropdownMenuContent,
