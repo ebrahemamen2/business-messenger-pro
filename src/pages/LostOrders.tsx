@@ -69,6 +69,11 @@ const LostOrders = () => {
               <span className="hidden sm:inline">الرد التلقائي</span>
               <span className="sm:hidden">الرد</span>
             </TabsTrigger>
+            <TabsTrigger value="ai-prompt" className="gap-1.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+              <Brain className="w-4 h-4" />
+              <span className="hidden sm:inline">توجيهات AI</span>
+              <span className="sm:hidden">AI</span>
+            </TabsTrigger>
           </TabsList>
         </div>
 
