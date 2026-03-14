@@ -3,7 +3,57 @@
 @tailwind utilities;
 
 @layer base {
+  /* ── Light theme (WhatsApp Web style) ── */
   :root {
+    --background: 0 0% 95%;
+    --foreground: 220 15% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 15% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 15% 15%;
+
+    --primary: 142 70% 40%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 200 12% 92%;
+    --secondary-foreground: 220 10% 35%;
+
+    --muted: 200 10% 90%;
+    --muted-foreground: 215 10% 45%;
+
+    --accent: 142 50% 38%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 200 10% 85%;
+    --input: 200 10% 88%;
+    --ring: 142 70% 40%;
+
+    --radius: 0.75rem;
+
+    --chat-read: 210 100% 55%;
+    --status-active: 142 70% 40%;
+    --status-pending: 45 93% 47%;
+    --status-resolved: 215 15% 50%;
+    --store-message: 35 90% 55%;
+    --store-message-foreground: 35 10% 10%;
+
+    --sidebar-background: 142 60% 36%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 0 0% 100%;
+    --sidebar-primary-foreground: 142 60% 36%;
+    --sidebar-accent: 142 55% 30%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 142 50% 32%;
+    --sidebar-ring: 0 0% 100%;
+  }
+
+  /* ── Dark theme ── */
+  .dark {
     --background: 220 20% 7%;
     --foreground: 210 20% 95%;
 

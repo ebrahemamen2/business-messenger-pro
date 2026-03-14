@@ -1,11 +1,12 @@
 import { 
   MessageSquare, LayoutDashboard, Settings, Users, Bot, LogOut, 
-  CheckCircle, Truck, Shield, Building2, ChevronDown
+  CheckCircle, Truck, Shield, Building2, ChevronDown, Sun, Moon
 } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenantContext } from '@/contexts/TenantContext';
+import { useTheme } from 'next-themes';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,19 +25,20 @@ const AppSidebar = () => {
   const location = useLocation();
   const { signOut, isSuperAdmin } = useAuth();
   const { tenants, currentTenant, selectTenant } = useTenantContext();
+  const { theme, setTheme } = useTheme();
 
   const navItems = isSuperAdmin
     ? [...mainNav, { icon: Shield, label: 'إدارة المنصة', path: '/admin' }]
     : mainNav;
 
   return (
-    <div className="w-[72px] h-screen bg-card border-r border-border flex flex-col items-center py-4 flex-shrink-0">
+    <div className="w-[72px] h-screen bg-sidebar border-r border-sidebar-border flex flex-col items-center py-4 flex-shrink-0">
       {/* Tenant Selector */}
       {tenants.length > 0 ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="w-11 h-11 rounded-xl bg-primary flex items-center justify-center mb-2 hover:bg-primary/90 transition-colors" title={currentTenant?.name}>
-              <span className="text-sm font-bold text-primary-foreground">
+            <button className="w-11 h-11 rounded-xl bg-sidebar-accent flex items-center justify-center mb-2 hover:bg-sidebar-accent/80 transition-colors" title={currentTenant?.name}>
+              <span className="text-sm font-bold text-sidebar-foreground">
                 {currentTenant?.name?.charAt(0) || 'B'}
               </span>
             </button>
@@ -55,14 +57,14 @@ const AppSidebar = () => {
           </DropdownMenuContent>
         </DropdownMenu>
       ) : (
-        <div className="w-11 h-11 rounded-xl bg-primary flex items-center justify-center mb-2">
-          <MessageSquare className="w-5 h-5 text-primary-foreground" />
+        <div className="w-11 h-11 rounded-xl bg-sidebar-accent flex items-center justify-center mb-2">
+          <MessageSquare className="w-5 h-5 text-sidebar-foreground" />
         </div>
       )}
 
       {/* Tenant name */}
       {currentTenant && (
-        <p className="text-[9px] text-muted-foreground text-center mb-4 max-w-[60px] truncate">
+        <p className="text-[9px] text-sidebar-foreground/60 text-center mb-4 max-w-[60px] truncate">
           {currentTenant.name}
         </p>
       )}
@@ -79,8 +81,8 @@ const AppSidebar = () => {
                   to={item.path}
                   className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 ${
                     isActive
-                      ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                      ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-lg shadow-sidebar-primary/25'
+                      : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent'
                   }`}
                 >
                   <item.icon className="w-5 h-5" />
@@ -96,14 +98,29 @@ const AppSidebar = () => {
 
       {/* Bottom */}
       <div className="flex flex-col gap-1">
+        {/* Theme toggle */}
+        <Tooltip delayDuration={0}>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              className="w-11 h-11 rounded-xl flex items-center justify-center text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-all duration-200"
+            >
+              {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right" className="font-cairo">
+            {theme === 'dark' ? 'الوضع الفاتح' : 'الوضع الداكن'}
+          </TooltipContent>
+        </Tooltip>
+
         <Tooltip delayDuration={0}>
           <TooltipTrigger asChild>
             <Link
               to="/settings"
               className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 ${
                 location.pathname === '/settings'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                  ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                  : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent'
               }`}
             >
               <Settings className="w-5 h-5" />
@@ -116,7 +133,7 @@ const AppSidebar = () => {
           <TooltipTrigger asChild>
             <button
               onClick={signOut}
-              className="w-11 h-11 rounded-xl flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-secondary transition-all duration-200"
+              className="w-11 h-11 rounded-xl flex items-center justify-center text-sidebar-foreground/70 hover:text-destructive hover:bg-sidebar-accent transition-all duration-200"
             >
               <LogOut className="w-5 h-5" />
             </button>
