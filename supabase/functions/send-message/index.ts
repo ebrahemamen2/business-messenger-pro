@@ -166,12 +166,11 @@ Deno.serve(async (req) => {
 
     let configQuery = supabase
       .from("wa_config")
-      .select("access_token, phone_number_id, tenant_id, module")
+      .select("access_token, phone_number_id, tenant_id")
       .order("updated_at", { ascending: false })
       .limit(1);
 
     if (tenantId) configQuery = configQuery.eq("tenant_id", tenantId);
-    if (module) configQuery = configQuery.eq("module", module);
 
     let { data: config } = await configQuery.maybeSingle();
 
