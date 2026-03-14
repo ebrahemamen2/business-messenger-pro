@@ -881,11 +881,18 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
         </div>
       </div>
 
-      {/* Notes panel */}
+      {/* Notes panel - Sheet on mobile, side panel on desktop */}
       {showNotes && (
-        <div className="w-[280px] border-l border-border bg-card flex-shrink-0">
-          <ChatNotes conversationId={conversationDbId || null} onClose={() => setShowNotes(false)} />
-        </div>
+        <>
+          <div className="hidden sm:block w-[280px] border-l border-border bg-card flex-shrink-0">
+            <ChatNotes conversationId={conversationDbId || null} onClose={() => setShowNotes(false)} />
+          </div>
+          <div className="sm:hidden fixed inset-0 z-50 bg-background/80 backdrop-blur-sm" onClick={() => setShowNotes(false)}>
+            <div className="absolute left-0 top-0 bottom-0 w-[280px] bg-card border-r border-border shadow-xl" onClick={(e) => e.stopPropagation()}>
+              <ChatNotes conversationId={conversationDbId || null} onClose={() => setShowNotes(false)} />
+            </div>
+          </div>
+        </>
       )}
 
       {/* Forward modal */}

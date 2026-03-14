@@ -24,26 +24,27 @@ const mobileNav = [
   { icon: LayoutDashboard, label: 'الرئيسية', path: '/dashboard' },
   { icon: CheckCircle, label: 'التأكيد', path: '/confirm' },
   { icon: Truck, label: 'المتابعة', path: '/follow-up' },
-  { icon: Users, label: 'جهات الاتصال', path: '/contacts' },
+  { icon: Users, label: 'الاتصال', path: '/contacts' },
+  { icon: Settings, label: 'المزيد', path: '/settings' },
 ];
 
 const MobileBottomNav = () => {
   const location = useLocation();
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border flex items-center justify-around h-14 px-2 safe-area-bottom">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-md border-t border-border flex items-center justify-around px-1 pb-[env(safe-area-inset-bottom,0px)]" style={{ height: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}>
       {mobileNav.map((item) => {
         const isActive = location.pathname === item.path ||
-          (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
+          (item.path !== '/dashboard' && item.path !== '/settings' && location.pathname.startsWith(item.path));
         return (
           <Link
             key={item.path}
             to={item.path}
-            className={`flex flex-col items-center gap-0.5 flex-1 py-1 rounded-lg transition-colors ${
+            className={`flex flex-col items-center gap-0.5 flex-1 pt-1.5 pb-1 rounded-lg transition-colors ${
               isActive ? 'text-primary' : 'text-muted-foreground'
             }`}
           >
             <item.icon className={`w-5 h-5 ${isActive ? 'text-primary' : ''}`} />
-            <span className="text-[10px] font-medium">{item.label}</span>
+            <span className="text-[10px] font-medium leading-tight">{item.label}</span>
           </Link>
         );
       })}
