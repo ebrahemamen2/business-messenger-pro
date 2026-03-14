@@ -119,8 +119,8 @@ const AppSidebar = () => {
               to="/settings"
               className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 ${
                 location.pathname === '/settings'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                  ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                  : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent'
               }`}
             >
               <Settings className="w-5 h-5" />
