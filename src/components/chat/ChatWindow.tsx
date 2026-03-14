@@ -281,6 +281,7 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
     setShowQuickReplies(false);
     if (textareaRef.current) textareaRef.current.style.height = '40px';
 
+    const sendConversationId = conversation.id;
     const optimisticMsg: ChatMessage = {
       id: `optimistic-${Date.now()}`,
       text,
@@ -296,8 +297,10 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
       await sendToWhatsApp({ message: text, replyToMessageId: replyId });
     } catch (err) {
       toast({ title: '❌ خطأ', description: err instanceof Error ? err.message : 'فشل إرسال الرسالة', variant: 'destructive' });
-      setOptimisticMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
-      setMessage(text);
+      if (conversationIdRef.current === sendConversationId) {
+        setOptimisticMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
+        setMessage(text);
+      }
     } finally {
       setSending(false);
     }
