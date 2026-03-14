@@ -68,41 +68,46 @@ const MobileTopBar = () => {
   return (
     <div className="h-11 bg-card border-b border-border flex items-center justify-between px-3 flex-shrink-0">
       {/* Tenant Selector */}
-      {tenants.length > 1 ? (
+      {tenants.length > 0 ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-secondary transition-colors">
-              <div className="w-6 h-6 rounded-md bg-primary/15 flex items-center justify-center flex-shrink-0">
-                <span className="text-[10px] font-bold text-primary">{currentTenant?.name?.charAt(0) || 'B'}</span>
+            <button className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-secondary transition-colors min-w-0">
+              <div className="w-7 h-7 rounded-lg bg-primary/15 flex items-center justify-center flex-shrink-0">
+                <span className="text-xs font-bold text-primary">{currentTenant?.name?.charAt(0) || 'B'}</span>
               </div>
-              <span className="text-xs font-semibold text-foreground max-w-[120px] truncate">{currentTenant?.name || 'البراند'}</span>
-              <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="text-sm font-semibold text-foreground max-w-[180px] truncate">{currentTenant?.name || 'اختر براند'}</span>
+              {tenants.length > 1 && <ChevronDown className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />}
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="min-w-[180px]">
-            {tenants.map((t) => (
-              <DropdownMenuItem
-                key={t.id}
-                onClick={() => selectTenant(t)}
-                className={`gap-2 ${t.id === currentTenant?.id ? 'bg-secondary' : ''}`}
-              >
-                <Building2 className="w-4 h-4 text-primary" />
-                <span className="font-medium">{t.name}</span>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
+          {tenants.length > 1 && (
+            <DropdownMenuContent align="start" className="min-w-[200px]">
+              {tenants.map((t) => (
+                <DropdownMenuItem
+                  key={t.id}
+                  onClick={() => selectTenant(t)}
+                  className={`gap-2 ${t.id === currentTenant?.id ? 'bg-secondary' : ''}`}
+                >
+                  <div className="w-6 h-6 rounded-md bg-primary/15 flex items-center justify-center flex-shrink-0">
+                    <span className="text-[10px] font-bold text-primary">{t.name.charAt(0)}</span>
+                  </div>
+                  <span className="font-medium">{t.name}</span>
+                  {t.id === currentTenant?.id && <CheckCircle className="w-3.5 h-3.5 text-primary mr-auto" />}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          )}
         </DropdownMenu>
       ) : (
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-md bg-primary/15 flex items-center justify-center">
-            <span className="text-[10px] font-bold text-primary">{currentTenant?.name?.charAt(0) || 'B'}</span>
+          <div className="w-7 h-7 rounded-lg bg-primary/15 flex items-center justify-center">
+            <Building2 className="w-4 h-4 text-primary" />
           </div>
-          <span className="text-xs font-semibold text-foreground">{currentTenant?.name || 'البراند'}</span>
+          <span className="text-sm font-semibold text-foreground">جاري التحميل...</span>
         </div>
       )}
 
       {/* Right actions */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-0.5">
         <button
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
           className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
