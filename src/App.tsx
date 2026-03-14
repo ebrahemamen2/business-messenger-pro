@@ -25,7 +25,7 @@ const mobileNav = [
   { icon: CheckCircle, label: 'التأكيد', path: '/confirm' },
   { icon: Truck, label: 'المتابعة', path: '/follow-up' },
   { icon: Users, label: 'الاتصال', path: '/contacts' },
-  { icon: Settings, label: 'المزيد', path: '/settings' },
+  { icon: SettingsIcon, label: 'المزيد', path: '/settings' },
 ];
 
 const MobileBottomNav = () => {
