@@ -102,6 +102,39 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
     return () => el.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // 24-hour window check
+  useEffect(() => {
+    const check24hWindow = () => {
+      const lastAt = conversation.lastCustomerMessageAt;
+      if (!lastAt) {
+        setWindowExpired(false);
+        setWindowRemainingText(null);
+        return;
+      }
+      const diff = Date.now() - new Date(lastAt).getTime();
+      const twentyFourH = 24 * 60 * 60 * 1000;
+      if (diff > twentyFourH) {
+        setWindowExpired(true);
+        setWindowRemainingText(null);
+      } else {
+        setWindowExpired(false);
+        const remaining = twentyFourH - diff;
+        const hours = Math.floor(remaining / (60 * 60 * 1000));
+        const minutes = Math.floor((remaining % (60 * 60 * 1000)) / (60 * 1000));
+        if (hours < 1) {
+          setWindowRemainingText(`⏰ متبقي ${minutes} دقيقة للرد`);
+        } else if (hours < 3) {
+          setWindowRemainingText(`⏰ متبقي ${hours} ساعة و ${minutes} دقيقة للرد`);
+        } else {
+          setWindowRemainingText(null);
+        }
+      }
+    };
+    check24hWindow();
+    const timer = setInterval(check24hWindow, 60000);
+    return () => clearInterval(timer);
+  }, [conversation.lastCustomerMessageAt, conversation.id]);
+
   // Load reactions for current conversation messages
   const loadReactions = useCallback(async (messageIds: string[]) => {
     if (messageIds.length === 0) return;
