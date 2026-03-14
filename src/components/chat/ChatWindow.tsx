@@ -1,4 +1,4 @@
-import { Send, Paperclip, Smile, Phone, UserCircle, MoreVertical, StickyNote, Reply, X, Loader2, Ban, CheckCircle, Clock, Copy, Search, AlertTriangle, Timer, Pin, Archive, UserCheck, Upload } from 'lucide-react';
+import { Send, Paperclip, Smile, Phone, UserCircle, MoreVertical, StickyNote, Reply, X, Loader2, Ban, CheckCircle, Clock, Copy, Search, AlertTriangle, Timer, Pin, Archive, UserCheck, Upload, ArrowRightLeft } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
