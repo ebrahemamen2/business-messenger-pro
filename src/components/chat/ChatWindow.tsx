@@ -319,32 +319,34 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const uploadAndSendFile = async (file: File, caption?: string) => {
+  const uploadAndSendFiles = async (files: { url: string; file: File }[], caption?: string) => {
     setUploading(true);
     try {
-      const ext = file.name.split('.').pop();
-      const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from('chat-attachments').upload(path, file, {
-        contentType: file.type || undefined,
-        upsert: false,
-      });
-      if (uploadError) throw uploadError;
-      const { data: { publicUrl } } = supabase.storage.from('chat-attachments').getPublicUrl(path);
+      for (let i = 0; i < files.length; i++) {
+        const { file, url } = files[i];
+        const ext = file.name.split('.').pop();
+        const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        const { error: uploadError } = await supabase.storage.from('chat-attachments').upload(path, file, {
+          contentType: file.type || undefined,
+          upsert: false,
+        });
+        if (uploadError) throw uploadError;
+        const { data: { publicUrl } } = supabase.storage.from('chat-attachments').getPublicUrl(path);
 
-      await sendToWhatsApp({
-        message: caption || undefined,
-        mediaUrl: publicUrl,
-        mediaType: file.type,
-        replyToMessageId: replyTo?.id || undefined,
-      });
+        await sendToWhatsApp({
+          message: i === 0 ? (caption || undefined) : undefined,
+          mediaUrl: publicUrl,
+          mediaType: file.type,
+          replyToMessageId: i === 0 ? (replyTo?.id || undefined) : undefined,
+        });
+
+        URL.revokeObjectURL(url);
+      }
 
       setMessage('');
       setReplyTo(null);
-      setAttachmentPreview((prev) => {
-        if (prev?.url) URL.revokeObjectURL(prev.url);
-        return null;
-      });
-      toast({ title: '✅ تم الإرسال (قيد التأكيد)' });
+      setAttachmentPreviews([]);
+      toast({ title: `✅ تم إرسال ${files.length > 1 ? files.length + ' ملفات' : 'الملف'}` });
     } catch (err) {
       toast({ title: '❌ خطأ', description: err instanceof Error ? err.message : 'فشل رفع الملف', variant: 'destructive' });
     } finally {
