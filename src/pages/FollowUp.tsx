@@ -5,10 +5,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import ChatList from '@/components/chat/ChatList';
 import ChatWindow from '@/components/chat/ChatWindow';
 import ContactPanel from '@/components/chat/ContactPanel';
-import { Truck, Loader2, MessageSquare, Bot, Brain, ArrowRight } from 'lucide-react';
+import { Truck, Loader2, MessageSquare, Bot, Brain, ArrowRight, Table2 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import ConfirmAutoReply from '@/components/confirm/ConfirmAutoReply';
 import AIModulePrompt from '@/components/settings/AIModulePrompt';
+import ShipmentTrackingTable from '@/components/followup/ShipmentTrackingTable';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 
