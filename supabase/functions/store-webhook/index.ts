@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
 
     const { data: config, error: configErr } = await supabase
       .from("wa_config")
-      .select("tenant_id, module")
+      .select("tenant_id")
       .eq("store_api_key", apiKey)
       .maybeSingle();
 
