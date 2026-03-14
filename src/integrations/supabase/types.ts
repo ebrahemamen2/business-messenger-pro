@@ -442,6 +442,135 @@ export type Database = {
           },
         ]
       }
+      order_modifications: {
+        Row: {
+          created_at: string
+          id: string
+          message_sent: boolean
+          modification_type: string
+          new_data: Json | null
+          old_data: Json | null
+          order_id: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message_sent?: boolean
+          modification_type?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          order_id: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message_sent?: boolean
+          modification_type?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          order_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_modifications_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_modifications_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          confirmation_message_sent: boolean
+          confirmed_at: string | null
+          conversation_id: string | null
+          created_at: string
+          currency: string | null
+          customer_address: string | null
+          customer_city: string | null
+          customer_name: string | null
+          customer_phone: string
+          id: string
+          items: Json | null
+          notes: string | null
+          order_number: string
+          order_source: string | null
+          status: string
+          store_order_id: string | null
+          tenant_id: string
+          total_amount: number | null
+          updated_at: string
+        }
+        Insert: {
+          confirmation_message_sent?: boolean
+          confirmed_at?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          currency?: string | null
+          customer_address?: string | null
+          customer_city?: string | null
+          customer_name?: string | null
+          customer_phone: string
+          id?: string
+          items?: Json | null
+          notes?: string | null
+          order_number: string
+          order_source?: string | null
+          status?: string
+          store_order_id?: string | null
+          tenant_id: string
+          total_amount?: number | null
+          updated_at?: string
+        }
+        Update: {
+          confirmation_message_sent?: boolean
+          confirmed_at?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          currency?: string | null
+          customer_address?: string | null
+          customer_city?: string | null
+          customer_name?: string | null
+          customer_phone?: string
+          id?: string
+          items?: Json | null
+          notes?: string | null
+          order_number?: string
+          order_source?: string | null
+          status?: string
+          store_order_id?: string | null
+          tenant_id?: string
+          total_amount?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
