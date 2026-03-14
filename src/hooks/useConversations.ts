@@ -43,6 +43,7 @@ export interface ChatConversation {
   status: 'open' | 'pending' | 'resolved';
   assignedTo?: string | null;
   labels: ConversationLabel[];
+  lastCustomerMessageAt: string | null;
 }
 
 function normalizePhone(phone: string): string {
