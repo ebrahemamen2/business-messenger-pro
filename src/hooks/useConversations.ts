@@ -418,5 +418,6 @@ export function useConversations(tenantId?: string | null, module: string = 'con
     loadOlderMessages,
     togglePin,
     toggleArchive,
+    bulkUpdateChatStatus,
   };
 }
