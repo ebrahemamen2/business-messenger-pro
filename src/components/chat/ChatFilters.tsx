@@ -27,10 +27,11 @@ const ChatFilters = ({ activeFilter, onFilterChange, tenantId, conversations = [
 
   // Compute filter counts
   const counts = useMemo(() => {
-    const unread = conversations.filter(c => c.chatStatus === 'unread').length;
-    const noReply = conversations.filter(c => c.chatStatus === 'awaiting_reply').length;
+    const nonArchived = conversations.filter(c => !(c as any).archivedAt);
+    const unread = nonArchived.filter(c => c.chatStatus === 'unread').length;
+    const noReply = nonArchived.filter(c => c.chatStatus === 'awaiting_reply').length;
     const archived = conversations.filter(c => !!(c as any).archivedAt).length;
-    const mine = currentUserId ? conversations.filter(c => c.assignedTo === currentUserId).length : 0;
+    const mine = currentUserId ? nonArchived.filter(c => c.assignedTo === currentUserId).length : 0;
     return { unread, noReply, archived, mine };
   }, [conversations, currentUserId]);
 
