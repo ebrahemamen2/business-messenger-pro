@@ -15,7 +15,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 const Confirm = () => {
   const { currentTenant } = useTenantContext();
   const { user } = useAuth();
-  const { conversations, loading, reload, updateStatus, updateAssignment, selectConversation, loadOlderMessages, togglePin, toggleArchive } = useConversations(currentTenant?.id, 'confirm');
+  const { conversations, loading, reload, updateStatus, updateAssignment, selectConversation, loadOlderMessages, togglePin, toggleArchive, bulkUpdateChatStatus } = useConversations(currentTenant?.id, 'confirm');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showContact, setShowContact] = useState(false);
   const isMobile = useIsMobile();
@@ -89,6 +89,7 @@ const Confirm = () => {
                   fullWidth
                   autoSelect={false}
                   currentUserId={user?.id}
+                  onBulkUpdateChatStatus={bulkUpdateChatStatus}
                 />
               ) : selected ? (
                 <div className="flex flex-col h-full">
@@ -149,6 +150,7 @@ const Confirm = () => {
                 title="محادثات التأكيد"
                 tenantId={currentTenant?.id}
                 currentUserId={user?.id}
+                onBulkUpdateChatStatus={bulkUpdateChatStatus}
               />
               {selected ? (
                 <>
