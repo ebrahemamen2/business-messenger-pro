@@ -53,7 +53,7 @@ const ChatWindow = ({ conversation, onToggleContact, module = 'confirm', tenantI
   const [showEmoji, setShowEmoji] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [attachmentPreview, setAttachmentPreview] = useState<{ url: string; file: File } | null>(null);
+  const [attachmentPreviews, setAttachmentPreviews] = useState<{ url: string; file: File }[]>([]);
   const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
   const [highlightedMsgId, setHighlightedMsgId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
