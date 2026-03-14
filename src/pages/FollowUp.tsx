@@ -5,10 +5,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import ChatList from '@/components/chat/ChatList';
 import ChatWindow from '@/components/chat/ChatWindow';
 import ContactPanel from '@/components/chat/ContactPanel';
-import { Truck, Loader2, MessageSquare, Bot, Brain, ArrowRight } from 'lucide-react';
+import { Truck, Loader2, MessageSquare, Bot, Brain, ArrowRight, Table2 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import ConfirmAutoReply from '@/components/confirm/ConfirmAutoReply';
 import AIModulePrompt from '@/components/settings/AIModulePrompt';
+import ShipmentTrackingTable from '@/components/followup/ShipmentTrackingTable';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 
@@ -63,6 +64,11 @@ const FollowUp = () => {
               <MessageSquare className="w-4 h-4" />
               <span className="hidden sm:inline">المحادثات</span>
               <span className="sm:hidden">الشات</span>
+            </TabsTrigger>
+            <TabsTrigger value="tracking" className="gap-1.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+              <Table2 className="w-4 h-4" />
+              <span className="hidden sm:inline">جدول المتابعة</span>
+              <span className="sm:hidden">الجدول</span>
             </TabsTrigger>
             <TabsTrigger value="auto-reply" className="gap-1.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <Bot className="w-4 h-4" />
@@ -187,6 +193,10 @@ const FollowUp = () => {
               )}
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="tracking" className="flex-1 m-0 overflow-hidden">
+          <ShipmentTrackingTable />
         </TabsContent>
 
         <TabsContent value="auto-reply" className="flex-1 m-0 overflow-hidden">
