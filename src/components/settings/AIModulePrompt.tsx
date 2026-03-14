@@ -5,11 +5,12 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { Brain, Loader2, CheckCircle, AlertTriangle, Plus, X } from 'lucide-react';
+import { Brain, Loader2, CheckCircle, AlertTriangle, Plus, X, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useTenantContext } from '@/contexts/TenantContext';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface AIModulePromptProps {
   module: string;
@@ -26,6 +27,8 @@ const AIModulePrompt = ({ module, title }: AIModulePromptProps) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [existingId, setExistingId] = useState<string | null>(null);
+  const [globalAiActive, setGlobalAiActive] = useState<boolean | null>(null);
+  const [globalAiProvider, setGlobalAiProvider] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -35,24 +38,41 @@ const AIModulePrompt = ({ module, title }: AIModulePromptProps) => {
       }
       setLoading(true);
 
-      const { data } = await supabase
-        .from('ai_module_prompts')
-        .select('*')
-        .eq('tenant_id', currentTenant.id)
-        .eq('module', module)
-        .maybeSingle();
+      // Load module prompt and global AI config in parallel
+      const [promptRes, configRes] = await Promise.all([
+        supabase
+          .from('ai_module_prompts')
+          .select('*')
+          .eq('tenant_id', currentTenant.id)
+          .eq('module', module)
+          .maybeSingle(),
+        supabase
+          .from('ai_config')
+          .select('*')
+          .eq('tenant_id', currentTenant.id)
+          .maybeSingle(),
+      ]);
 
-      if (data) {
-        setSystemPrompt((data as any).system_prompt || '');
-        setIsActive((data as any).is_active ?? false);
-        setEscalationKeywords((data as any).escalation_keywords || []);
-        setExistingId(data.id);
+      if (promptRes.data) {
+        setSystemPrompt((promptRes.data as any).system_prompt || '');
+        setIsActive((promptRes.data as any).is_active ?? false);
+        setEscalationKeywords((promptRes.data as any).escalation_keywords || []);
+        setExistingId(promptRes.data.id);
       } else {
         setSystemPrompt('');
         setIsActive(false);
         setEscalationKeywords([]);
         setExistingId(null);
       }
+
+      if (configRes.data) {
+        setGlobalAiActive((configRes.data as any).is_active ?? false);
+        setGlobalAiProvider((configRes.data as any).provider || null);
+      } else {
+        setGlobalAiActive(null); // No config exists at all
+        setGlobalAiProvider(null);
+      }
+
       setLoading(false);
     };
     load();
@@ -85,7 +105,22 @@ const AIModulePrompt = ({ module, title }: AIModulePromptProps) => {
       if (existingId) {
         await supabase.from('ai_module_prompts').update(promptData as any).eq('id', existingId);
       } else {
-        await supabase.from('ai_module_prompts').insert(promptData as any);
+        const { data: inserted } = await supabase.from('ai_module_prompts').insert(promptData as any).select().single();
+        if (inserted) setExistingId(inserted.id);
+      }
+
+      // Auto-create global ai_config if it doesn't exist and module is being activated
+      if (globalAiActive === null && isActive) {
+        const { data: newConfig } = await supabase.from('ai_config').insert({
+          tenant_id: currentTenant.id,
+          provider: 'lovable',
+          model: 'google/gemini-2.5-flash',
+          is_active: true,
+        } as any).select().single();
+        if (newConfig) {
+          setGlobalAiActive(true);
+          setGlobalAiProvider('lovable');
+        }
       }
 
       toast({ title: '✅ تم الحفظ', description: `تم حفظ إعدادات AI لـ ${title}` });
@@ -104,6 +139,9 @@ const AIModulePrompt = ({ module, title }: AIModulePromptProps) => {
     );
   }
 
+  const showGlobalWarning = globalAiActive === false;
+  const showNoConfigWarning = globalAiActive === null;
+
   return (
     <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-4 sm:space-y-6 overflow-y-auto h-full">
       <div>
@@ -111,10 +149,28 @@ const AIModulePrompt = ({ module, title }: AIModulePromptProps) => {
         <p className="text-sm text-muted-foreground mt-1">
           توجيهات الذكاء الاصطناعي للرد التلقائي في {title}
         </p>
-        <p className="text-xs text-muted-foreground mt-2 bg-secondary/50 p-3 rounded-xl">
-          💡 تأكد أولاً من تفعيل AI وإعداد المزود من <strong>الإعدادات → الذكاء الاصطناعي</strong>. هنا تكتب التوجيهات الخاصة بهذا القسم فقط.
-        </p>
       </div>
+
+      {/* Warning: Global AI not active */}
+      {showGlobalWarning && (
+        <Alert variant="destructive" className="border-destructive/30 bg-destructive/5">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription className="text-sm">
+            <strong>⚠️ AI معطّل على مستوى البراند.</strong> حتى لو فعّلت AI هنا، لن يعمل الرد التلقائي.
+            اذهب إلى <strong>الإعدادات → الذكاء الاصطناعي</strong> وفعّل AI أولاً.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Info: No config exists - will auto-create */}
+      {showNoConfigWarning && isActive && (
+        <Alert className="border-primary/30 bg-primary/5">
+          <Brain className="h-4 w-4 text-primary" />
+          <AlertDescription className="text-sm text-foreground">
+            💡 سيتم تفعيل AI تلقائياً باستخدام <strong>Lovable AI (Gemini 2.5 Flash)</strong> عند الحفظ. يمكنك تغيير المزود من الإعدادات لاحقاً.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* AI Toggle */}
       <Card className="p-5 bg-card border-border">
@@ -126,6 +182,11 @@ const AIModulePrompt = ({ module, title }: AIModulePromptProps) => {
             <div>
               <h3 className="text-base font-semibold text-foreground">تفعيل AI لهذا القسم</h3>
               <p className="text-xs text-muted-foreground">تشغيل الرد التلقائي بالذكاء الاصطناعي في {title}</p>
+              {globalAiActive && globalAiProvider && (
+                <p className="text-xs text-primary mt-0.5">
+                  المزود: {globalAiProvider === 'lovable' ? 'Lovable AI' : globalAiProvider}
+                </p>
+              )}
             </div>
           </div>
           <Switch checked={isActive} onCheckedChange={setIsActive} />
@@ -150,6 +211,11 @@ const AIModulePrompt = ({ module, title }: AIModulePromptProps) => {
           placeholder={`مثال: أنت مساعد ذكي في ${title}. مهمتك هي:\n- الرد على استفسارات العملاء بأدب\n- تأكيد بيانات الطلب\n- إبلاغ العميل بأي تحديثات\n\nلا تقم بالتالي:\n- لا تعطي وعود غير مؤكدة\n- لا تشارك معلومات حساسة`}
           dir="rtl"
         />
+        {systemPrompt && (
+          <p className="text-xs text-muted-foreground text-left" dir="ltr">
+            {systemPrompt.length} characters
+          </p>
+        )}
       </Card>
 
       {/* Escalation Keywords */}
