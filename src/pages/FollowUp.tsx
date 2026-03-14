@@ -195,6 +195,10 @@ const FollowUp = () => {
           )}
         </TabsContent>
 
+        <TabsContent value="tracking" className="flex-1 m-0 overflow-hidden">
+          <ShipmentTrackingTable />
+        </TabsContent>
+
         <TabsContent value="auto-reply" className="flex-1 m-0 overflow-hidden">
           <ConfirmAutoReply module="followup" title="قسم المتابعة" />
         </TabsContent>
