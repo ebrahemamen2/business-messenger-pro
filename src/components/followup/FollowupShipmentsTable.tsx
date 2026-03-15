@@ -772,7 +772,6 @@ const FollowupShipmentsTable = () => {
             )}
           </div>
         </div>
-        </div>
       )}
 
       {cardVisible && cardFiltered.length === 0 && (
