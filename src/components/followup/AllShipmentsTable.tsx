@@ -375,7 +375,8 @@ const AllShipmentsTable = () => {
               <Download className="w-3.5 h-3.5" />
               تصدير
             </Button>
-            <Button variant="ghost" size="sm" onClick={loadShipments} className="gap-1.5 text-xs">
+        {/* Reload status counts after upload */}
+        <Button variant="ghost" size="sm" onClick={() => { loadShipments(); loadStatusCounts(); }} className="gap-1.5 text-xs">
               <RefreshCw className="w-3.5 h-3.5" />
             </Button>
           </div>
