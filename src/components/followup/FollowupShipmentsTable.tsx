@@ -207,7 +207,7 @@ const FollowupShipmentsTable = () => {
     }
 
     return null;
-  }, []);
+  }, [createStrictDate]);
 
   // Get "today" in tenant timezone as calendar date (midnight)
   const getTenantToday = useCallback(() => {
