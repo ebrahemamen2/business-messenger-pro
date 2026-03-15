@@ -446,75 +446,110 @@ const FollowupShipmentsTable = () => {
           </div>
         )}
 
-        {/* All filters in one compact row */}
-        <div className="flex gap-1.5 flex-wrap items-center">
-          <Select value={dateFilter} onValueChange={setDateFilter}>
-            <SelectTrigger className="h-6 text-[10px] w-auto min-w-[100px] bg-secondary border-0 px-2">
-              <Calendar className="w-3 h-3 ml-1" />
-              <SelectValue placeholder="التاريخ" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all" className="text-xs">كل التواريخ</SelectItem>
-              <SelectItem value="1" className="text-xs">خلال يوم</SelectItem>
-              <SelectItem value="2" className="text-xs">خلال يومين</SelectItem>
-              <SelectItem value="3plus" className="text-xs">3 أيام أو أكتر</SelectItem>
-              <SelectItem value="unknown" className="text-xs">بدون تاريخ</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="h-6 text-[10px] w-auto min-w-[110px] bg-secondary border-0 px-2">
-              <Filter className="w-3 h-3 ml-1" />
-              <SelectValue placeholder="حالة الشحن" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all" className="text-xs">كل الحالات</SelectItem>
-              {uniqueStatuses.map(s => (
-                <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select value={waSentFilter} onValueChange={setWaSentFilter}>
-            <SelectTrigger className="h-6 text-[10px] w-auto min-w-[90px] bg-secondary border-0 px-2">
-              <MessageSquare className="w-3 h-3 ml-1" />
-              <SelectValue placeholder="الواتساب" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all" className="text-xs">الكل</SelectItem>
-              <SelectItem value="sent" className="text-xs">✅ اتبعتله</SelectItem>
-              <SelectItem value="not_sent" className="text-xs">❌ ماتبعتلهوش</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <div className="h-4 w-px bg-border mx-0.5" />
-
-          {/* Action filter chips - inline */}
-          <button onClick={() => setActionFilter('all')} className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors ${actionFilter === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
-            الكل ({filtered.length})
-          </button>
-          {actionStatuses.map(({ key, label }) => {
-            const count = actionCounts[key] || 0;
-            if (count === 0) return null;
-            return (
-              <button key={key} onClick={() => setActionFilter(key)} className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors ${actionFilter === key ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
-                {label} ({count})
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Search + bulk actions */}
-        <div className="flex items-center gap-2">
+        {/* Search + Filter button + bulk actions */}
+        <div className="flex items-center gap-1.5">
           <div className="relative flex-1">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-            <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="بحث بالبوليصة أو الاسم أو الرقم أو الملاحظات..." className="bg-secondary border-0 text-xs pr-9 h-7" />
+            <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="بحث بالبوليصة أو الاسم أو الرقم..." className="bg-secondary border-0 text-xs pr-9 h-7" />
           </div>
+
+          {/* Single filter popover */}
+          <Popover open={showFilters} onOpenChange={setShowFilters}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1 text-xs h-7 relative">
+                <Filter className="w-3.5 h-3.5" />
+                فلترة
+                {(dateFilter !== 'all' || statusFilter !== 'all' || waSentFilter !== 'all' || actionFilter !== 'all') && (
+                  <span className="absolute -top-1.5 -left-1.5 w-4 h-4 rounded-full bg-primary text-primary-foreground text-[8px] flex items-center justify-center font-bold">
+                    {[dateFilter !== 'all', statusFilter !== 'all', waSentFilter !== 'all', actionFilter !== 'all'].filter(Boolean).length}
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 p-3 space-y-3" align="end" dir="rtl">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-foreground">الفلاتر</span>
+                <button
+                  onClick={() => { setDateFilter('all'); setStatusFilter('all'); setWaSentFilter('all'); setActionFilter('all'); }}
+                  className="text-[10px] text-primary hover:underline"
+                >
+                  إزالة الكل
+                </button>
+              </div>
+
+              {/* Date filter */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-medium text-muted-foreground">التاريخ</label>
+                <Select value={dateFilter} onValueChange={setDateFilter}>
+                  <SelectTrigger className="h-7 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" className="text-xs">كل التواريخ</SelectItem>
+                    <SelectItem value="1" className="text-xs">خلال يوم</SelectItem>
+                    <SelectItem value="2" className="text-xs">خلال يومين</SelectItem>
+                    <SelectItem value="3plus" className="text-xs">3 أيام أو أكتر</SelectItem>
+                    <SelectItem value="unknown" className="text-xs">بدون تاريخ</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Shipping status */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-medium text-muted-foreground">حالة الشحن</label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="h-7 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" className="text-xs">كل الحالات</SelectItem>
+                    {uniqueStatuses.map(s => (
+                      <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* WA sent */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-medium text-muted-foreground">الواتساب</label>
+                <Select value={waSentFilter} onValueChange={setWaSentFilter}>
+                  <SelectTrigger className="h-7 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" className="text-xs">الكل</SelectItem>
+                    <SelectItem value="sent" className="text-xs">✅ اتبعتله</SelectItem>
+                    <SelectItem value="not_sent" className="text-xs">❌ ماتبعتلهوش</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Action status */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-medium text-muted-foreground">حالة المتابعة</label>
+                <div className="flex gap-1 flex-wrap">
+                  <button onClick={() => setActionFilter('all')} className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors ${actionFilter === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
+                    الكل ({filtered.length})
+                  </button>
+                  {actionStatuses.map(({ key, label }) => {
+                    const count = actionCounts[key] || 0;
+                    if (count === 0) return null;
+                    return (
+                      <button key={key} onClick={() => setActionFilter(key)} className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors ${actionFilter === key ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
+                        {label} ({count})
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+
           {selectedIds.size > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-1 text-xs h-7">
-                  <Filter className="w-3 h-3" />
                   تحديث ({selectedIds.size})
                 </Button>
               </DropdownMenuTrigger>
