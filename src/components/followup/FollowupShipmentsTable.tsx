@@ -228,7 +228,7 @@ const FollowupShipmentsTable = () => {
         (s.proc_notes || '').toLowerCase().includes(q)
       );
     });
-  }, [shipments, actionFilter, statusFilter, dateFilter, waSentFilter, searchQuery]);
+  }, [shipments, actionFilter, statusFilter, statusDescFilter, notesFilter, dateFilter, waSentFilter, searchQuery]);
 
   const updateAction = async (id: string, newStatus: string) => {
     const { error } = await supabase
