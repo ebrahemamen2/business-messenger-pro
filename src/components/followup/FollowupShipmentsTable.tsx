@@ -294,11 +294,27 @@ const FollowupShipmentsTable = () => {
     return Array.from(statuses).sort();
   }, [shipments]);
 
-  const uniqueStatusDescs = useMemo(() => {
-    const descs = new Set<string>();
-    shipments.forEach(s => { if (s.proc_notes) descs.add(s.proc_notes); });
-    return Array.from(descs).sort();
-  }, [shipments]);
+  // AI-grouped note categories for filter (group names with counts)
+  const noteGroupNames = useMemo(() => {
+    if (Object.keys(noteGroups).length === 0) {
+      // Fallback to raw unique values
+      const descs = new Set<string>();
+      shipments.forEach(s => { if (s.proc_notes) descs.add(s.proc_notes); });
+      return Array.from(descs).sort();
+    }
+    return Object.keys(noteGroups).sort();
+  }, [shipments, noteGroups]);
+
+  // Count shipments per note group
+  const noteGroupCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    shipments.forEach(s => {
+      if (!s.proc_notes) return;
+      const group = noteToGroup[s.proc_notes] || s.proc_notes;
+      counts[group] = (counts[group] || 0) + 1;
+    });
+    return counts;
+  }, [shipments, noteToGroup]);
 
   // Helper to toggle a value in a Set filter
   const toggleFilter = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, value: string) => {
