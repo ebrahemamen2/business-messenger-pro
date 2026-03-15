@@ -809,7 +809,6 @@ const FollowupShipmentsTable = () => {
               {filtered.map(s => {
                 const actionInfo = getActionInfo(s.status);
                 const displayStatus = s.final_status || '-';
-                const days = getDaysSinceLastStatus(s);
                 return (
                   <TableRow
                     key={s.id}
@@ -820,23 +819,13 @@ const FollowupShipmentsTable = () => {
                     <TableCell className="text-center">
                       <input type="checkbox" checked={selectedIds.has(s.id)} onChange={() => toggleSelect(s.id)} className="rounded border-border" />
                     </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      <div>{s.shipment_code}</div>
-                      {days !== null && (
-                        <span className={`text-[9px] ${days >= 3 ? 'text-destructive font-semibold' : days >= 2 ? 'text-amber-600' : 'text-muted-foreground'}`}>
-                          منذ {days} يوم
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-xs">{s.customer_name || '-'}</TableCell>
-                    <TableCell className="font-mono text-xs" dir="ltr">{s.customer_phone}</TableCell>
-                    <TableCell className="text-xs">{s.customer_area || '-'}</TableCell>
-                    <TableCell className="text-xs font-medium">{s.amount ? `${s.amount} ج.م` : '-'}</TableCell>
+                    <TableCell className="font-mono text-xs">{s.shipment_code}</TableCell>
                     <TableCell>
                       <span className={`px-2 py-0.5 rounded-md text-[10px] font-medium border ${getStatusColor(displayStatus)}`}>
                         {displayStatus}
                       </span>
                     </TableCell>
+                    <TableCell className="text-xs max-w-[200px] truncate" title={s.status_description || ''}>{s.status_description || '-'}</TableCell>
                     <TableCell>
                       <Select value={s.status || ''} onValueChange={v => updateAction(s.id, v)}>
                         <SelectTrigger className={`h-7 text-[10px] border ${actionInfo.color || 'border-border'} bg-transparent w-[130px]`}>
@@ -848,17 +837,6 @@ const FollowupShipmentsTable = () => {
                           ))}
                         </SelectContent>
                       </Select>
-                    </TableCell>
-                    <TableCell>
-                      {s.wa_template_sent ? (
-                        <div className="text-[10px]">
-                          <span className="text-green-600 font-medium">✅ اتبعت</span>
-                          {s.wa_template_name && <p className="text-muted-foreground truncate max-w-[80px]">{s.wa_template_name}</p>}
-                          {s.wa_sent_at && <p className="text-muted-foreground">{new Date(s.wa_sent_at).toLocaleDateString('ar-EG')}</p>}
-                        </div>
-                      ) : (
-                        <span className="text-[10px] text-muted-foreground">-</span>
-                      )}
                     </TableCell>
                     <TableCell className="max-w-[180px]">
                       {editingNoteId === s.id ? (
@@ -882,6 +860,13 @@ const FollowupShipmentsTable = () => {
                         >
                           {s.notes || <span className="text-muted-foreground">+ ملاحظة</span>}
                         </button>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {s.wa_template_sent ? (
+                        <span className="text-green-600 text-[10px] font-medium">✅</span>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground">-</span>
                       )}
                     </TableCell>
                     <TableCell>
