@@ -8,6 +8,7 @@ export interface Tenant {
   slug: string;
   logo_url: string | null;
   is_active: boolean;
+  timezone: string;
 }
 
 interface TenantContextType {
