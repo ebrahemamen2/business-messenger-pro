@@ -812,81 +812,131 @@ const FollowupShipmentsTable = () => {
                 <TableHead className="w-10 text-center">
                   <input type="checkbox" checked={selectedIds.size === filtered.length && filtered.length > 0} onChange={toggleSelectAll} className="rounded border-border" />
                 </TableHead>
-                <TableHead className="text-right">البوليصة</TableHead>
-                <TableHead className="text-right">حالة الشحن</TableHead>
-                <TableHead className="text-right">تفصيل الحالة</TableHead>
-                <TableHead className="text-right">حالة المتابعة</TableHead>
-                <TableHead className="text-right">ملاحظات</TableHead>
-                <TableHead className="text-right">واتساب</TableHead>
+                <TableHead className="text-right">
+                  <div className="flex items-center gap-1">
+                    <span>البوليصة</span>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button className={`p-0.5 rounded hover:bg-secondary transition-colors ${searchQuery ? 'text-primary' : 'text-muted-foreground'}`}>
+                          <ListFilter className="w-3 h-3" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-52 p-2" align="start">
+                        <Input
+                          value={searchQuery}
+                          onChange={e => setSearchQuery(e.target.value)}
+                          placeholder="بحث بالبوليصة أو الاسم..."
+                          className="h-7 text-xs"
+                          dir="auto"
+                          autoFocus
+                        />
+                        {searchQuery && (
+                          <button onClick={() => setSearchQuery('')} className="text-[10px] text-destructive mt-1 hover:underline">مسح</button>
+                        )}
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </TableHead>
+                <TableHead className="text-right">
+                  <div className="flex items-center gap-1">
+                    <span>حالة الشحن</span>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button className={`p-0.5 rounded hover:bg-secondary transition-colors ${statusFilter !== 'all' ? 'text-primary' : 'text-muted-foreground'}`}>
+                          <ListFilter className="w-3 h-3" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-48 p-2 max-h-60 overflow-auto" align="start">
+                        <div className="space-y-0.5">
+                          <button onClick={() => setStatusFilter('all')} className={`w-full text-right text-xs px-2 py-1 rounded ${statusFilter === 'all' ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>الكل</button>
+                          {uniqueStatuses.map(st => (
+                            <button key={st} onClick={() => setStatusFilter(st)} className={`w-full text-right text-xs px-2 py-1 rounded truncate ${statusFilter === st ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>{st}</button>
+                          ))}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </TableHead>
+                <TableHead className="text-right">
+                  <div className="flex items-center gap-1">
+                    <span>تفصيل الحالة</span>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button className={`p-0.5 rounded hover:bg-secondary transition-colors ${statusDescFilter !== 'all' ? 'text-primary' : 'text-muted-foreground'}`}>
+                          <ListFilter className="w-3 h-3" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-52 p-2 max-h-60 overflow-auto" align="start">
+                        <div className="space-y-0.5">
+                          <button onClick={() => setStatusDescFilter('all')} className={`w-full text-right text-xs px-2 py-1 rounded ${statusDescFilter === 'all' ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>الكل</button>
+                          {uniqueStatusDescs.map(d => (
+                            <button key={d} onClick={() => setStatusDescFilter(d)} className={`w-full text-right text-xs px-2 py-1 rounded truncate ${statusDescFilter === d ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>{d}</button>
+                          ))}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </TableHead>
+                <TableHead className="text-right">
+                  <div className="flex items-center gap-1">
+                    <span>حالة المتابعة</span>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button className={`p-0.5 rounded hover:bg-secondary transition-colors ${actionFilter !== 'all' ? 'text-primary' : 'text-muted-foreground'}`}>
+                          <ListFilter className="w-3 h-3" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-44 p-2" align="start">
+                        <div className="space-y-0.5">
+                          <button onClick={() => setActionFilter('all')} className={`w-full text-right text-xs px-2 py-1 rounded ${actionFilter === 'all' ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>الكل</button>
+                          <button onClick={() => setActionFilter('__none__')} className={`w-full text-right text-xs px-2 py-1 rounded ${actionFilter === '__none__' ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>بدون حالة</button>
+                          {actionStatuses.map(({ key, label }) => (
+                            <button key={key} onClick={() => setActionFilter(key)} className={`w-full text-right text-xs px-2 py-1 rounded ${actionFilter === key ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>{label}</button>
+                          ))}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </TableHead>
+                <TableHead className="text-right">
+                  <div className="flex items-center gap-1">
+                    <span>ملاحظات</span>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button className={`p-0.5 rounded hover:bg-secondary transition-colors ${notesFilter !== 'all' ? 'text-primary' : 'text-muted-foreground'}`}>
+                          <ListFilter className="w-3 h-3" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-40 p-2" align="start">
+                        <div className="space-y-0.5">
+                          <button onClick={() => setNotesFilter('all')} className={`w-full text-right text-xs px-2 py-1 rounded ${notesFilter === 'all' ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>الكل</button>
+                          <button onClick={() => setNotesFilter('has_notes')} className={`w-full text-right text-xs px-2 py-1 rounded ${notesFilter === 'has_notes' ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>بها ملاحظات</button>
+                          <button onClick={() => setNotesFilter('no_notes')} className={`w-full text-right text-xs px-2 py-1 rounded ${notesFilter === 'no_notes' ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>بدون ملاحظات</button>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </TableHead>
+                <TableHead className="text-right">
+                  <div className="flex items-center gap-1">
+                    <span>واتساب</span>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button className={`p-0.5 rounded hover:bg-secondary transition-colors ${waSentFilter !== 'all' ? 'text-primary' : 'text-muted-foreground'}`}>
+                          <ListFilter className="w-3 h-3" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-36 p-2" align="start">
+                        <div className="space-y-0.5">
+                          <button onClick={() => setWaSentFilter('all')} className={`w-full text-right text-xs px-2 py-1 rounded ${waSentFilter === 'all' ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>الكل</button>
+                          <button onClick={() => setWaSentFilter('sent')} className={`w-full text-right text-xs px-2 py-1 rounded ${waSentFilter === 'sent' ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>✅ اتبعت</button>
+                          <button onClick={() => setWaSentFilter('not_sent')} className={`w-full text-right text-xs px-2 py-1 rounded ${waSentFilter === 'not_sent' ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>لم ترسل</button>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </TableHead>
                 <TableHead className="text-right w-12"></TableHead>
-              </TableRow>
-              {/* Inline filter row */}
-              <TableRow className="bg-muted/30 border-b border-border">
-                <TableHead></TableHead>
-                <TableHead className="py-1">
-                  <Input
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    placeholder="بحث..."
-                    className="h-7 text-[10px] bg-background"
-                    dir="auto"
-                  />
-                </TableHead>
-                <TableHead className="py-1">
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="h-7 text-[10px] bg-background"><SelectValue placeholder="الكل" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all" className="text-xs">الكل</SelectItem>
-                      {uniqueStatuses.map(st => (
-                        <SelectItem key={st} value={st} className="text-xs">{st}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </TableHead>
-                <TableHead className="py-1">
-                  <Select value={statusDescFilter} onValueChange={setStatusDescFilter}>
-                    <SelectTrigger className="h-7 text-[10px] bg-background"><SelectValue placeholder="الكل" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all" className="text-xs">الكل</SelectItem>
-                      {uniqueStatusDescs.map(d => (
-                        <SelectItem key={d} value={d} className="text-xs">{d}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </TableHead>
-                <TableHead className="py-1">
-                  <Select value={actionFilter} onValueChange={setActionFilter}>
-                    <SelectTrigger className="h-7 text-[10px] bg-background"><SelectValue placeholder="الكل" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all" className="text-xs">الكل</SelectItem>
-                      <SelectItem value="__none__" className="text-xs">بدون حالة</SelectItem>
-                      {actionStatuses.map(({ key, label }) => (
-                        <SelectItem key={key} value={key} className="text-xs">{label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </TableHead>
-                <TableHead className="py-1">
-                  <Select value={notesFilter} onValueChange={setNotesFilter}>
-                    <SelectTrigger className="h-7 text-[10px] bg-background"><SelectValue placeholder="الكل" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all" className="text-xs">الكل</SelectItem>
-                      <SelectItem value="has_notes" className="text-xs">بها ملاحظات</SelectItem>
-                      <SelectItem value="no_notes" className="text-xs">بدون ملاحظات</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </TableHead>
-                <TableHead className="py-1">
-                  <Select value={waSentFilter} onValueChange={setWaSentFilter}>
-                    <SelectTrigger className="h-7 text-[10px] bg-background"><SelectValue placeholder="الكل" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all" className="text-xs">الكل</SelectItem>
-                      <SelectItem value="sent" className="text-xs">✅ اتبعت</SelectItem>
-                      <SelectItem value="not_sent" className="text-xs">لم ترسل</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </TableHead>
-                <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
