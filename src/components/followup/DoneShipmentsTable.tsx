@@ -71,13 +71,16 @@ const DoneShipmentsTable = () => {
     if (!currentTenant?.id) { setLoading(false); return; }
     setLoading(true);
 
-    // Load action statuses config to get label mapping
+    // Load config to get done_trigger_status and action statuses
     const { data: config } = await supabase
       .from('followup_status_config')
-      .select('action_statuses')
+      .select('action_statuses, done_trigger_status')
       .eq('tenant_id', currentTenant.id)
       .maybeSingle();
-    const actions = (config?.action_statuses as unknown as ActionStatus[] | null) || [];
+    const actions = ((config as any)?.action_statuses as unknown as ActionStatus[] | null) || [];
+    setActionStatuses(actions);
+    const trigger = (config as any)?.done_trigger_status || 'pending';
+    setDoneTriggerStatus(trigger);
     setActionStatuses(actions);
 
     // Load history records with shipment data
