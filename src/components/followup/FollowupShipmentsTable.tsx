@@ -20,6 +20,9 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Popover, PopoverContent, PopoverTrigger,
+} from '@/components/ui/popover';
 import * as XLSX from 'xlsx';
 import { type Shipment, getStatusColor } from './AllShipmentsTable';
 import { type ActionStatus } from './ActionStatusesSettings';
