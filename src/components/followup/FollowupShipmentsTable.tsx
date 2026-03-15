@@ -346,7 +346,7 @@ const FollowupShipmentsTable = () => {
 
   // Navigator card filtered list
   const cardFiltered = useMemo(() => {
-    if (cardFilter === 'pending') return filtered.filter(s => s.status === 'pending');
+    if (cardFilter === 'pending') return filtered.filter(s => !s.status || s.status === '' || s.status === 'pending');
     return filtered;
   }, [filtered, cardFilter]);
 
