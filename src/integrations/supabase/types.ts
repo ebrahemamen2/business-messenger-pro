@@ -665,48 +665,78 @@ export type Database = {
       }
       shipment_tracking: {
         Row: {
+          amount: number | null
           conversation_id: string | null
           created_at: string
+          customer_address: string | null
+          customer_area: string | null
           customer_name: string | null
           customer_phone: string
+          final_status: string | null
           id: string
+          last_status_date: string | null
           notes: string | null
           order_code: string | null
+          order_details: string | null
+          pickup_date: string | null
+          proc_notes: string | null
           shipment_code: string
           shipping_company: string | null
           status: string
+          status_date: string | null
+          status_description: string | null
           tenant_id: string
           updated_at: string
           uploaded_at: string
           wa_template_sent: boolean
         }
         Insert: {
+          amount?: number | null
           conversation_id?: string | null
           created_at?: string
+          customer_address?: string | null
+          customer_area?: string | null
           customer_name?: string | null
           customer_phone: string
+          final_status?: string | null
           id?: string
+          last_status_date?: string | null
           notes?: string | null
           order_code?: string | null
+          order_details?: string | null
+          pickup_date?: string | null
+          proc_notes?: string | null
           shipment_code: string
           shipping_company?: string | null
           status?: string
+          status_date?: string | null
+          status_description?: string | null
           tenant_id: string
           updated_at?: string
           uploaded_at?: string
           wa_template_sent?: boolean
         }
         Update: {
+          amount?: number | null
           conversation_id?: string | null
           created_at?: string
+          customer_address?: string | null
+          customer_area?: string | null
           customer_name?: string | null
           customer_phone?: string
+          final_status?: string | null
           id?: string
+          last_status_date?: string | null
           notes?: string | null
           order_code?: string | null
+          order_details?: string | null
+          pickup_date?: string | null
+          proc_notes?: string | null
           shipment_code?: string
           shipping_company?: string | null
           status?: string
+          status_date?: string | null
+          status_description?: string | null
           tenant_id?: string
           updated_at?: string
           uploaded_at?: string
