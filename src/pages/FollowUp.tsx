@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import ChatList from '@/components/chat/ChatList';
 import ChatWindow from '@/components/chat/ChatWindow';
 import ContactPanel from '@/components/chat/ContactPanel';
-import { Truck, Loader2, MessageSquare, ArrowRight, Package, Settings2, Table2 } from 'lucide-react';
+import { Truck, Loader2, MessageSquare, ArrowRight, Package, Settings2, Table2, CheckCircle2 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import AllShipmentsTable from '@/components/followup/AllShipmentsTable';
 import FollowupShipmentsTable from '@/components/followup/FollowupShipmentsTable';

@@ -312,6 +312,61 @@ const AllShipmentsTable = () => {
         return;
       }
 
+      // Archive existing followup data before upsert
+      toast({ title: '📋 جاري حفظ سجل المتابعة...' });
+      try {
+        // Get all shipments that have been acted on (status != pending OR have notes)
+        let archiveOffset = 0;
+        const archiveBatch = 1000;
+        const toArchive: any[] = [];
+        while (true) {
+          const { data: existing, error: archErr } = await supabase
+            .from('shipment_tracking')
+            .select('id, tenant_id, status, notes, final_status')
+            .eq('tenant_id', currentTenant.id)
+            .range(archiveOffset, archiveOffset + archiveBatch - 1);
+          if (archErr || !existing || existing.length === 0) break;
+          existing.forEach((s: any) => {
+            if (s.status !== 'pending' || (s.notes && s.notes.trim())) {
+              toArchive.push({
+                shipment_id: s.id,
+                tenant_id: s.tenant_id,
+                action_status: s.status,
+                notes: s.notes,
+                final_status_snapshot: s.final_status,
+              });
+            }
+          });
+          if (existing.length < archiveBatch) break;
+          archiveOffset += archiveBatch;
+        }
+
+        if (toArchive.length > 0) {
+          // Insert archive records in batches of 500
+          for (let i = 0; i < toArchive.length; i += 500) {
+            await supabase.from('shipment_followup_history').insert(toArchive.slice(i, i + 500) as any);
+          }
+
+          // Reset status and notes for all shipments
+          let resetOffset = 0;
+          while (true) {
+            const { data: batch } = await supabase
+              .from('shipment_tracking')
+              .select('id')
+              .eq('tenant_id', currentTenant.id)
+              .or('status.neq.pending,notes.not.is.null')
+              .range(resetOffset, resetOffset + 999);
+            if (!batch || batch.length === 0) break;
+            const ids = batch.map((b: any) => b.id);
+            await supabase.from('shipment_tracking').update({ status: 'pending', notes: null } as any).in('id', ids);
+            if (batch.length < 1000) break;
+            resetOffset += 1000;
+          }
+        }
+      } catch (archiveErr) {
+        console.error('Archive error (non-blocking):', archiveErr);
+      }
+
       // Upsert by shipment_code + tenant_id
       const { error: upsertErr } = await supabase
         .from('shipment_tracking')
