@@ -415,62 +415,51 @@ const FollowupWATemplates = () => {
               })}
             </div>
 
-            {/* Button Variables */}
+            {/* URL Button Variables Only */}
             <div className="space-y-3 border-t border-border pt-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <MousePointerClick className="w-4 h-4 text-primary" />
-                  <Label className="text-sm font-semibold">الأزرار (Buttons)</Label>
+                  <Label className="text-sm font-semibold">أزرار URL الديناميكية</Label>
                 </div>
-                <Button type="button" variant="outline" size="sm" onClick={() => addVariable('button')} className="gap-1 text-xs"><Plus className="w-3 h-3" />إضافة زر</Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => addVariable('button')} className="gap-1 text-xs"><Plus className="w-3 h-3" />إضافة زر URL</Button>
               </div>
-              {buttonVars.length === 0 && <p className="text-xs text-muted-foreground text-center py-1">لا توجد أزرار — لو القالب فيه أزرار بدون متغيرات مش محتاج تضيفها هنا</p>}
+              <p className="text-[10px] text-muted-foreground bg-accent/50 rounded-md px-2 py-1.5 border border-border">
+                ⚡ هذا القسم خاص فقط بأزرار URL (روابط ديناميكية) — أزرار Quick Reply لا تحتاج متغيرات، ظبط ردودها التلقائية وتغيير الحالة من زر ⚡ (ردود الأزرار)
+              </p>
+              {buttonVars.length === 0 && <p className="text-xs text-muted-foreground text-center py-1">لا توجد أزرار URL — لو القالب فيه أزرار Quick Reply فقط مش محتاج تضيف حاجة هنا</p>}
               {newTemplate.variable_mappings.map((v, index) => {
                 if (v.component !== 'button') return null;
                 return (
                   <div key={index} className="p-2.5 bg-secondary/50 rounded-lg border border-border space-y-2">
                     <div className="flex items-center gap-2">
                       <MousePointerClick className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                      <span className="text-xs font-semibold text-foreground">زر رقم {(v.button_index ?? 0) + 1}</span>
+                      <span className="text-xs font-semibold text-foreground">🔗 زر URL رقم {(v.button_index ?? 0) + 1}</span>
                       <div className="flex-1" />
                       <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive" onClick={() => removeVariable(index)}><Trash2 className="w-3 h-3" /></Button>
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-1">
-                        <p className="text-[10px] text-muted-foreground">ترتيب الزر (Index)</p>
-                        <Select value={String(v.button_index ?? 0)} onValueChange={val => updateVariable(index, { button_index: Number(val) })}>
-                          <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="0" className="text-xs">الزر الأول (0)</SelectItem>
-                            <SelectItem value="1" className="text-xs">الزر الثاني (1)</SelectItem>
-                            <SelectItem value="2" className="text-xs">الزر الثالث (2)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-[10px] text-muted-foreground">نوع الزر</p>
-                        <Select value={v.sub_type || 'url'} onValueChange={val => updateVariable(index, { sub_type: val })}>
-                          <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="url" className="text-xs">🔗 URL (رابط ديناميكي)</SelectItem>
-                            <SelectItem value="quick_reply" className="text-xs">💬 Quick Reply</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-muted-foreground">ترتيب الزر (Index)</p>
+                      <Select value={String(v.button_index ?? 0)} onValueChange={val => updateVariable(index, { button_index: Number(val), sub_type: 'url' })}>
+                        <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="0" className="text-xs">الزر الأول (0)</SelectItem>
+                          <SelectItem value="1" className="text-xs">الزر الثاني (1)</SelectItem>
+                          <SelectItem value="2" className="text-xs">الزر الثالث (2)</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] text-muted-foreground">{v.sub_type === 'quick_reply' ? 'الـ Payload (بيانات الرد)' : 'الجزء الديناميكي من الرابط {{1}}'}</p>
+                      <p className="text-[10px] text-muted-foreground">الجزء الديناميكي من الرابط {'{{1}}'}</p>
                       <Select value={v.field} onValueChange={val => updateVariable(index, { field: val })}>
                         <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           {SHIPMENT_FIELDS.map(f => <SelectItem key={f.key} value={f.key} className="text-xs">{f.label} <span className="text-muted-foreground">({f.example})</span></SelectItem>)}
                         </SelectContent>
                       </Select>
-                      {v.sub_type === 'url' && (
-                        <p className="text-[9px] text-muted-foreground">
-                          مثال: لو الرابط في Meta هو <code className="font-mono bg-muted px-0.5 rounded">{'https://site.com/track/{{1}}'}</code> واخترت "رقم البوليصة" → هيبقى <code className="font-mono bg-muted px-0.5 rounded">https://site.com/track/SHP-12345</code>
-                        </p>
-                      )}
+                      <p className="text-[9px] text-muted-foreground">
+                        مثال: لو الرابط في Meta هو <code className="font-mono bg-muted px-0.5 rounded">{'https://site.com/track/{{1}}'}</code> واخترت "رقم البوليصة" → هيبقى <code className="font-mono bg-muted px-0.5 rounded">https://site.com/track/SHP-12345</code>
+                      </p>
                     </div>
                   </div>
                 );
