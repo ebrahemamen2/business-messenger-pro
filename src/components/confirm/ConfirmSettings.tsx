@@ -260,7 +260,7 @@ const ConfirmSettings = () => {
           <div>
             <h3 className="text-lg font-semibold text-foreground">ربط المتجر</h3>
             <p className="text-xs text-muted-foreground">
-              استقبال نسخة من رسائل المتجر لعرضها في الشات
+              استقبال الطلبات الجديدة والتعديلات والطلبات المفقودة من المتجر
             </p>
           </div>
         </div>
@@ -306,20 +306,165 @@ const ConfirmSettings = () => {
           </div>
         </div>
 
-        <div className="mt-4 p-3 rounded-xl bg-secondary/50">
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            <strong className="text-foreground">طريقة الربط:</strong> المتجر يبعت POST request للـ Webhook URL
-          </p>
-          <pre className="mt-2 p-3 rounded-lg bg-background text-xs text-muted-foreground overflow-x-auto" dir="ltr">
-{`{
-  "api_key": "كود البراند",
-  "phone": "201234567890",
-  "message": "نص الرسالة",
-  "customer_name": "اسم العميل",
-  "timestamp": "2025-01-01T12:00:00Z",
-  "order_id": "ORD-123"
+        {/* API Documentation */}
+        <div className="mt-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-semibold text-foreground">📖 توثيق API للمطور</h4>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                const docs = buildApiDocs(storeWebhookUrl, storeApiKey);
+                navigator.clipboard.writeText(docs);
+                toast({ title: 'تم النسخ', description: 'تم نسخ التوثيق الكامل' });
+              }}
+              className="gap-1.5 text-xs"
+            >
+              <Copy className="w-3.5 h-3.5" />
+              نسخ التوثيق كامل
+            </Button>
+          </div>
+
+          <div className="p-3 rounded-xl bg-secondary/50 space-y-2">
+            <p className="text-xs font-medium text-foreground">🔐 Authentication</p>
+            <p className="text-xs text-muted-foreground">
+              كل الطلبات لازم تحتوي على API Key في الـ Header:
+            </p>
+            <pre className="p-2 rounded-lg bg-background text-xs text-muted-foreground overflow-x-auto" dir="ltr">
+{`x-store-api-key: ${storeApiKey || '<YOUR_API_KEY>'}`}
+            </pre>
+          </div>
+
+          {/* Event 1: new_order */}
+          <div className="p-3 rounded-xl bg-secondary/50 space-y-2">
+            <p className="text-xs font-medium text-foreground">📦 1. طلب جديد — <code className="text-primary">new_order</code></p>
+            <p className="text-xs text-muted-foreground">يتم إرساله فور وصول طلب جديد للمتجر</p>
+            <pre className="p-2 rounded-lg bg-background text-xs text-muted-foreground overflow-x-auto" dir="ltr">
+{`POST ${storeWebhookUrl}
+Header: x-store-api-key: <API_KEY>
+
+{
+  "event": "new_order",
+  "order_number": "ORD-1234",
+  "customer_name": "أحمد محمد",
+  "customer_phone": "966501234567",
+  "customer_city": "الرياض",
+  "customer_address": "حي النرجس - شارع 15",
+  "total_amount": 350.00,
+  "currency": "SAR",
+  "items": [
+    {
+      "name": "منتج 1",
+      "quantity": 2,
+      "price": 100,
+      "sku": "SKU-001"
+    },
+    {
+      "name": "منتج 2",
+      "quantity": 1,
+      "price": 150,
+      "sku": "SKU-002"
+    }
+  ],
+  "store_order_id": "shop_12345",
+  "notes": "ملاحظات اختيارية"
 }`}
-          </pre>
+            </pre>
+          </div>
+
+          {/* Event 2: order_modified */}
+          <div className="p-3 rounded-xl bg-secondary/50 space-y-2">
+            <p className="text-xs font-medium text-foreground">✏️ 2. تعديل طلب — <code className="text-primary">order_modified</code></p>
+            <p className="text-xs text-muted-foreground">يتم إرساله عند تعديل الطلب أو إضافة منتجات من صفحة الشكر (Upsell)</p>
+            <pre className="p-2 rounded-lg bg-background text-xs text-muted-foreground overflow-x-auto" dir="ltr">
+{`POST ${storeWebhookUrl}
+Header: x-store-api-key: <API_KEY>
+
+{
+  "event": "order_modified",
+  "order_number": "ORD-1234",
+  "modification_type": "edit",
+  "items": [
+    {
+      "name": "منتج 1",
+      "quantity": 3,
+      "price": 100,
+      "sku": "SKU-001"
+    },
+    {
+      "name": "منتج جديد",
+      "quantity": 1,
+      "price": 200,
+      "sku": "SKU-003"
+    }
+  ],
+  "total_amount": 500.00,
+  "old_data": { "total_amount": 350, "items_count": 2 },
+  "new_data": { "total_amount": 500, "items_count": 3 }
+}`}
+            </pre>
+            <p className="text-xs text-muted-foreground">
+              <strong>modification_type:</strong> <code>"edit"</code> لتعديل عادي، <code>"upsell"</code> لإضافة من صفحة الشكر
+            </p>
+          </div>
+
+          {/* Event 3: lost_order */}
+          <div className="p-3 rounded-xl bg-secondary/50 space-y-2">
+            <p className="text-xs font-medium text-foreground">🚫 3. طلب مفقود — <code className="text-primary">lost_order</code></p>
+            <p className="text-xs text-muted-foreground">يتم إرساله عند سلة متروكة أو طلب ملغي من العميل</p>
+            <pre className="p-2 rounded-lg bg-background text-xs text-muted-foreground overflow-x-auto" dir="ltr">
+{`POST ${storeWebhookUrl}
+Header: x-store-api-key: <API_KEY>
+
+{
+  "event": "lost_order",
+  "order_number": "ORD-5678",
+  "customer_name": "سارة أحمد",
+  "customer_phone": "966509876543",
+  "customer_city": "جدة",
+  "customer_address": "حي الصفا",
+  "total_amount": 200.00,
+  "currency": "SAR",
+  "items": [
+    {
+      "name": "منتج",
+      "quantity": 1,
+      "price": 200,
+      "sku": "SKU-010"
+    }
+  ],
+  "notes": "سلة متروكة"
+}`}
+            </pre>
+          </div>
+
+          {/* Event 4: test_connection */}
+          <div className="p-3 rounded-xl bg-secondary/50 space-y-2">
+            <p className="text-xs font-medium text-foreground">🔗 4. اختبار الربط — <code className="text-primary">test_connection</code></p>
+            <pre className="p-2 rounded-lg bg-background text-xs text-muted-foreground overflow-x-auto" dir="ltr">
+{`POST ${storeWebhookUrl}
+Header: x-store-api-key: <API_KEY>
+
+{
+  "event": "test_connection"
+}`}
+            </pre>
+            <p className="text-xs text-muted-foreground">
+              الرد: <code>{`{"success": true, "message": "Connection verified"}`}</code>
+            </p>
+          </div>
+
+          {/* Important Notes */}
+          <div className="p-3 rounded-xl border border-primary/20 bg-primary/5 space-y-1.5">
+            <p className="text-xs font-semibold text-foreground">⚠️ ملاحظات مهمة:</p>
+            <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
+              <li>رقم الهاتف بدون + أو مسافات (مثال: <code>966501234567</code>)</li>
+              <li>الحقول المطلوبة في <code>new_order</code>: <code>order_number</code>, <code>customer_phone</code></li>
+              <li>الحقول المطلوبة في <code>order_modified</code>: <code>order_number</code></li>
+              <li>الحقول المطلوبة في <code>lost_order</code>: <code>order_number</code>, <code>customer_phone</code></li>
+              <li>باقي الحقول اختيارية لكن يُفضل إرسالها كاملة</li>
+            </ul>
+          </div>
         </div>
       </Card>
 
