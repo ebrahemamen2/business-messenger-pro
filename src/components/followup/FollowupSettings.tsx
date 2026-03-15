@@ -7,6 +7,7 @@ import { Loader2, Save, CheckSquare, Square } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import ConfirmAutoReply from '@/components/confirm/ConfirmAutoReply';
 import AIModulePrompt from '@/components/settings/AIModulePrompt';
+import FollowupWATemplates from '@/components/followup/FollowupWATemplates';
 import { SHIPPING_STATUSES } from './AllShipmentsTable';
 
 const FollowupSettings = () => {
@@ -55,7 +56,6 @@ const FollowupSettings = () => {
     setSaving(false);
   };
 
-  // Group statuses by category
   const statusGroups = {
     'حالات تحتاج متابعة عادة': ['CR', 'Follow', 'تأجيل الى تاريخ', 'تحديد معاد', 'OH', 'Undelivered', 'Another try', 'Next Day'],
     'حالات التسليم': ['OK', 'OD', 'Cash Delivered', 'Collected', 'تحت التسليم', 'Cash in Transit'],
@@ -70,6 +70,9 @@ const FollowupSettings = () => {
           <TabsList className="bg-transparent h-10 gap-1">
             <TabsTrigger value="statuses" className="text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               حالات المتابعة
+            </TabsTrigger>
+            <TabsTrigger value="wa-templates" className="text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+              قوالب واتساب
             </TabsTrigger>
             <TabsTrigger value="auto-reply" className="text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               الرد التلقائي
@@ -137,6 +140,10 @@ const FollowupSettings = () => {
               ))}
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="wa-templates" className="flex-1 m-0 overflow-hidden">
+          <FollowupWATemplates />
         </TabsContent>
 
         <TabsContent value="auto-reply" className="flex-1 m-0 overflow-hidden">
