@@ -291,7 +291,7 @@ const FollowupShipmentsTable = () => {
       'رقم الهاتف': s.customer_phone,
       'المنطقة': s.customer_area || '',
       'حالة الشحن': s.final_status || '',
-      'حالة المتابعة': FOLLOWUP_ACTIONS[s.status]?.label || s.status,
+      'حالة المتابعة': getActionInfo(s.status).label,
       'المبلغ': s.amount || '',
       'ملاحظات': s.proc_notes || '',
       'تم إرسال واتساب': s.wa_template_sent ? 'نعم' : 'لا',
