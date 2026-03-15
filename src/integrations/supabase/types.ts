@@ -340,6 +340,57 @@ export type Database = {
           },
         ]
       }
+      followup_button_actions: {
+        Row: {
+          auto_reply_text: string
+          button_title: string
+          created_at: string
+          id: string
+          is_active: boolean
+          template_id: string
+          tenant_id: string
+          update_status_to: string
+          updated_at: string
+        }
+        Insert: {
+          auto_reply_text?: string
+          button_title: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          template_id: string
+          tenant_id: string
+          update_status_to?: string
+          updated_at?: string
+        }
+        Update: {
+          auto_reply_text?: string
+          button_title?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          template_id?: string
+          tenant_id?: string
+          update_status_to?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "followup_button_actions_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "followup_wa_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "followup_button_actions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       followup_status_config: {
         Row: {
           created_at: string
