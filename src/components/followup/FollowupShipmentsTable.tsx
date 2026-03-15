@@ -573,9 +573,24 @@ const FollowupShipmentsTable = () => {
                 <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => navigateCard('next')} disabled={activeIndex >= cardFiltered.length - 1}>
                   <ChevronRight className="w-4 h-4" />
                 </Button>
-                <span className="text-sm font-bold text-foreground min-w-[70px] text-center tabular-nums">
-                  {cardFiltered.length} / {activeIndex + 1}
-                </span>
+                <div className="flex items-center gap-0.5 text-sm font-bold text-foreground tabular-nums">
+                  <span>{cardFiltered.length}</span>
+                  <span>/</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={cardFiltered.length}
+                    value={activeIndex + 1}
+                    onChange={e => {
+                      const val = parseInt(e.target.value);
+                      if (!isNaN(val) && val >= 1 && val <= cardFiltered.length) {
+                        setActiveIndex(val - 1);
+                      }
+                    }}
+                    className="w-12 h-7 text-center text-sm font-bold bg-secondary border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary text-foreground [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    dir="ltr"
+                  />
+                </div>
                 <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => navigateCard('prev')} disabled={activeIndex <= 0}>
                   <ChevronLeft className="w-4 h-4" />
                 </Button>
