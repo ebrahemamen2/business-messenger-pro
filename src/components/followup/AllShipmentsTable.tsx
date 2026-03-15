@@ -329,7 +329,7 @@ const AllShipmentsTable = () => {
   };
 
   const exportSheet = () => {
-    const exportData = filtered.map(s => ({
+    const exportData = shipments.map(s => ({
       'رقم البوليصة': s.shipment_code,
       'كود الطلب': s.order_code || '',
       'اسم العميل': s.customer_name || '',
