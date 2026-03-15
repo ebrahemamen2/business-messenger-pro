@@ -1,13 +1,14 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useTenantContext } from '@/contexts/TenantContext';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Download, Search, Loader2, Truck, Eye, RefreshCw, Filter, Send,
-  CheckCircle, XCircle, Clock, AlertTriangle, MessageSquare, Calendar
+  CheckCircle, XCircle, Clock, AlertTriangle, MessageSquare, Calendar, StickyNote, Check, X
 } from 'lucide-react';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -20,14 +21,27 @@ import {
 } from '@/components/ui/dropdown-menu';
 import * as XLSX from 'xlsx';
 import { type Shipment, getStatusColor } from './AllShipmentsTable';
+import { type ActionStatus } from './ActionStatusesSettings';
 
-// Internal follow-up action statuses
-const FOLLOWUP_ACTIONS: Record<string, { label: string; color: string; icon: any }> = {
-  pending: { label: 'بانتظار المتابعة', color: 'bg-yellow-500/15 text-yellow-600 border-yellow-500/30', icon: Clock },
-  contacted: { label: 'تم التواصل', color: 'bg-blue-500/15 text-blue-600 border-blue-500/30', icon: Send },
-  resolved: { label: 'تم الحل', color: 'bg-green-500/15 text-green-600 border-green-500/30', icon: CheckCircle },
-  escalated: { label: 'تصعيد', color: 'bg-red-500/15 text-red-600 border-red-500/30', icon: AlertTriangle },
-  cancelled: { label: 'ملغي', color: 'bg-muted text-muted-foreground border-border', icon: XCircle },
+// Default fallback statuses (used when no config exists)
+const DEFAULT_FOLLOWUP_ACTIONS: ActionStatus[] = [
+  { key: 'pending', label: 'بانتظار المتابعة', color: 'yellow' },
+  { key: 'contacted', label: 'تم التواصل', color: 'blue' },
+  { key: 'resolved', label: 'تم الحل', color: 'green' },
+  { key: 'escalated', label: 'تصعيد', color: 'red' },
+  { key: 'cancelled', label: 'ملغي', color: 'gray' },
+];
+
+const COLOR_MAP: Record<string, string> = {
+  yellow: 'bg-yellow-500/15 text-yellow-600 border-yellow-500/30',
+  blue: 'bg-blue-500/15 text-blue-600 border-blue-500/30',
+  green: 'bg-green-500/15 text-green-600 border-green-500/30',
+  red: 'bg-red-500/15 text-red-600 border-red-500/30',
+  orange: 'bg-orange-500/15 text-orange-600 border-orange-500/30',
+  purple: 'bg-purple-500/15 text-purple-600 border-purple-500/30',
+  gray: 'bg-muted text-muted-foreground border-border',
+  pink: 'bg-pink-500/15 text-pink-600 border-pink-500/30',
+  teal: 'bg-teal-500/15 text-teal-600 border-teal-500/30',
 };
 
 interface WATemplate {
@@ -40,8 +54,9 @@ interface WATemplate {
 const FollowupShipmentsTable = () => {
   const { currentTenant } = useTenantContext();
   const { toast } = useToast();
-  const [shipments, setShipments] = useState<(Shipment & { wa_template_name?: string | null; wa_sent_at?: string | null })[]>([]);
+  const [shipments, setShipments] = useState<(Shipment & { wa_template_name?: string | null; wa_sent_at?: string | null; notes?: string | null })[]>([]);
   const [followupStatuses, setFollowupStatuses] = useState<string[]>([]);
+  const [actionStatuses, setActionStatuses] = useState<ActionStatus[]>(DEFAULT_FOLLOWUP_ACTIONS);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [actionFilter, setActionFilter] = useState<string>('all');
@@ -49,7 +64,9 @@ const FollowupShipmentsTable = () => {
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [waSentFilter, setWaSentFilter] = useState<string>('all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [detailShipment, setDetailShipment] = useState<(Shipment & { wa_template_name?: string | null; wa_sent_at?: string | null }) | null>(null);
+  const [detailShipment, setDetailShipment] = useState<(Shipment & { wa_template_name?: string | null; wa_sent_at?: string | null; notes?: string | null }) | null>(null);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [noteText, setNoteText] = useState('');
 
   // WA sending state
   const [waTemplates, setWaTemplates] = useState<WATemplate[]>([]);
@@ -58,15 +75,24 @@ const FollowupShipmentsTable = () => {
   const [sending, setSending] = useState(false);
   const [sendResults, setSendResults] = useState<{ sent: number; failed: number } | null>(null);
 
+  // Helper to get action info
+  const getActionInfo = useCallback((key: string) => {
+    const action = actionStatuses.find(a => a.key === key);
+    if (!action) return { label: key, color: COLOR_MAP.gray };
+    return { label: action.label, color: COLOR_MAP[action.color] || COLOR_MAP.gray };
+  }, [actionStatuses]);
+
   // Load configured followup statuses
   const loadConfig = useCallback(async () => {
     if (!currentTenant?.id) return;
     const { data } = await supabase
       .from('followup_status_config')
-      .select('followup_statuses')
+      .select('*')
       .eq('tenant_id', currentTenant.id)
       .maybeSingle();
-    setFollowupStatuses((data?.followup_statuses as string[]) || []);
+    setFollowupStatuses(((data as any)?.followup_statuses as string[]) || []);
+    const actions = (data as any)?.action_statuses as ActionStatus[] | null;
+    if (actions && actions.length > 0) setActionStatuses(actions);
   }, [currentTenant?.id]);
 
   const loadTemplates = useCallback(async () => {
@@ -184,6 +210,23 @@ const FollowupShipmentsTable = () => {
     }
   };
 
+  const startEditNote = (id: string, currentNote: string) => {
+    setEditingNoteId(id);
+    setNoteText(currentNote || '');
+  };
+
+  const saveNote = async (id: string) => {
+    const { error } = await supabase
+      .from('shipment_tracking')
+      .update({ notes: noteText } as any)
+      .eq('id', id);
+    if (!error) {
+      setShipments(prev => prev.map(s => s.id === id ? { ...s, notes: noteText } : s));
+      setEditingNoteId(null);
+      setNoteText('');
+    }
+  };
+
   const bulkUpdateAction = async (newStatus: string) => {
     if (selectedIds.size === 0) return;
     const ids = Array.from(selectedIds);
@@ -265,9 +308,10 @@ const FollowupShipmentsTable = () => {
       'رقم الهاتف': s.customer_phone,
       'المنطقة': s.customer_area || '',
       'حالة الشحن': s.final_status || '',
-      'حالة المتابعة': FOLLOWUP_ACTIONS[s.status]?.label || s.status,
+      'حالة المتابعة': getActionInfo(s.status).label,
       'المبلغ': s.amount || '',
-      'ملاحظات': s.proc_notes || '',
+      'ملاحظات الشحن': s.proc_notes || '',
+      'ملاحظات المتابعة': s.notes || '',
       'تم إرسال واتساب': s.wa_template_sent ? 'نعم' : 'لا',
       'قالب الواتساب': s.wa_template_name || '',
       'تاريخ الإرسال': s.wa_sent_at ? new Date(s.wa_sent_at).toLocaleString('ar-EG') : '',
@@ -371,7 +415,7 @@ const FollowupShipmentsTable = () => {
           <button onClick={() => setActionFilter('all')} className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${actionFilter === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
             الكل ({filtered.length})
           </button>
-          {Object.entries(FOLLOWUP_ACTIONS).map(([key, { label }]) => {
+          {actionStatuses.map(({ key, label }) => {
             const count = actionCounts[key] || 0;
             if (count === 0) return null;
             return (
@@ -396,7 +440,7 @@ const FollowupShipmentsTable = () => {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                {Object.entries(FOLLOWUP_ACTIONS).map(([key, { label }]) => (
+                {actionStatuses.map(({ key, label }) => (
                   <DropdownMenuItem key={key} onClick={() => bulkUpdateAction(key)}>{label}</DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
@@ -434,8 +478,7 @@ const FollowupShipmentsTable = () => {
             </TableHeader>
             <TableBody>
               {filtered.map(s => {
-                const actionInfo = FOLLOWUP_ACTIONS[s.status] || FOLLOWUP_ACTIONS.pending;
-                const ActionIcon = actionInfo.icon;
+                const actionInfo = getActionInfo(s.status);
                 const displayStatus = s.final_status || '-';
                 const days = getDaysSinceLastStatus(s);
                 return (
@@ -463,13 +506,10 @@ const FollowupShipmentsTable = () => {
                     <TableCell>
                       <Select value={s.status} onValueChange={v => updateAction(s.id, v)}>
                         <SelectTrigger className={`h-7 text-[10px] border ${actionInfo.color} bg-transparent w-[130px]`}>
-                          <div className="flex items-center gap-1">
-                            <ActionIcon className="w-3 h-3" />
-                            <span>{actionInfo.label}</span>
-                          </div>
+                          <span>{actionInfo.label}</span>
                         </SelectTrigger>
                         <SelectContent>
-                          {Object.entries(FOLLOWUP_ACTIONS).map(([key, { label }]) => (
+                          {actionStatuses.map(({ key, label }) => (
                             <SelectItem key={key} value={key} className="text-xs">{label}</SelectItem>
                           ))}
                         </SelectContent>
@@ -486,7 +526,30 @@ const FollowupShipmentsTable = () => {
                         <span className="text-[10px] text-muted-foreground">-</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-xs max-w-[150px] truncate">{s.proc_notes || '-'}</TableCell>
+                    <TableCell className="max-w-[180px]">
+                      {editingNoteId === s.id ? (
+                        <div className="flex items-center gap-1">
+                          <Input
+                            value={noteText}
+                            onChange={e => setNoteText(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') saveNote(s.id); if (e.key === 'Escape') setEditingNoteId(null); }}
+                            className="h-7 text-xs flex-1"
+                            dir="auto"
+                            autoFocus
+                          />
+                          <button onClick={() => saveNote(s.id)} className="p-1 rounded hover:bg-green-500/10 text-green-600"><Check className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => setEditingNoteId(null)} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground"><X className="w-3.5 h-3.5" /></button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => startEditNote(s.id, s.notes || '')}
+                          className="text-xs text-right w-full truncate block hover:bg-secondary rounded px-1 py-0.5 transition-colors"
+                          title={s.notes || 'اضغط لإضافة ملاحظة'}
+                        >
+                          {s.notes || <span className="text-muted-foreground">+ ملاحظة</span>}
+                        </button>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setDetailShipment(s)}>
                         <Eye className="w-3.5 h-3.5" />

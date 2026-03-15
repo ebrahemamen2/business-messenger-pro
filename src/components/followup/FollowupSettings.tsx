@@ -10,13 +10,16 @@ import ConfirmAutoReply from '@/components/confirm/ConfirmAutoReply';
 import AIModulePrompt from '@/components/settings/AIModulePrompt';
 import FollowupWATemplates from '@/components/followup/FollowupWATemplates';
 import { SHIPPING_STATUSES } from './AllShipmentsTable';
+import ActionStatusesSettings, { type ActionStatus } from './ActionStatusesSettings';
 
 const FollowupSettings = () => {
   const { currentTenant } = useTenantContext();
   const { toast } = useToast();
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [actionStatuses, setActionStatuses] = useState<ActionStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingActions, setSavingActions] = useState(false);
   const [dbStatuses, setDbStatuses] = useState<string[]>([]);
   const [newStatus, setNewStatus] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -39,6 +42,13 @@ const FollowupSettings = () => {
     ]);
 
     setSelectedStatuses((configRes.data?.followup_statuses as string[]) || []);
+    setActionStatuses(((configRes.data as any)?.action_statuses as ActionStatus[]) || [
+      { key: 'pending', label: 'بانتظار المتابعة', color: 'yellow' },
+      { key: 'contacted', label: 'تم التواصل', color: 'blue' },
+      { key: 'resolved', label: 'تم الحل', color: 'green' },
+      { key: 'escalated', label: 'تصعيد', color: 'red' },
+      { key: 'cancelled', label: 'ملغي', color: 'gray' },
+    ]);
 
     // Extract unique statuses from shipments
     const uniqueFromDb = [...new Set(
@@ -89,6 +99,25 @@ const FollowupSettings = () => {
     setSaving(false);
   };
 
+  const saveActionStatuses = async () => {
+    if (!currentTenant?.id) return;
+    setSavingActions(true);
+    const { error } = await supabase
+      .from('followup_status_config')
+      .upsert({
+        tenant_id: currentTenant.id,
+        action_statuses: actionStatuses,
+        updated_at: new Date().toISOString(),
+      } as any, { onConflict: 'tenant_id' });
+
+    if (error) {
+      toast({ title: '❌ خطأ', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: '✅ تم الحفظ', description: `تم حفظ ${actionStatuses.length} حالة متابعة داخلية` });
+    }
+    setSavingActions(false);
+  };
+
   // Combine: known statuses + statuses from DB + already selected (custom ones)
   const allAvailableStatuses = [...new Set([
     ...Object.keys(SHIPPING_STATUSES),
@@ -112,6 +141,9 @@ const FollowupSettings = () => {
         <div className="border-b border-border bg-card px-4 flex-shrink-0">
           <TabsList className="bg-transparent h-10 gap-1">
             <TabsTrigger value="statuses" className="text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+              حالات الشحن
+            </TabsTrigger>
+            <TabsTrigger value="action-statuses" className="text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               حالات المتابعة
             </TabsTrigger>
             <TabsTrigger value="wa-templates" className="text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
@@ -231,6 +263,14 @@ const FollowupSettings = () => {
                 <p className="text-center text-sm text-muted-foreground py-8">لا توجد حالات مطابقة للبحث</p>
               )}
             </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="action-statuses" className="flex-1 m-0 overflow-auto p-4">
+          {loading ? (
+            <div className="flex items-center justify-center h-full"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+          ) : (
+            <ActionStatusesSettings statuses={actionStatuses} onChange={setActionStatuses} onSave={saveActionStatuses} saving={savingActions} />
           )}
         </TabsContent>
 
