@@ -8,7 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Download, Search, Loader2, Truck, Eye, RefreshCw, Filter, Send,
-  CheckCircle, XCircle, Clock, AlertTriangle, MessageSquare, Calendar, StickyNote, Check, X
+  CheckCircle, XCircle, Clock, AlertTriangle, MessageSquare, Calendar, StickyNote, Check, X,
+  ChevronLeft, ChevronRight, Phone, MapPin, Package, ShoppingBag, User, CreditCard, PanelTop, PanelTopClose
 } from 'lucide-react';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -67,6 +68,14 @@ const FollowupShipmentsTable = () => {
   const [detailShipment, setDetailShipment] = useState<(Shipment & { wa_template_name?: string | null; wa_sent_at?: string | null; notes?: string | null }) | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [noteText, setNoteText] = useState('');
+
+  // Navigator card state
+  const [cardVisible, setCardVisible] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [cardFilter, setCardFilter] = useState<'all' | 'pending'>('pending');
+  const [cardNoteText, setCardNoteText] = useState('');
+  const [editingCardNote, setEditingCardNote] = useState(false);
+  const rowRefs = useRef<Map<string, HTMLTableRowElement>>(new Map());
 
   // WA sending state
   const [waTemplates, setWaTemplates] = useState<WATemplate[]>([]);
@@ -329,6 +338,64 @@ const FollowupShipmentsTable = () => {
     }, {} as Record<string, number>);
   }, [filtered]);
 
+  // Navigator card filtered list
+  const cardFiltered = useMemo(() => {
+    if (cardFilter === 'pending') return filtered.filter(s => s.status === 'pending');
+    return filtered;
+  }, [filtered, cardFilter]);
+
+  const activeShipment = cardFiltered[activeIndex] || null;
+
+  // Sync card note text when active shipment changes
+  useEffect(() => {
+    if (activeShipment) {
+      setCardNoteText(activeShipment.notes || '');
+      setEditingCardNote(false);
+    }
+  }, [activeShipment?.id]);
+
+  // Auto-scroll to active row
+  useEffect(() => {
+    if (cardVisible && activeShipment) {
+      const row = rowRefs.current.get(activeShipment.id);
+      row?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [activeIndex, cardVisible, activeShipment?.id]);
+
+  // Clamp activeIndex when cardFiltered changes
+  useEffect(() => {
+    if (activeIndex >= cardFiltered.length && cardFiltered.length > 0) {
+      setActiveIndex(cardFiltered.length - 1);
+    } else if (cardFiltered.length === 0) {
+      setActiveIndex(0);
+    }
+  }, [cardFiltered.length, activeIndex]);
+
+  const navigateCard = (dir: 'prev' | 'next') => {
+    setActiveIndex(prev => {
+      if (dir === 'prev') return Math.max(0, prev - 1);
+      return Math.min(cardFiltered.length - 1, prev + 1);
+    });
+  };
+
+  const handleRowClick = (shipmentId: string) => {
+    if (!cardVisible) return;
+    const idx = cardFiltered.findIndex(s => s.id === shipmentId);
+    if (idx !== -1) setActiveIndex(idx);
+  };
+
+  const saveCardNote = async () => {
+    if (!activeShipment) return;
+    const { error } = await supabase
+      .from('shipment_tracking')
+      .update({ notes: cardNoteText } as any)
+      .eq('id', activeShipment.id);
+    if (!error) {
+      setShipments(prev => prev.map(s => s.id === activeShipment.id ? { ...s, notes: cardNoteText } : s));
+      setEditingCardNote(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="p-3 sm:p-4 border-b border-border bg-card space-y-3 flex-shrink-0">
@@ -343,6 +410,15 @@ const FollowupShipmentsTable = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant={cardVisible ? "default" : "outline"}
+              size="sm"
+              onClick={() => setCardVisible(v => !v)}
+              className="gap-1.5 text-xs"
+            >
+              {cardVisible ? <PanelTopClose className="w-3.5 h-3.5" /> : <PanelTop className="w-3.5 h-3.5" />}
+              {cardVisible ? 'إخفاء العداد' : 'عداد المتابعة'}
+            </Button>
             {selectedIds.size > 0 && waTemplates.length > 0 && (
               <Button size="sm" onClick={() => { setShowSendDialog(true); setSendResults(null); }} className="gap-1.5 text-xs bg-green-600 hover:bg-green-700 text-white">
                 <MessageSquare className="w-3.5 h-3.5" />
@@ -449,6 +525,171 @@ const FollowupShipmentsTable = () => {
         </div>
       </div>
 
+      {/* Navigator Card */}
+      {cardVisible && cardFiltered.length > 0 && activeShipment && (
+        <div className="border-b border-border bg-card flex-shrink-0" dir="rtl">
+          {/* Card header: filter + navigation */}
+          <div className="flex items-center justify-between px-3 sm:px-4 py-2 border-b border-border bg-muted/30">
+            <div className="flex items-center gap-2">
+              <Select value={cardFilter} onValueChange={(v: 'all' | 'pending') => { setCardFilter(v); setActiveIndex(0); }}>
+                <SelectTrigger className="h-7 text-[10px] w-auto min-w-[120px] bg-secondary border-0">
+                  <Filter className="w-3 h-3 ml-1" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-xs">الكل ({filtered.length})</SelectItem>
+                  <SelectItem value="pending" className="text-xs">لم تُتابع ({filtered.filter(s => s.status === 'pending').length})</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => navigateCard('next')} disabled={activeIndex >= cardFiltered.length - 1}>
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+              <span className="text-xs font-bold text-foreground min-w-[60px] text-center tabular-nums">
+                {activeIndex + 1} / {cardFiltered.length}
+              </span>
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => navigateCard('prev')} disabled={activeIndex <= 0}>
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Card body */}
+          <div className="px-3 sm:px-4 py-3 space-y-3">
+            {/* Row 1: Name + Phone */}
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <User className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="text-sm font-semibold text-foreground">{activeShipment.customer_name || 'بدون اسم'}</span>
+              </div>
+              <a
+                href={`tel:${activeShipment.customer_phone}`}
+                className="flex items-center gap-1.5 text-sm font-mono text-primary hover:underline"
+                dir="ltr"
+              >
+                <Phone className="w-3.5 h-3.5" />
+                {activeShipment.customer_phone}
+              </a>
+            </div>
+
+            {/* Row 2: AWB + Order code + Amount */}
+            <div className="flex items-center gap-4 flex-wrap text-xs">
+              <div className="flex items-center gap-1">
+                <Package className="w-3 h-3 text-muted-foreground" />
+                <span className="font-mono font-medium text-foreground">{activeShipment.shipment_code}</span>
+              </div>
+              {activeShipment.order_code && (
+                <div className="flex items-center gap-1">
+                  <ShoppingBag className="w-3 h-3 text-muted-foreground" />
+                  <span className="text-foreground">{activeShipment.order_code}</span>
+                </div>
+              )}
+              {activeShipment.amount && (
+                <div className="flex items-center gap-1">
+                  <CreditCard className="w-3 h-3 text-muted-foreground" />
+                  <span className="font-medium text-foreground">{activeShipment.amount} ج.م</span>
+                </div>
+              )}
+            </div>
+
+            {/* Row 3: Address + Area */}
+            {(activeShipment.customer_address || activeShipment.customer_area) && (
+              <div className="flex items-start gap-1.5 text-xs">
+                <MapPin className="w-3 h-3 text-muted-foreground mt-0.5 flex-shrink-0" />
+                <span className="text-foreground">
+                  {[activeShipment.customer_area, activeShipment.customer_address].filter(Boolean).join(' - ')}
+                </span>
+              </div>
+            )}
+
+            {/* Row 4: Order details */}
+            {activeShipment.order_details && (
+              <div className="flex items-start gap-1.5 text-xs">
+                <ShoppingBag className="w-3 h-3 text-muted-foreground mt-0.5 flex-shrink-0" />
+                <span className="text-foreground">{activeShipment.order_details}</span>
+              </div>
+            )}
+
+            {/* Row 5: Shipping status + days */}
+            <div className="flex items-center gap-3 flex-wrap text-xs">
+              <div className="flex items-center gap-1.5">
+                <Truck className="w-3 h-3 text-muted-foreground" />
+                <span className={`px-2 py-0.5 rounded-md text-[10px] font-medium border ${getStatusColor(activeShipment.final_status || '-')}`}>
+                  {activeShipment.final_status || '-'}
+                </span>
+              </div>
+              {(() => {
+                const days = getDaysSinceLastStatus(activeShipment);
+                return days !== null ? (
+                  <span className={`text-[10px] ${days >= 3 ? 'text-destructive font-semibold' : days >= 2 ? 'text-amber-600' : 'text-muted-foreground'}`}>
+                    ⏱️ منذ {days} يوم
+                  </span>
+                ) : null;
+              })()}
+              {activeShipment.proc_notes && (
+                <span className="text-muted-foreground truncate max-w-[200px]" title={activeShipment.proc_notes}>
+                  📝 {activeShipment.proc_notes}
+                </span>
+              )}
+            </div>
+
+            {/* Row 6: Action status + Notes editing */}
+            <div className="flex items-center gap-3 flex-wrap pt-1 border-t border-border">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground">حالة المتابعة:</span>
+                <Select
+                  value={activeShipment.status}
+                  onValueChange={v => {
+                    updateAction(activeShipment.id, v);
+                  }}
+                >
+                  <SelectTrigger className={`h-7 text-[10px] border ${getActionInfo(activeShipment.status).color} bg-transparent w-[130px]`}>
+                    <span>{getActionInfo(activeShipment.status).label}</span>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {actionStatuses.map(({ key, label }) => (
+                      <SelectItem key={key} value={key} className="text-xs">{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-1.5 flex-1 min-w-[200px]">
+                <span className="text-xs text-muted-foreground flex-shrink-0">ملاحظات:</span>
+                {editingCardNote ? (
+                  <div className="flex items-center gap-1 flex-1">
+                    <Input
+                      value={cardNoteText}
+                      onChange={e => setCardNoteText(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') saveCardNote(); if (e.key === 'Escape') setEditingCardNote(false); }}
+                      className="h-7 text-xs flex-1"
+                      dir="auto"
+                      autoFocus
+                    />
+                    <button onClick={saveCardNote} className="p-1 rounded hover:bg-primary/10 text-primary"><Check className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => setEditingCardNote(false)} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground"><X className="w-3.5 h-3.5" /></button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => { setCardNoteText(activeShipment.notes || ''); setEditingCardNote(true); }}
+                    className="text-xs text-right truncate hover:bg-secondary rounded px-1.5 py-0.5 transition-colors flex-1"
+                    title={activeShipment.notes || 'اضغط لإضافة ملاحظة'}
+                  >
+                    {activeShipment.notes || <span className="text-muted-foreground">+ إضافة ملاحظة</span>}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {cardVisible && cardFiltered.length === 0 && (
+        <div className="border-b border-border bg-card px-4 py-3 text-center text-xs text-muted-foreground">
+          لا توجد شحنات {cardFilter === 'pending' ? 'بانتظار المتابعة' : 'للعرض'}
+        </div>
+      )}
+
       <div className="flex-1 overflow-auto">
         {loading ? (
           <div className="flex items-center justify-center h-full"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
@@ -482,7 +723,12 @@ const FollowupShipmentsTable = () => {
                 const displayStatus = s.final_status || '-';
                 const days = getDaysSinceLastStatus(s);
                 return (
-                  <TableRow key={s.id} className="text-xs">
+                  <TableRow
+                    key={s.id}
+                    ref={(el) => { if (el) rowRefs.current.set(s.id, el); else rowRefs.current.delete(s.id); }}
+                    className={`text-xs cursor-pointer transition-colors ${cardVisible && activeShipment?.id === s.id ? 'bg-primary/10 ring-1 ring-primary/20' : ''}`}
+                    onClick={() => handleRowClick(s.id)}
+                  >
                     <TableCell className="text-center">
                       <input type="checkbox" checked={selectedIds.has(s.id)} onChange={() => toggleSelect(s.id)} className="rounded border-border" />
                     </TableCell>
