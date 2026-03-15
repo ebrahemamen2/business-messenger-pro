@@ -385,7 +385,7 @@ const AllShipmentsTable = () => {
         {/* Status filter chips */}
         <div className="flex gap-1.5 flex-wrap max-h-16 overflow-y-auto">
           <button onClick={() => setStatusFilter('all')} className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${statusFilter === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
-            الكل ({shipments.length})
+            الكل ({Object.values(statusCounts).reduce((a, b) => a + b, 0).toLocaleString()})
           </button>
           {Object.entries(statusCounts).sort((a, b) => b[1] - a[1]).map(([status, count]) => (
             <button key={status} onClick={() => setStatusFilter(status)} className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${statusFilter === status ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
