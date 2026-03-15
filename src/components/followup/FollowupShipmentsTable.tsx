@@ -1042,13 +1042,15 @@ const FollowupShipmentsTable = () => {
                           <ListFilter className="w-3 h-3" />
                         </button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-52 p-2 max-h-60 overflow-auto" align="start">
+                      <PopoverContent className="w-56 p-2 max-h-60 overflow-auto" align="start">
                         <div className="space-y-0.5">
                           <button onClick={() => setStatusDescFilter(new Set())} className={`w-full text-right text-xs px-2 py-1 rounded ${statusDescFilter.size === 0 ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>الكل</button>
-                          {uniqueStatusDescs.map(d => (
-                            <button key={d} onClick={() => toggleFilter(setStatusDescFilter, d)} className={`w-full text-right text-xs px-2 py-1 rounded truncate flex items-center gap-1 ${statusDescFilter.has(d) ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>
-                              {statusDescFilter.has(d) && <Check className="w-3 h-3 flex-shrink-0" />}
-                              <span>{d}</span>
+                          {noteGroupsLoading && <div className="text-[10px] text-muted-foreground px-2 py-1">⏳ جاري التصنيف بالذكاء الاصطناعي...</div>}
+                          {noteGroupNames.map(g => (
+                            <button key={g} onClick={() => toggleFilter(setStatusDescFilter, g)} className={`w-full text-right text-xs px-2 py-1 rounded truncate flex items-center gap-1 ${statusDescFilter.has(g) ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>
+                              {statusDescFilter.has(g) && <Check className="w-3 h-3 flex-shrink-0" />}
+                              <span>{g}</span>
+                              {noteGroupCounts[g] && <span className="text-[9px] text-muted-foreground mr-auto">({noteGroupCounts[g]})</span>}
                             </button>
                           ))}
                         </div>
