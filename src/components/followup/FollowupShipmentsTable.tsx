@@ -155,26 +155,63 @@ const FollowupShipmentsTable = () => {
 
   useEffect(() => { loadShipments(); loadTemplates(); }, [loadShipments, loadTemplates]);
 
-  // Calculate days since last status
-  const getDaysSinceLastStatus = (shipment: Shipment): number | null => {
+  // Get tenant timezone
+  const tenantTimezone = currentTenant?.timezone || 'Africa/Cairo';
+
+  // Get "today" in tenant timezone as a Date at midnight
+  const getTenantToday = useCallback(() => {
+    const now = new Date();
+    // Get date string in tenant timezone
+    const dateStr = now.toLocaleDateString('en-CA', { timeZone: tenantTimezone }); // YYYY-MM-DD
+    return new Date(dateStr + 'T00:00:00');
+  }, [tenantTimezone]);
+
+  // Calculate days since last status using tenant timezone
+  const getDaysSinceLastStatus = useCallback((shipment: Shipment): number | null => {
     const dateStr = shipment.last_status_date || shipment.status_date;
     if (!dateStr) return null;
     
     // Try parsing various date formats
+    let statusDate: Date | null = null;
     const parsed = new Date(dateStr);
-    if (isNaN(parsed.getTime())) {
+    if (!isNaN(parsed.getTime())) {
+      statusDate = parsed;
+    } else {
       // Try DD/MM/YYYY or DD-MM-YYYY
       const parts = dateStr.split(/[\/\-\.]/);
       if (parts.length === 3) {
         const d = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
-        if (!isNaN(d.getTime())) {
-          return Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24));
-        }
+        if (!isNaN(d.getTime())) statusDate = d;
       }
-      return null;
     }
-    return Math.floor((Date.now() - parsed.getTime()) / (1000 * 60 * 60 * 24));
+    if (!statusDate) return null;
+
+    const today = getTenantToday();
+    // Normalize status date to midnight
+    const statusDateStr = statusDate.toLocaleDateString('en-CA', { timeZone: tenantTimezone });
+    const statusMidnight = new Date(statusDateStr + 'T00:00:00');
+    
+    return Math.floor((today.getTime() - statusMidnight.getTime()) / (1000 * 60 * 60 * 24));
+  }, [tenantTimezone, getTenantToday]);
+
+  // Get recency group label
+  const getRecencyGroup = useCallback((days: number | null): string => {
+    if (days === null) return 'unknown';
+    if (days <= 0) return 'today';
+    if (days === 1) return 'day1';
+    if (days === 2) return 'day2';
+    return 'day3plus';
+  }, []);
+
+  const RECENCY_LABELS: Record<string, string> = {
+    'today': '🟢 جديدة - اليوم',
+    'day1': '🟡 أول يوم',
+    'day2': '🟠 تاني يوم',
+    'day3plus': '🔴 3 أيام أو أكتر',
+    'unknown': '⚪ بدون تاريخ',
   };
+
+  const RECENCY_ORDER = ['today', 'day1', 'day2', 'day3plus', 'unknown'];
 
   // Get unique shipping statuses for filter
   const uniqueStatuses = useMemo(() => {
