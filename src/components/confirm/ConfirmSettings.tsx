@@ -19,6 +19,60 @@ function generateApiKey() {
   return key;
 }
 
+function buildApiDocs(webhookUrl: string, apiKey: string) {
+  return `=== Store Integration API Documentation ===
+
+🔐 Authentication:
+All requests must include the API key in the header:
+x-store-api-key: ${apiKey || '<YOUR_API_KEY>'}
+
+📦 1. New Order (POST ${webhookUrl})
+{
+  "event": "new_order",
+  "order_number": "ORD-1234",
+  "customer_name": "Customer Name",
+  "customer_phone": "966501234567",
+  "customer_city": "City",
+  "customer_address": "Address",
+  "total_amount": 350.00,
+  "currency": "SAR",
+  "items": [{"name": "Product", "quantity": 1, "price": 100, "sku": "SKU-001"}],
+  "store_order_id": "shop_12345",
+  "notes": "optional"
+}
+
+✏️ 2. Order Modified (POST ${webhookUrl})
+{
+  "event": "order_modified",
+  "order_number": "ORD-1234",
+  "modification_type": "edit" or "upsell",
+  "items": [...updated items...],
+  "total_amount": 500.00,
+  "old_data": {...},
+  "new_data": {...}
+}
+
+🚫 3. Lost Order (POST ${webhookUrl})
+{
+  "event": "lost_order",
+  "order_number": "ORD-5678",
+  "customer_name": "Customer",
+  "customer_phone": "966509876543",
+  "customer_city": "City",
+  "total_amount": 200.00,
+  "currency": "SAR",
+  "items": [...]
+}
+
+🔗 4. Test Connection (POST ${webhookUrl})
+{ "event": "test_connection" }
+
+⚠️ Notes:
+- Phone numbers without + or spaces (e.g. 966501234567)
+- Required fields: new_order (order_number, customer_phone), order_modified (order_number), lost_order (order_number, customer_phone)
+`;
+}
+
 const ConfirmSettings = () => {
   const { toast } = useToast();
   const { currentTenant } = useTenantContext();
