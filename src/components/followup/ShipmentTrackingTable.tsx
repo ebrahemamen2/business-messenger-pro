@@ -58,7 +58,7 @@ const STATUS_MAP: Record<string, { label: string; color: string; icon: any }> = 
 };
 
 const ShipmentTrackingTable = () => {
-  const { currentTenant } = useTenantContext();
+  const { currentTenant, loading: tenantLoading } = useTenantContext();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [shipments, setShipments] = useState<Shipment[]>([]);
@@ -469,8 +469,9 @@ const ShipmentTrackingTable = () => {
               variant="outline"
               size="sm"
               onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
+              disabled={uploading || !currentTenant?.id}
               className="gap-1.5 text-xs"
+              title={!currentTenant?.id ? 'انتظر تحميل البراند...' : 'رفع شيت شركة الشحن'}
             >
               {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
               رفع شيت
