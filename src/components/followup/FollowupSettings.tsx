@@ -16,8 +16,10 @@ const FollowupSettings = () => {
   const { currentTenant } = useTenantContext();
   const { toast } = useToast();
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [actionStatuses, setActionStatuses] = useState<ActionStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingActions, setSavingActions] = useState(false);
   const [dbStatuses, setDbStatuses] = useState<string[]>([]);
   const [newStatus, setNewStatus] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
