@@ -57,7 +57,7 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
       if (isSuperAdmin) {
         const { data } = await supabase
           .from('tenants')
-          .select('id, name, slug, logo_url, is_active')
+          .select('id, name, slug, logo_url, is_active, timezone')
           .eq('is_active', true)
           .order('name');
         tenantList = (data as Tenant[]) || [];
