@@ -72,7 +72,8 @@ const FollowupShipmentsTable = () => {
   // Navigator card state
   const [cardVisible, setCardVisible] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [cardFilter, setCardFilter] = useState<'all' | 'pending'>('pending');
+  const [cardFilter, setCardFilter] = useState<'all' | 'pending'>('all');
+  const [showFilters, setShowFilters] = useState(false);
   const [cardNoteText, setCardNoteText] = useState('');
   const [editingCardNote, setEditingCardNote] = useState(false);
   const rowRefs = useRef<Map<string, HTMLTableRowElement>>(new Map());
