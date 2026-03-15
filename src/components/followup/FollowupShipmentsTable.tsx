@@ -185,7 +185,7 @@ const FollowupShipmentsTable = () => {
 
   const uniqueStatusDescs = useMemo(() => {
     const descs = new Set<string>();
-    shipments.forEach(s => { if (s.status_description) descs.add(s.status_description); });
+    shipments.forEach(s => { if (s.proc_notes) descs.add(s.proc_notes); });
     return Array.from(descs).sort();
   }, [shipments]);
 
