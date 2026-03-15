@@ -259,32 +259,48 @@ const FollowupShipmentsTable = () => {
     return Array.from(descs).sort();
   }, [shipments]);
 
+  // Helper to toggle a value in a Set filter
+  const toggleFilter = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, value: string) => {
+    setter(prev => {
+      const next = new Set(prev);
+      if (next.has(value)) next.delete(value); else next.add(value);
+      return next;
+    });
+  };
+
   const filtered = useMemo(() => {
     return shipments.filter(s => {
-      // Action filter
-      if (actionFilter === '__none__' && s.status !== '' && s.status !== null) return false;
-      if (actionFilter !== 'all' && actionFilter !== '__none__' && s.status !== actionFilter) return false;
+      // Action filter (multi-select)
+      if (actionFilter.size > 0) {
+        if (actionFilter.has('__none__') && (!s.status || s.status === '')) return true;
+        if (!actionFilter.has(s.status) && !actionFilter.has('__none__')) return false;
+        if (actionFilter.has('__none__') && s.status && s.status !== '') return false;
+      }
       
-      // Shipping company notes filter (proc_notes)
-      if (statusDescFilter !== 'all' && (s.proc_notes || '') !== statusDescFilter) return false;
+      // Shipping company notes filter (proc_notes) - multi
+      if (statusDescFilter.size > 0 && !statusDescFilter.has(s.proc_notes || '')) return false;
 
-      // Notes filter
-      if (notesFilter === 'has_notes' && !s.notes) return false;
-      if (notesFilter === 'no_notes' && s.notes) return false;
-
-      // Status filter (shipping company status)
-      if (statusFilter !== 'all' && s.final_status !== statusFilter) return false;
-      
-      // Date filter (recency group)
-      if (dateFilter !== 'all') {
-        const days = getDaysSinceLastStatus(s);
-        const group = getRecencyGroup(days);
-        if (dateFilter !== group) return false;
+      // Notes filter - multi
+      if (notesFilter.size > 0) {
+        if (notesFilter.has('has_notes') && !notesFilter.has('no_notes') && !s.notes) return false;
+        if (notesFilter.has('no_notes') && !notesFilter.has('has_notes') && s.notes) return false;
       }
 
-      // WA sent filter
-      if (waSentFilter === 'sent' && !s.wa_template_sent) return false;
-      if (waSentFilter === 'not_sent' && s.wa_template_sent) return false;
+      // Status filter (shipping company status) - multi
+      if (statusFilter.size > 0 && !statusFilter.has(s.final_status || '')) return false;
+      
+      // Date filter (recency group) - multi
+      if (dateFilter.size > 0) {
+        const days = getDaysSinceLastStatus(s);
+        const group = getRecencyGroup(days);
+        if (!dateFilter.has(group)) return false;
+      }
+
+      // WA sent filter - multi
+      if (waSentFilter.size > 0) {
+        if (waSentFilter.has('sent') && !waSentFilter.has('not_sent') && !s.wa_template_sent) return false;
+        if (waSentFilter.has('not_sent') && !waSentFilter.has('sent') && s.wa_template_sent) return false;
+      }
 
       // Search
       if (!searchQuery) return true;
@@ -297,7 +313,7 @@ const FollowupShipmentsTable = () => {
         (s.proc_notes || '').toLowerCase().includes(q)
       );
     });
-  }, [shipments, actionFilter, statusFilter, statusDescFilter, notesFilter, dateFilter, waSentFilter, searchQuery]);
+  }, [shipments, actionFilter, statusFilter, statusDescFilter, notesFilter, dateFilter, waSentFilter, searchQuery, getDaysSinceLastStatus, getRecencyGroup]);
 
   // Group filtered shipments by recency
   const groupedFiltered = useMemo(() => {
