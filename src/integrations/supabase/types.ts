@@ -395,6 +395,7 @@ export type Database = {
         Row: {
           action_statuses: Json
           created_at: string
+          done_trigger_status: string
           followup_statuses: string[]
           id: string
           tenant_id: string
@@ -403,6 +404,7 @@ export type Database = {
         Insert: {
           action_statuses?: Json
           created_at?: string
+          done_trigger_status?: string
           followup_statuses?: string[]
           id?: string
           tenant_id: string
@@ -411,6 +413,7 @@ export type Database = {
         Update: {
           action_statuses?: Json
           created_at?: string
+          done_trigger_status?: string
           followup_statuses?: string[]
           id?: string
           tenant_id?: string

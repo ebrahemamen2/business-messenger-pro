@@ -65,25 +65,30 @@ const DoneShipmentsTable = () => {
   const [noteText, setNoteText] = useState('');
   const [detailRecord, setDetailRecord] = useState<HistoryRecord | null>(null);
   const [actionStatuses, setActionStatuses] = useState<ActionStatus[]>([]);
+  const [doneTriggerStatus, setDoneTriggerStatus] = useState<string>('pending');
 
   const loadRecords = useCallback(async () => {
     if (!currentTenant?.id) { setLoading(false); return; }
     setLoading(true);
 
-    // Load action statuses config to get label mapping
+    // Load config to get done_trigger_status and action statuses
     const { data: config } = await supabase
       .from('followup_status_config')
-      .select('action_statuses')
+      .select('action_statuses, done_trigger_status')
       .eq('tenant_id', currentTenant.id)
       .maybeSingle();
-    const actions = (config?.action_statuses as unknown as ActionStatus[] | null) || [];
+    const actions = ((config as any)?.action_statuses as unknown as ActionStatus[] | null) || [];
+    setActionStatuses(actions);
+    const trigger = (config as any)?.done_trigger_status || 'pending';
+    setDoneTriggerStatus(trigger);
     setActionStatuses(actions);
 
-    // Load history records with shipment data
+    // Load history records filtered by done_trigger_status
     const { data, error } = await supabase
       .from('shipment_followup_history')
       .select('*, shipment_tracking!inner(shipment_code, final_status, customer_name, customer_phone)')
       .eq('tenant_id', currentTenant.id)
+      .eq('action_status', trigger)
       .order('created_at', { ascending: false })
       .limit(2000);
 
