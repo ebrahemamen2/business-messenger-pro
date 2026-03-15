@@ -218,7 +218,7 @@ const FollowupShipmentsTable = () => {
 
   // Calculate days since last shipping-company status date
   const getDaysSinceLastStatus = useCallback((shipment: Shipment): number | null => {
-    const statusDate = parseSheetDate(shipment.last_status_date || shipment.status_date);
+    const statusDate = parseSheetDate(shipment.last_status_date) ?? parseSheetDate(shipment.status_date);
     if (!statusDate) return null;
 
     const today = getTenantToday();
