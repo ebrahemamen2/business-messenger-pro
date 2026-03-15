@@ -2,14 +2,12 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useTenantContext } from '@/contexts/TenantContext';
 import { useToast } from '@/hooks/use-toast';
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Upload, Download, Search, Loader2, Truck, Package, RefreshCw,
-  CheckCircle, XCircle, Clock, AlertTriangle, Filter, Send
+  CheckCircle, XCircle, Clock, AlertTriangle, Filter, Send, Eye, ChevronDown, ChevronUp
 } from 'lucide-react';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -17,6 +15,9 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
 import * as XLSX from 'xlsx';
 
 interface Shipment {
@@ -25,7 +26,17 @@ interface Shipment {
   order_code: string | null;
   customer_phone: string;
   customer_name: string | null;
+  customer_address: string | null;
+  customer_area: string | null;
+  order_details: string | null;
+  amount: number | null;
   status: string;
+  status_description: string | null;
+  pickup_date: string | null;
+  status_date: string | null;
+  final_status: string | null;
+  last_status_date: string | null;
+  proc_notes: string | null;
   shipping_company: string | null;
   notes: string | null;
   wa_template_sent: boolean;
@@ -41,6 +52,7 @@ const STATUS_MAP: Record<string, { label: string; color: string; icon: any }> = 
   returned: { label: 'مرتجع', color: 'bg-red-500/15 text-red-600 border-red-500/30', icon: XCircle },
   rescheduled: { label: 'تم التأجيل', color: 'bg-orange-500/15 text-orange-600 border-orange-500/30', icon: RefreshCw },
   no_answer: { label: 'لا يرد', color: 'bg-gray-500/15 text-gray-600 border-gray-500/30', icon: AlertTriangle },
+  follow: { label: 'متابعة', color: 'bg-purple-500/15 text-purple-600 border-purple-500/30', icon: RefreshCw },
   ready: { label: 'جاهز للاستلام', color: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30', icon: Package },
   cancelled: { label: 'ملغي', color: 'bg-destructive/15 text-destructive border-destructive/30', icon: XCircle },
 };
@@ -55,6 +67,7 @@ const ShipmentTrackingTable = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [detailShipment, setDetailShipment] = useState<Shipment | null>(null);
 
   const loadShipments = useCallback(async () => {
     if (!currentTenant?.id) return;
@@ -71,9 +84,7 @@ const ShipmentTrackingTable = () => {
     }
 
     const { data, error } = await query.limit(500);
-    if (error) {
-      console.error('Load shipments error:', error);
-    }
+    if (error) console.error('Load shipments error:', error);
     setShipments((data as Shipment[]) || []);
     setLoading(false);
   }, [currentTenant?.id, statusFilter]);
@@ -89,9 +100,23 @@ const ShipmentTrackingTable = () => {
       s.shipment_code.toLowerCase().includes(q) ||
       (s.order_code || '').toLowerCase().includes(q) ||
       s.customer_phone.includes(q) ||
-      (s.customer_name || '').toLowerCase().includes(q)
+      (s.customer_name || '').toLowerCase().includes(q) ||
+      (s.customer_area || '').toLowerCase().includes(q)
     );
   });
+
+  const mapStatus = (raw: string): string => {
+    const lower = raw.toLowerCase().trim();
+    if (lower.includes('deliver') || lower.includes('تسليم') || lower.includes('مستلم')) return 'delivered';
+    if (lower.includes('return') || lower.includes('مرتجع') || lower.includes('راجع')) return 'returned';
+    if (lower.includes('reschedul') || lower.includes('تأجيل') || lower.includes('مؤجل')) return 'rescheduled';
+    if (lower.includes('cancel') || lower.includes('ملغ') || lower.includes('الغ')) return 'cancelled';
+    if (lower.includes('out') || lower.includes('خرج') || lower.includes('طريق')) return 'out_for_delivery';
+    if (lower.includes('no answer') || lower.includes('لا يرد') || lower.includes('مايردش') || lower.includes('مابيردش')) return 'no_answer';
+    if (lower.includes('follow') || lower.includes('متابع')) return 'follow';
+    if (lower.includes('ready') || lower.includes('جاهز')) return 'ready';
+    return 'pending';
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -110,43 +135,67 @@ const ShipmentTrackingTable = () => {
         return;
       }
 
-      // Auto-detect columns (flexible mapping)
       const firstRow = rows[0];
       const keys = Object.keys(firstRow);
       
       const findCol = (patterns: string[]) => 
         keys.find(k => patterns.some(p => k.toLowerCase().includes(p.toLowerCase())));
 
-      const shipmentCol = findCol(['بوليصة', 'بوليصه', 'shipment', 'tracking', 'awb', 'كود الشحن', 'رقم البوليصة', 'رقم الشحنة']);
-      const orderCol = findCol(['طلب', 'order', 'اوردر', 'أوردر', 'رقم الطلب', 'كود الطلب']);
-      const phoneCol = findCol(['هاتف', 'تليفون', 'تلفون', 'موبايل', 'phone', 'mobile', 'رقم العميل', 'رقم الهاتف']);
-      const nameCol = findCol(['اسم', 'name', 'عميل', 'customer', 'اسم العميل']);
-      const statusCol = findCol(['حالة', 'حاله', 'status', 'الحالة', 'الحاله']);
-      const notesCol = findCol(['ملاحظ', 'notes', 'note', 'سبب', 'تعليق']);
+      // Map columns from shipping company sheet
+      const refCol = findCol(['Ref', 'بوليصة', 'بوليصه', 'shipment', 'tracking', 'awb', 'كود الشحن']);
+      const pickupCol = findCol(['Pickup', 'تسليم الشحن', 'تاريخ التسليم']);
+      const nameCol = findCol(['Name', 'اسم', 'عميل', 'customer']);
+      const addressCol = findCol(['Address', 'عنوان']);
+      const areaCol = findCol(['Area', 'منطقة', 'منطقه', 'محافظة']);
+      const remarksCol = findCol(['ConsData_Remarkes', 'ConsData', 'Remarkes', 'ملاحظ', 'تفاصيل', 'منتج']);
+      const amountCol = findCol(['Amount', 'مبلغ', 'سعر', 'قيمة', 'المبلغ']);
+      const uDateCol = findCol(['UDate']);
+      const uStatusCol = findCol(['UStatus', 'حالة', 'حاله', 'status']);
+      const statusDescCol = findCol(['StatusDescription', 'تفصيل الحال']);
+      const telCol = findCol(['Tel', 'هاتف', 'تليفون', 'تلفون', 'موبايل', 'phone', 'mobile']);
+      const clientRefCol = findCol(['ClientRef', 'كود الطلب', 'طلب', 'order', 'اوردر']);
+      const finalStatusCol = findCol(['FinalStatusName', 'اخر حال']);
+      const lastStatusDateCol = findCol(['laststatusDate', 'تاريخ اخر']);
+      const procNotesCol = findCol(['ProcNotes', 'proc']);
 
-      if (!shipmentCol && !phoneCol) {
+      if (!refCol && !telCol) {
         toast({
           title: '❌ تنسيق غير معروف',
-          description: 'الملف لازم يحتوي على عمود بوليصة أو رقم هاتف على الأقل. الأعمدة الموجودة: ' + keys.join(', '),
+          description: 'الملف لازم يحتوي على عمود Ref أو Tel على الأقل. الأعمدة: ' + keys.join(', '),
           variant: 'destructive',
         });
         setUploading(false);
         return;
       }
 
-      const shipmentRows = rows.map(row => ({
-        tenant_id: currentTenant.id,
-        shipment_code: String(shipmentCol ? row[shipmentCol] : '').trim() || `AUTO-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        order_code: orderCol ? String(row[orderCol]).trim() || null : null,
-        customer_phone: phoneCol ? String(row[phoneCol]).replace(/[\s\-\+]/g, '').trim() : '',
-        customer_name: nameCol ? String(row[nameCol]).trim() || null : null,
-        status: statusCol ? mapStatus(String(row[statusCol]).trim()) : 'pending',
-        notes: notesCol ? String(row[notesCol]).trim() || null : null,
-        shipping_company: null,
-        wa_template_sent: false,
-      })).filter(r => r.customer_phone || r.shipment_code);
+      const shipmentRows = rows.map(row => {
+        let phone = telCol ? String(row[telCol]).replace(/[\s\-\+]/g, '').trim() : '';
+        // Normalize Egyptian phone
+        if (phone.startsWith('01') && phone.length === 11) phone = '2' + phone;
 
-      // Batch insert
+        return {
+          tenant_id: currentTenant.id,
+          shipment_code: String(refCol ? row[refCol] : '').trim() || `AUTO-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          order_code: clientRefCol ? String(row[clientRefCol]).trim() || null : null,
+          customer_phone: phone,
+          customer_name: nameCol ? String(row[nameCol]).trim() || null : null,
+          customer_address: addressCol ? String(row[addressCol]).trim() || null : null,
+          customer_area: areaCol ? String(row[areaCol]).trim() || null : null,
+          order_details: remarksCol ? String(row[remarksCol]).trim() || null : null,
+          amount: amountCol ? parseFloat(String(row[amountCol])) || null : null,
+          status: uStatusCol ? mapStatus(String(row[uStatusCol]).trim()) : 'pending',
+          status_description: statusDescCol ? String(row[statusDescCol]).trim() || null : null,
+          pickup_date: pickupCol ? String(row[pickupCol]).trim() || null : null,
+          status_date: uDateCol ? String(row[uDateCol]).trim() || null : null,
+          final_status: finalStatusCol ? String(row[finalStatusCol]).trim() || null : null,
+          last_status_date: lastStatusDateCol ? String(row[lastStatusDateCol]).trim() || null : null,
+          proc_notes: procNotesCol ? String(row[procNotesCol]).trim() || null : null,
+          notes: null,
+          shipping_company: null,
+          wa_template_sent: false,
+        };
+      }).filter(r => r.customer_phone || r.shipment_code);
+
       const { error: insertErr } = await supabase
         .from('shipment_tracking')
         .insert(shipmentRows as any);
@@ -164,18 +213,6 @@ const ShipmentTrackingTable = () => {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
-  };
-
-  const mapStatus = (raw: string): string => {
-    const lower = raw.toLowerCase();
-    if (lower.includes('deliver') || lower.includes('تسليم') || lower.includes('مستلم')) return 'delivered';
-    if (lower.includes('return') || lower.includes('مرتجع') || lower.includes('راجع')) return 'returned';
-    if (lower.includes('reschedul') || lower.includes('تأجيل') || lower.includes('مؤجل')) return 'rescheduled';
-    if (lower.includes('cancel') || lower.includes('ملغ') || lower.includes('الغ')) return 'cancelled';
-    if (lower.includes('out') || lower.includes('خرج') || lower.includes('طريق')) return 'out_for_delivery';
-    if (lower.includes('no answer') || lower.includes('لا يرد') || lower.includes('مايردش')) return 'no_answer';
-    if (lower.includes('ready') || lower.includes('جاهز')) return 'ready';
-    return 'pending';
   };
 
   const updateStatus = async (id: string, newStatus: string) => {
@@ -204,13 +241,21 @@ const ShipmentTrackingTable = () => {
 
   const exportSheet = () => {
     const exportData = filtered.map(s => ({
-      'كود البوليصة': s.shipment_code,
+      'رقم البوليصة': s.shipment_code,
       'كود الطلب': s.order_code || '',
       'اسم العميل': s.customer_name || '',
       'رقم الهاتف': s.customer_phone,
+      'المنطقة': s.customer_area || '',
+      'العنوان': s.customer_address || '',
+      'تفاصيل الطلب': s.order_details || '',
+      'المبلغ': s.amount || '',
       'الحالة': STATUS_MAP[s.status]?.label || s.status,
+      'تفصيل الحالة': s.status_description || '',
+      'تاريخ الاستلام': s.pickup_date || '',
+      'آخر حالة': s.final_status || '',
+      'تاريخ آخر حالة': s.last_status_date || '',
+      'ملاحظات الشحن': s.proc_notes || '',
       'ملاحظات': s.notes || '',
-      'تاريخ الرفع': new Date(s.uploaded_at).toLocaleDateString('ar-EG'),
     }));
 
     const ws = XLSX.utils.json_to_sheet(exportData);
@@ -310,7 +355,7 @@ const ShipmentTrackingTable = () => {
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="بحث بالبوليصة أو الاسم أو الرقم..."
+              placeholder="بحث بالبوليصة أو الاسم أو الرقم أو المنطقة..."
               className="bg-secondary border-0 text-xs pr-9 h-8"
             />
           </div>
@@ -361,12 +406,14 @@ const ShipmentTrackingTable = () => {
                   />
                 </TableHead>
                 <TableHead className="text-right">البوليصة</TableHead>
-                <TableHead className="text-right">الطلب</TableHead>
+                <TableHead className="text-right">كود الطلب</TableHead>
                 <TableHead className="text-right">العميل</TableHead>
                 <TableHead className="text-right">الهاتف</TableHead>
+                <TableHead className="text-right">المنطقة</TableHead>
+                <TableHead className="text-right">المبلغ</TableHead>
                 <TableHead className="text-right">الحالة</TableHead>
-                <TableHead className="text-right">ملاحظات</TableHead>
-                <TableHead className="text-right w-24">إجراء</TableHead>
+                <TableHead className="text-right">ملاحظات الشحن</TableHead>
+                <TableHead className="text-right w-20">تفاصيل</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -387,6 +434,8 @@ const ShipmentTrackingTable = () => {
                     <TableCell className="text-xs">{s.order_code || '-'}</TableCell>
                     <TableCell className="text-xs">{s.customer_name || '-'}</TableCell>
                     <TableCell className="font-mono text-xs" dir="ltr">{s.customer_phone}</TableCell>
+                    <TableCell className="text-xs">{s.customer_area || '-'}</TableCell>
+                    <TableCell className="text-xs font-medium">{s.amount ? `${s.amount} ج.م` : '-'}</TableCell>
                     <TableCell>
                       <Select value={s.status} onValueChange={(v) => updateStatus(s.id, v)}>
                         <SelectTrigger className={`h-7 text-[10px] border ${statusInfo.color} bg-transparent w-[120px]`}>
@@ -402,16 +451,16 @@ const ShipmentTrackingTable = () => {
                         </SelectContent>
                       </Select>
                     </TableCell>
-                    <TableCell className="text-xs max-w-[150px] truncate">{s.notes || '-'}</TableCell>
+                    <TableCell className="text-xs max-w-[150px] truncate">{s.proc_notes || s.notes || '-'}</TableCell>
                     <TableCell>
                       <Button
                         variant="ghost"
                         size="sm"
                         className="h-7 w-7 p-0"
-                        title="إرسال رسالة واتساب"
-                        disabled={!s.customer_phone}
+                        title="عرض التفاصيل"
+                        onClick={() => setDetailShipment(s)}
                       >
-                        <Send className="w-3.5 h-3.5" />
+                        <Eye className="w-3.5 h-3.5" />
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -421,8 +470,50 @@ const ShipmentTrackingTable = () => {
           </Table>
         )}
       </div>
+
+      {/* Detail Dialog */}
+      <Dialog open={!!detailShipment} onOpenChange={() => setDetailShipment(null)}>
+        <DialogContent className="max-w-lg" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="w-5 h-5 text-primary" />
+              تفاصيل الشحنة
+            </DialogTitle>
+          </DialogHeader>
+          {detailShipment && (
+            <div className="space-y-3 text-sm">
+              <div className="grid grid-cols-2 gap-3">
+                <DetailRow label="رقم البوليصة" value={detailShipment.shipment_code} />
+                <DetailRow label="كود الطلب" value={detailShipment.order_code} />
+                <DetailRow label="اسم العميل" value={detailShipment.customer_name} />
+                <DetailRow label="رقم الهاتف" value={detailShipment.customer_phone} dir="ltr" />
+                <DetailRow label="المنطقة" value={detailShipment.customer_area} />
+                <DetailRow label="المبلغ" value={detailShipment.amount ? `${detailShipment.amount} ج.م` : null} />
+                <DetailRow label="تاريخ الاستلام" value={detailShipment.pickup_date} />
+                <DetailRow label="تاريخ تحديث الحالة" value={detailShipment.status_date} />
+                <DetailRow label="آخر حالة" value={detailShipment.final_status} />
+                <DetailRow label="تاريخ آخر حالة" value={detailShipment.last_status_date} />
+              </div>
+              <DetailRow label="العنوان" value={detailShipment.customer_address} full />
+              <DetailRow label="تفاصيل الطلب (المنتجات)" value={detailShipment.order_details} full />
+              <DetailRow label="تفصيل حالة الشحن" value={detailShipment.status_description} full />
+              <DetailRow label="ملاحظات الشحن" value={detailShipment.proc_notes} full />
+              {detailShipment.notes && <DetailRow label="ملاحظات إضافية" value={detailShipment.notes} full />}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
+
+const DetailRow = ({ label, value, dir, full }: { label: string; value: string | null | undefined; dir?: string; full?: boolean }) => (
+  <div className={full ? 'col-span-2' : ''}>
+    <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
+    <p className={`text-sm font-medium text-foreground ${!value ? 'text-muted-foreground' : ''}`} dir={dir}>
+      {value || '-'}
+    </p>
+  </div>
+);
 
 export default ShipmentTrackingTable;
