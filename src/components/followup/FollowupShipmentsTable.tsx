@@ -158,7 +158,7 @@ const FollowupShipmentsTable = () => {
   // Get tenant timezone
   const tenantTimezone = currentTenant?.timezone || 'Africa/Cairo';
 
-  const createStrictDate = (year: number, month: number, day: number): Date | null => {
+  const createStrictDate = useCallback((year: number, month: number, day: number): Date | null => {
     if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return null;
     if (month < 1 || month > 12 || day < 1 || day > 31) return null;
 
@@ -172,7 +172,7 @@ const FollowupShipmentsTable = () => {
     }
 
     return date;
-  };
+  }, []);
 
   // Parse shipping sheet date safely (without ambiguous UTC/MM-DD parsing)
   const parseSheetDate = useCallback((rawValue: string | null | undefined): Date | null => {
