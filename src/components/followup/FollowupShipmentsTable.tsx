@@ -422,7 +422,7 @@ const FollowupShipmentsTable = () => {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                {Object.entries(FOLLOWUP_ACTIONS).map(([key, { label }]) => (
+                {actionStatuses.map(({ key, label }) => (
                   <DropdownMenuItem key={key} onClick={() => bulkUpdateAction(key)}>{label}</DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
