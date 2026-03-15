@@ -99,6 +99,25 @@ const FollowupSettings = () => {
     setSaving(false);
   };
 
+  const saveActionStatuses = async () => {
+    if (!currentTenant?.id) return;
+    setSavingActions(true);
+    const { error } = await supabase
+      .from('followup_status_config')
+      .upsert({
+        tenant_id: currentTenant.id,
+        action_statuses: actionStatuses,
+        updated_at: new Date().toISOString(),
+      } as any, { onConflict: 'tenant_id' });
+
+    if (error) {
+      toast({ title: '❌ خطأ', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: '✅ تم الحفظ', description: `تم حفظ ${actionStatuses.length} حالة متابعة داخلية` });
+    }
+    setSavingActions(false);
+  };
+
   // Combine: known statuses + statuses from DB + already selected (custom ones)
   const allAvailableStatuses = [...new Set([
     ...Object.keys(SHIPPING_STATUSES),
