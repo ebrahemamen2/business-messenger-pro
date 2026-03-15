@@ -56,6 +56,11 @@ const FollowUp = () => {
               <span className="hidden sm:inline">جدول المتابعة</span>
               <span className="sm:hidden">المتابعة</span>
             </TabsTrigger>
+            <TabsTrigger value="done" className="gap-1.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+              <CheckCircle2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Done</span>
+              <span className="sm:hidden">✅</span>
+            </TabsTrigger>
             <TabsTrigger value="settings" className="gap-1.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <Settings2 className="w-4 h-4" />
               <span className="hidden sm:inline">الإعدادات</span>
