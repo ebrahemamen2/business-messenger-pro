@@ -858,7 +858,7 @@ const FollowupShipmentsTable = () => {
                     <SelectTrigger className="h-7 text-[10px] bg-background"><SelectValue placeholder="الكل" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all" className="text-xs">الكل</SelectItem>
-                      <SelectItem value="" className="text-xs">بدون حالة</SelectItem>
+                      <SelectItem value="__none__" className="text-xs">بدون حالة</SelectItem>
                       {actionStatuses.map(({ key, label }) => (
                         <SelectItem key={key} value={key} className="text-xs">{label}</SelectItem>
                       ))}
