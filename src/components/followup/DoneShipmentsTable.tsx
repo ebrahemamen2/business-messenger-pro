@@ -83,11 +83,12 @@ const DoneShipmentsTable = () => {
     setDoneTriggerStatus(trigger);
     setActionStatuses(actions);
 
-    // Load history records with shipment data
+    // Load history records filtered by done_trigger_status
     const { data, error } = await supabase
       .from('shipment_followup_history')
       .select('*, shipment_tracking!inner(shipment_code, final_status, customer_name, customer_phone)')
       .eq('tenant_id', currentTenant.id)
+      .eq('action_status', trigger)
       .order('created_at', { ascending: false })
       .limit(2000);
 
