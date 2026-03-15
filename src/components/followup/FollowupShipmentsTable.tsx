@@ -1,13 +1,14 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useTenantContext } from '@/contexts/TenantContext';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Download, Search, Loader2, Truck, Eye, RefreshCw, Filter, Send,
-  CheckCircle, XCircle, Clock, AlertTriangle, MessageSquare, Calendar
+  CheckCircle, XCircle, Clock, AlertTriangle, MessageSquare, Calendar, StickyNote, Check, X
 } from 'lucide-react';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -20,14 +21,27 @@ import {
 } from '@/components/ui/dropdown-menu';
 import * as XLSX from 'xlsx';
 import { type Shipment, getStatusColor } from './AllShipmentsTable';
+import { type ActionStatus } from './ActionStatusesSettings';
 
-// Internal follow-up action statuses
-const FOLLOWUP_ACTIONS: Record<string, { label: string; color: string; icon: any }> = {
-  pending: { label: 'بانتظار المتابعة', color: 'bg-yellow-500/15 text-yellow-600 border-yellow-500/30', icon: Clock },
-  contacted: { label: 'تم التواصل', color: 'bg-blue-500/15 text-blue-600 border-blue-500/30', icon: Send },
-  resolved: { label: 'تم الحل', color: 'bg-green-500/15 text-green-600 border-green-500/30', icon: CheckCircle },
-  escalated: { label: 'تصعيد', color: 'bg-red-500/15 text-red-600 border-red-500/30', icon: AlertTriangle },
-  cancelled: { label: 'ملغي', color: 'bg-muted text-muted-foreground border-border', icon: XCircle },
+// Default fallback statuses (used when no config exists)
+const DEFAULT_FOLLOWUP_ACTIONS: ActionStatus[] = [
+  { key: 'pending', label: 'بانتظار المتابعة', color: 'yellow' },
+  { key: 'contacted', label: 'تم التواصل', color: 'blue' },
+  { key: 'resolved', label: 'تم الحل', color: 'green' },
+  { key: 'escalated', label: 'تصعيد', color: 'red' },
+  { key: 'cancelled', label: 'ملغي', color: 'gray' },
+];
+
+const COLOR_MAP: Record<string, string> = {
+  yellow: 'bg-yellow-500/15 text-yellow-600 border-yellow-500/30',
+  blue: 'bg-blue-500/15 text-blue-600 border-blue-500/30',
+  green: 'bg-green-500/15 text-green-600 border-green-500/30',
+  red: 'bg-red-500/15 text-red-600 border-red-500/30',
+  orange: 'bg-orange-500/15 text-orange-600 border-orange-500/30',
+  purple: 'bg-purple-500/15 text-purple-600 border-purple-500/30',
+  gray: 'bg-muted text-muted-foreground border-border',
+  pink: 'bg-pink-500/15 text-pink-600 border-pink-500/30',
+  teal: 'bg-teal-500/15 text-teal-600 border-teal-500/30',
 };
 
 interface WATemplate {
