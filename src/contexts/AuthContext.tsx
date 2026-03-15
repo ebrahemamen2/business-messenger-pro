@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User, Session } from '@supabase/supabase-js';
 
@@ -26,45 +26,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
+  const checkSuperAdmin = useCallback(async (userId: string) => {
+    try {
+      const { data } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .eq('role', 'super_admin')
+        .maybeSingle();
+      return !!data;
+    } catch {
+      return false;
+    }
+  }, []);
+
   useEffect(() => {
     let mounted = true;
 
-    const checkSuperAdmin = async (userId: string): Promise<boolean> => {
-      try {
-        const { data } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', userId)
-          .eq('role', 'super_admin')
-          .maybeSingle();
-        return !!data;
-      } catch {
-        return false;
-      }
-    };
-
-    // Set up auth listener FIRST (but don't set loading=false here for initial load)
-    let initialDone = false;
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        if (!mounted) return;
-        setSession(session);
-        setUser(session?.user ?? null);
-
-        if (session?.user) {
-          const isAdmin = await checkSuperAdmin(session.user.id);
-          if (mounted) setIsSuperAdmin(isAdmin);
-        } else {
-          setIsSuperAdmin(false);
-        }
-
-        if (initialDone && mounted) {
-          setLoading(false);
-        }
-      }
-    );
-
-    // Initial session check — wait for role before setting loading=false
+    // 1. Restore session from storage first
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!mounted) return;
       setSession(session);
@@ -75,17 +54,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (mounted) setIsSuperAdmin(isAdmin);
       }
 
-      if (mounted) {
-        setLoading(false);
-        initialDone = true;
-      }
+      if (mounted) setLoading(false);
     });
+
+    // 2. Listen for subsequent auth changes (sign in/out) — NO await inside
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (!mounted) return;
+        setSession(session);
+        setUser(session?.user ?? null);
+
+        if (session?.user) {
+          // Fire and forget — no await in callback
+          checkSuperAdmin(session.user.id).then((isAdmin) => {
+            if (mounted) setIsSuperAdmin(isAdmin);
+          });
+        } else {
+          setIsSuperAdmin(false);
+        }
+      }
+    );
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [checkSuperAdmin]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
