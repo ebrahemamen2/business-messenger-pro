@@ -58,7 +58,7 @@ const STATUS_MAP: Record<string, { label: string; color: string; icon: any }> = 
 };
 
 const ShipmentTrackingTable = () => {
-  const { currentTenant } = useTenantContext();
+  const { currentTenant, loading: tenantLoading } = useTenantContext();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [shipments, setShipments] = useState<Shipment[]>([]);
