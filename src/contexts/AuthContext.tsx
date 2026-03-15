@@ -29,7 +29,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let mounted = true;
 
-    const checkSuperAdmin = async (userId: string) => {
+    const checkSuperAdmin = async (userId: string): Promise<boolean> => {
       try {
         const { data } = await supabase
           .from('user_roles')
@@ -37,39 +37,48 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           .eq('user_id', userId)
           .eq('role', 'super_admin')
           .maybeSingle();
-        if (mounted) setIsSuperAdmin(!!data);
+        return !!data;
       } catch {
-        if (mounted) setIsSuperAdmin(false);
+        return false;
       }
     };
 
-    // Set up auth listener first
+    // Set up auth listener FIRST (but don't set loading=false here for initial load)
+    let initialDone = false;
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      async (_event, session) => {
         if (!mounted) return;
         setSession(session);
         setUser(session?.user ?? null);
 
         if (session?.user) {
-          // Use setTimeout to avoid Supabase deadlock
-          setTimeout(() => checkSuperAdmin(session.user.id), 0);
+          const isAdmin = await checkSuperAdmin(session.user.id);
+          if (mounted) setIsSuperAdmin(isAdmin);
         } else {
           setIsSuperAdmin(false);
         }
 
-        setLoading(false);
+        if (initialDone && mounted) {
+          setLoading(false);
+        }
       }
     );
 
-    // Initial session check
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Initial session check — wait for role before setting loading=false
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!mounted) return;
       setSession(session);
       setUser(session?.user ?? null);
+
       if (session?.user) {
-        checkSuperAdmin(session.user.id);
+        const isAdmin = await checkSuperAdmin(session.user.id);
+        if (mounted) setIsSuperAdmin(isAdmin);
       }
-      setLoading(false);
+
+      if (mounted) {
+        setLoading(false);
+        initialDone = true;
+      }
     });
 
     return () => {
