@@ -398,54 +398,54 @@ const FollowupShipmentsTable = () => {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="p-3 sm:p-4 border-b border-border bg-card space-y-3 flex-shrink-0">
+      {/* Compact header */}
+      <div className="p-3 sm:p-4 border-b border-border bg-card space-y-2 flex-shrink-0">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Truck className="w-4.5 h-4.5 text-primary" />
+            <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Truck className="w-4 h-4 text-primary" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-foreground">جدول المتابعة</h2>
-              <p className="text-xs text-muted-foreground">{shipments.length} شحنة تحتاج متابعة — عرض {filtered.length}</p>
+              <h2 className="text-sm font-bold text-foreground">جدول المتابعة</h2>
+              <p className="text-[10px] text-muted-foreground">{shipments.length} شحنة تحتاج متابعة — عرض {filtered.length}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <Button
               variant={cardVisible ? "default" : "outline"}
               size="sm"
               onClick={() => setCardVisible(v => !v)}
-              className="gap-1.5 text-xs"
+              className="gap-1 text-xs h-8"
             >
               {cardVisible ? <PanelTopClose className="w-3.5 h-3.5" /> : <PanelTop className="w-3.5 h-3.5" />}
               {cardVisible ? 'إخفاء العداد' : 'عداد المتابعة'}
             </Button>
             {selectedIds.size > 0 && waTemplates.length > 0 && (
-              <Button size="sm" onClick={() => { setShowSendDialog(true); setSendResults(null); }} className="gap-1.5 text-xs bg-green-600 hover:bg-green-700 text-white">
+              <Button size="sm" onClick={() => { setShowSendDialog(true); setSendResults(null); }} className="gap-1 text-xs h-8 bg-green-600 hover:bg-green-700 text-white">
                 <MessageSquare className="w-3.5 h-3.5" />
-                إرسال واتساب ({selectedIds.size})
+                واتساب ({selectedIds.size})
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={exportSheet} className="gap-1.5 text-xs">
+            <Button variant="outline" size="sm" onClick={exportSheet} className="gap-1 text-xs h-8">
               <Download className="w-3.5 h-3.5" />
-              تصدير
+              <span className="hidden sm:inline">تصدير</span>
             </Button>
-            <Button variant="ghost" size="sm" onClick={loadShipments}>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={loadShipments}>
               <RefreshCw className="w-3.5 h-3.5" />
             </Button>
           </div>
         </div>
 
         {followupStatuses.length === 0 && !loading && (
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-xs text-amber-700">
-            ⚠️ لم يتم تحديد حالات للمتابعة بعد. اذهب لتاب "الإعدادات" واختار الحالات التي تريد متابعتها.
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-2 text-[10px] text-amber-700">
+            ⚠️ لم يتم تحديد حالات للمتابعة بعد. اذهب لتاب "الإعدادات" واختار الحالات.
           </div>
         )}
 
-        {/* Filters row */}
-        <div className="flex gap-2 flex-wrap items-center">
-          {/* Date filter */}
+        {/* All filters in one compact row */}
+        <div className="flex gap-1.5 flex-wrap items-center">
           <Select value={dateFilter} onValueChange={setDateFilter}>
-            <SelectTrigger className="h-7 text-[10px] w-auto min-w-[120px] bg-secondary border-0">
+            <SelectTrigger className="h-6 text-[10px] w-auto min-w-[100px] bg-secondary border-0 px-2">
               <Calendar className="w-3 h-3 ml-1" />
               <SelectValue placeholder="التاريخ" />
             </SelectTrigger>
@@ -458,9 +458,8 @@ const FollowupShipmentsTable = () => {
             </SelectContent>
           </Select>
 
-          {/* Shipping status filter */}
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="h-7 text-[10px] w-auto min-w-[130px] bg-secondary border-0">
+            <SelectTrigger className="h-6 text-[10px] w-auto min-w-[110px] bg-secondary border-0 px-2">
               <Filter className="w-3 h-3 ml-1" />
               <SelectValue placeholder="حالة الشحن" />
             </SelectTrigger>
@@ -472,9 +471,8 @@ const FollowupShipmentsTable = () => {
             </SelectContent>
           </Select>
 
-          {/* WA sent filter */}
           <Select value={waSentFilter} onValueChange={setWaSentFilter}>
-            <SelectTrigger className="h-7 text-[10px] w-auto min-w-[120px] bg-secondary border-0">
+            <SelectTrigger className="h-6 text-[10px] w-auto min-w-[90px] bg-secondary border-0 px-2">
               <MessageSquare className="w-3 h-3 ml-1" />
               <SelectValue placeholder="الواتساب" />
             </SelectTrigger>
@@ -484,34 +482,35 @@ const FollowupShipmentsTable = () => {
               <SelectItem value="not_sent" className="text-xs">❌ ماتبعتلهوش</SelectItem>
             </SelectContent>
           </Select>
-        </div>
 
-        {/* Action filter chips */}
-        <div className="flex gap-1.5 flex-wrap">
-          <button onClick={() => setActionFilter('all')} className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${actionFilter === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
+          <div className="h-4 w-px bg-border mx-0.5" />
+
+          {/* Action filter chips - inline */}
+          <button onClick={() => setActionFilter('all')} className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors ${actionFilter === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
             الكل ({filtered.length})
           </button>
           {actionStatuses.map(({ key, label }) => {
             const count = actionCounts[key] || 0;
             if (count === 0) return null;
             return (
-              <button key={key} onClick={() => setActionFilter(key)} className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${actionFilter === key ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
+              <button key={key} onClick={() => setActionFilter(key)} className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors ${actionFilter === key ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
                 {label} ({count})
               </button>
             );
           })}
         </div>
 
+        {/* Search + bulk actions */}
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-            <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="بحث بالبوليصة أو الاسم أو الرقم أو الملاحظات..." className="bg-secondary border-0 text-xs pr-9 h-8" />
+            <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="بحث بالبوليصة أو الاسم أو الرقم أو الملاحظات..." className="bg-secondary border-0 text-xs pr-9 h-7" />
           </div>
           {selectedIds.size > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1.5 text-xs">
-                  <Filter className="w-3.5 h-3.5" />
+                <Button variant="outline" size="sm" className="gap-1 text-xs h-7">
+                  <Filter className="w-3 h-3" />
                   تحديث ({selectedIds.size})
                 </Button>
               </DropdownMenuTrigger>
@@ -525,78 +524,78 @@ const FollowupShipmentsTable = () => {
         </div>
       </div>
 
-      {/* Navigator Card */}
+      {/* Navigator Card - prominent & spacious */}
       {cardVisible && cardFiltered.length > 0 && activeShipment && (
-        <div className="border-b border-border bg-card flex-shrink-0" dir="rtl">
-          {/* Card header: filter + navigation */}
-          <div className="flex items-center justify-between px-3 sm:px-4 py-2 border-b border-border bg-muted/30">
-            <div className="flex items-center gap-2">
-              <Select value={cardFilter} onValueChange={(v: 'all' | 'pending') => { setCardFilter(v); setActiveIndex(0); }}>
-                <SelectTrigger className="h-7 text-[10px] w-auto min-w-[120px] bg-secondary border-0">
-                  <Filter className="w-3 h-3 ml-1" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all" className="text-xs">الكل ({filtered.length})</SelectItem>
-                  <SelectItem value="pending" className="text-xs">لم تُتابع ({filtered.filter(s => s.status === 'pending').length})</SelectItem>
-                </SelectContent>
-              </Select>
+        <div className="border-b-2 border-primary/20 bg-card flex-shrink-0" dir="rtl">
+          {/* Card header: navigation + filter */}
+          <div className="flex items-center justify-between px-4 py-2 bg-primary/5 border-b border-border">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1">
+                <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => navigateCard('next')} disabled={activeIndex >= cardFiltered.length - 1}>
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+                <span className="text-sm font-bold text-foreground min-w-[70px] text-center tabular-nums">
+                  {cardFiltered.length} / {activeIndex + 1}
+                </span>
+                <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => navigateCard('prev')} disabled={activeIndex <= 0}>
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
-            <div className="flex items-center gap-1.5">
-              <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => navigateCard('next')} disabled={activeIndex >= cardFiltered.length - 1}>
-                <ChevronRight className="w-4 h-4" />
-              </Button>
-              <span className="text-xs font-bold text-foreground min-w-[60px] text-center tabular-nums">
-                {activeIndex + 1} / {cardFiltered.length}
-              </span>
-              <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => navigateCard('prev')} disabled={activeIndex <= 0}>
-                <ChevronLeft className="w-4 h-4" />
-              </Button>
-            </div>
+            <Select value={cardFilter} onValueChange={(v: 'all' | 'pending') => { setCardFilter(v); setActiveIndex(0); }}>
+              <SelectTrigger className="h-8 text-xs w-auto min-w-[140px] border-primary/20 bg-card">
+                <Filter className="w-3.5 h-3.5 ml-1" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="text-xs">الكل ({filtered.length})</SelectItem>
+                <SelectItem value="pending" className="text-xs">لم تُتابع ({filtered.filter(s => s.status === 'pending').length})</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
-          {/* Card body */}
-          <div className="px-3 sm:px-4 py-3 space-y-3">
-            {/* Row 1: Name + Phone */}
-            <div className="flex items-center gap-4 flex-wrap">
-              <div className="flex items-center gap-1.5">
-                <User className="w-3.5 h-3.5 text-muted-foreground" />
-                <span className="text-sm font-semibold text-foreground">{activeShipment.customer_name || 'بدون اسم'}</span>
+          {/* Card body - spacious layout */}
+          <div className="px-4 py-4 space-y-2.5">
+            {/* Row 1: Name + Phone - large */}
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4 text-muted-foreground" />
+                <span className="text-base font-bold text-foreground">{activeShipment.customer_name || 'بدون اسم'}</span>
               </div>
               <a
                 href={`tel:${activeShipment.customer_phone}`}
-                className="flex items-center gap-1.5 text-sm font-mono text-primary hover:underline"
+                className="flex items-center gap-1.5 text-base font-mono font-semibold text-primary hover:underline"
                 dir="ltr"
               >
-                <Phone className="w-3.5 h-3.5" />
+                <Phone className="w-4 h-4" />
                 {activeShipment.customer_phone}
               </a>
             </div>
 
             {/* Row 2: AWB + Order code + Amount */}
-            <div className="flex items-center gap-4 flex-wrap text-xs">
-              <div className="flex items-center gap-1">
-                <Package className="w-3 h-3 text-muted-foreground" />
-                <span className="font-mono font-medium text-foreground">{activeShipment.shipment_code}</span>
+            <div className="flex items-center gap-5 flex-wrap text-sm">
+              <div className="flex items-center gap-1.5">
+                <Package className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="font-mono font-semibold text-foreground">{activeShipment.shipment_code}</span>
               </div>
               {activeShipment.order_code && (
-                <div className="flex items-center gap-1">
-                  <ShoppingBag className="w-3 h-3 text-muted-foreground" />
+                <div className="flex items-center gap-1.5">
+                  <ShoppingBag className="w-3.5 h-3.5 text-muted-foreground" />
                   <span className="text-foreground">{activeShipment.order_code}</span>
                 </div>
               )}
               {activeShipment.amount && (
-                <div className="flex items-center gap-1">
-                  <CreditCard className="w-3 h-3 text-muted-foreground" />
-                  <span className="font-medium text-foreground">{activeShipment.amount} ج.م</span>
+                <div className="flex items-center gap-1.5">
+                  <CreditCard className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="font-semibold text-foreground">{activeShipment.amount} ج.م</span>
                 </div>
               )}
             </div>
 
             {/* Row 3: Address + Area */}
             {(activeShipment.customer_address || activeShipment.customer_area) && (
-              <div className="flex items-start gap-1.5 text-xs">
-                <MapPin className="w-3 h-3 text-muted-foreground mt-0.5 flex-shrink-0" />
+              <div className="flex items-start gap-1.5 text-sm">
+                <MapPin className="w-3.5 h-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
                 <span className="text-foreground">
                   {[activeShipment.customer_area, activeShipment.customer_address].filter(Boolean).join(' - ')}
                 </span>
@@ -605,46 +604,44 @@ const FollowupShipmentsTable = () => {
 
             {/* Row 4: Order details */}
             {activeShipment.order_details && (
-              <div className="flex items-start gap-1.5 text-xs">
-                <ShoppingBag className="w-3 h-3 text-muted-foreground mt-0.5 flex-shrink-0" />
+              <div className="flex items-start gap-1.5 text-sm">
+                <ShoppingBag className="w-3.5 h-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
                 <span className="text-foreground">{activeShipment.order_details}</span>
               </div>
             )}
 
-            {/* Row 5: Shipping status + days */}
-            <div className="flex items-center gap-3 flex-wrap text-xs">
+            {/* Row 5: Shipping status + days + proc_notes */}
+            <div className="flex items-center gap-3 flex-wrap text-sm">
               <div className="flex items-center gap-1.5">
-                <Truck className="w-3 h-3 text-muted-foreground" />
-                <span className={`px-2 py-0.5 rounded-md text-[10px] font-medium border ${getStatusColor(activeShipment.final_status || '-')}`}>
+                <Truck className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className={`px-2.5 py-0.5 rounded-md text-xs font-medium border ${getStatusColor(activeShipment.final_status || '-')}`}>
                   {activeShipment.final_status || '-'}
                 </span>
               </div>
               {(() => {
                 const days = getDaysSinceLastStatus(activeShipment);
                 return days !== null ? (
-                  <span className={`text-[10px] ${days >= 3 ? 'text-destructive font-semibold' : days >= 2 ? 'text-amber-600' : 'text-muted-foreground'}`}>
+                  <span className={`text-xs ${days >= 3 ? 'text-destructive font-semibold' : days >= 2 ? 'text-amber-600' : 'text-muted-foreground'}`}>
                     ⏱️ منذ {days} يوم
                   </span>
                 ) : null;
               })()}
               {activeShipment.proc_notes && (
-                <span className="text-muted-foreground truncate max-w-[200px]" title={activeShipment.proc_notes}>
+                <span className="text-xs text-muted-foreground truncate max-w-[300px]" title={activeShipment.proc_notes}>
                   📝 {activeShipment.proc_notes}
                 </span>
               )}
             </div>
 
-            {/* Row 6: Action status + Notes editing */}
-            <div className="flex items-center gap-3 flex-wrap pt-1 border-t border-border">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-muted-foreground">حالة المتابعة:</span>
+            {/* Row 6: Action status + Notes - prominent */}
+            <div className="flex items-center gap-4 flex-wrap pt-2 border-t border-border">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">حالة المتابعة:</span>
                 <Select
                   value={activeShipment.status}
-                  onValueChange={v => {
-                    updateAction(activeShipment.id, v);
-                  }}
+                  onValueChange={v => updateAction(activeShipment.id, v)}
                 >
-                  <SelectTrigger className={`h-7 text-[10px] border ${getActionInfo(activeShipment.status).color} bg-transparent w-[130px]`}>
+                  <SelectTrigger className={`h-8 text-xs border ${getActionInfo(activeShipment.status).color} bg-transparent w-[140px]`}>
                     <span>{getActionInfo(activeShipment.status).label}</span>
                   </SelectTrigger>
                   <SelectContent>
@@ -654,25 +651,25 @@ const FollowupShipmentsTable = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex items-center gap-1.5 flex-1 min-w-[200px]">
-                <span className="text-xs text-muted-foreground flex-shrink-0">ملاحظات:</span>
+              <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                <span className="text-sm text-muted-foreground flex-shrink-0">ملاحظات:</span>
                 {editingCardNote ? (
                   <div className="flex items-center gap-1 flex-1">
                     <Input
                       value={cardNoteText}
                       onChange={e => setCardNoteText(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') saveCardNote(); if (e.key === 'Escape') setEditingCardNote(false); }}
-                      className="h-7 text-xs flex-1"
+                      className="h-8 text-sm flex-1"
                       dir="auto"
                       autoFocus
                     />
-                    <button onClick={saveCardNote} className="p-1 rounded hover:bg-primary/10 text-primary"><Check className="w-3.5 h-3.5" /></button>
-                    <button onClick={() => setEditingCardNote(false)} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground"><X className="w-3.5 h-3.5" /></button>
+                    <button onClick={saveCardNote} className="p-1.5 rounded hover:bg-primary/10 text-primary"><Check className="w-4 h-4" /></button>
+                    <button onClick={() => setEditingCardNote(false)} className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground"><X className="w-4 h-4" /></button>
                   </div>
                 ) : (
                   <button
                     onClick={() => { setCardNoteText(activeShipment.notes || ''); setEditingCardNote(true); }}
-                    className="text-xs text-right truncate hover:bg-secondary rounded px-1.5 py-0.5 transition-colors flex-1"
+                    className="text-sm text-right truncate hover:bg-secondary rounded px-2 py-1 transition-colors flex-1"
                     title={activeShipment.notes || 'اضغط لإضافة ملاحظة'}
                   >
                     {activeShipment.notes || <span className="text-muted-foreground">+ إضافة ملاحظة</span>}
