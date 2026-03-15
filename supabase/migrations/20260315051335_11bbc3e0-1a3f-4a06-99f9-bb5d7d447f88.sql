@@ -1,0 +1,1 @@
+DELETE FROM conversations WHERE module = 'followup' AND id NOT IN (SELECT conversation_id FROM shipment_tracking WHERE conversation_id IS NOT NULL);
