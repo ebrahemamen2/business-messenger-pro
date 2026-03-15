@@ -138,6 +138,10 @@ const ShipmentTrackingTable = () => {
       const firstRow = rows[0];
       const keys = Object.keys(firstRow);
       
+      console.log('📋 Sheet columns detected:', keys);
+      console.log('📋 First row sample:', firstRow);
+      console.log('📋 Total rows:', rows.length);
+      
       const findCol = (patterns: string[]) => 
         keys.find(k => patterns.some(p => k.toLowerCase().includes(p.toLowerCase())));
 
@@ -157,6 +161,8 @@ const ShipmentTrackingTable = () => {
       const finalStatusCol = findCol(['FinalStatusName', 'اخر حال']);
       const lastStatusDateCol = findCol(['laststatusDate', 'تاريخ اخر']);
       const procNotesCol = findCol(['ProcNotes', 'proc']);
+
+      console.log('📋 Column mapping:', { refCol, pickupCol, nameCol, addressCol, areaCol, remarksCol, amountCol, telCol, clientRefCol, uStatusCol, finalStatusCol, procNotesCol });
 
       if (!refCol && !telCol) {
         toast({
