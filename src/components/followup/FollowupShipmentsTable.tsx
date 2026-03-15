@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, Fragment } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useTenantContext } from '@/contexts/TenantContext';
 import { useToast } from '@/hooks/use-toast';
@@ -155,26 +155,63 @@ const FollowupShipmentsTable = () => {
 
   useEffect(() => { loadShipments(); loadTemplates(); }, [loadShipments, loadTemplates]);
 
-  // Calculate days since last status
-  const getDaysSinceLastStatus = (shipment: Shipment): number | null => {
+  // Get tenant timezone
+  const tenantTimezone = currentTenant?.timezone || 'Africa/Cairo';
+
+  // Get "today" in tenant timezone as a Date at midnight
+  const getTenantToday = useCallback(() => {
+    const now = new Date();
+    // Get date string in tenant timezone
+    const dateStr = now.toLocaleDateString('en-CA', { timeZone: tenantTimezone }); // YYYY-MM-DD
+    return new Date(dateStr + 'T00:00:00');
+  }, [tenantTimezone]);
+
+  // Calculate days since last status using tenant timezone
+  const getDaysSinceLastStatus = useCallback((shipment: Shipment): number | null => {
     const dateStr = shipment.last_status_date || shipment.status_date;
     if (!dateStr) return null;
     
     // Try parsing various date formats
+    let statusDate: Date | null = null;
     const parsed = new Date(dateStr);
-    if (isNaN(parsed.getTime())) {
+    if (!isNaN(parsed.getTime())) {
+      statusDate = parsed;
+    } else {
       // Try DD/MM/YYYY or DD-MM-YYYY
       const parts = dateStr.split(/[\/\-\.]/);
       if (parts.length === 3) {
         const d = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
-        if (!isNaN(d.getTime())) {
-          return Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24));
-        }
+        if (!isNaN(d.getTime())) statusDate = d;
       }
-      return null;
     }
-    return Math.floor((Date.now() - parsed.getTime()) / (1000 * 60 * 60 * 24));
+    if (!statusDate) return null;
+
+    const today = getTenantToday();
+    // Normalize status date to midnight
+    const statusDateStr = statusDate.toLocaleDateString('en-CA', { timeZone: tenantTimezone });
+    const statusMidnight = new Date(statusDateStr + 'T00:00:00');
+    
+    return Math.floor((today.getTime() - statusMidnight.getTime()) / (1000 * 60 * 60 * 24));
+  }, [tenantTimezone, getTenantToday]);
+
+  // Get recency group label
+  const getRecencyGroup = useCallback((days: number | null): string => {
+    if (days === null) return 'unknown';
+    if (days <= 0) return 'today';
+    if (days === 1) return 'day1';
+    if (days === 2) return 'day2';
+    return 'day3plus';
+  }, []);
+
+  const RECENCY_LABELS: Record<string, string> = {
+    'today': '🟢 جديدة - اليوم',
+    'day1': '🟡 أول يوم',
+    'day2': '🟠 تاني يوم',
+    'day3plus': '🔴 3 أيام أو أكتر',
+    'unknown': '⚪ بدون تاريخ',
   };
+
+  const RECENCY_ORDER = ['today', 'day1', 'day2', 'day3plus', 'unknown'];
 
   // Get unique shipping statuses for filter
   const uniqueStatuses = useMemo(() => {
@@ -205,13 +242,11 @@ const FollowupShipmentsTable = () => {
       // Status filter (shipping company status)
       if (statusFilter !== 'all' && s.final_status !== statusFilter) return false;
       
-      // Date filter
+      // Date filter (recency group)
       if (dateFilter !== 'all') {
         const days = getDaysSinceLastStatus(s);
-        if (days === null) return dateFilter === 'unknown';
-        if (dateFilter === '1' && days > 1) return false;
-        if (dateFilter === '2' && days > 2) return false;
-        if (dateFilter === '3plus' && days < 3) return false;
+        const group = getRecencyGroup(days);
+        if (dateFilter !== group) return false;
       }
 
       // WA sent filter
@@ -230,6 +265,38 @@ const FollowupShipmentsTable = () => {
       );
     });
   }, [shipments, actionFilter, statusFilter, statusDescFilter, notesFilter, dateFilter, waSentFilter, searchQuery]);
+
+  // Group filtered shipments by recency
+  const groupedFiltered = useMemo(() => {
+    const groups: { group: string; label: string; shipments: typeof filtered }[] = [];
+    const groupMap = new Map<string, typeof filtered>();
+    
+    filtered.forEach(s => {
+      const days = getDaysSinceLastStatus(s);
+      const group = getRecencyGroup(days);
+      if (!groupMap.has(group)) groupMap.set(group, []);
+      groupMap.get(group)!.push(s);
+    });
+
+    RECENCY_ORDER.forEach(g => {
+      if (groupMap.has(g)) {
+        groups.push({ group: g, label: RECENCY_LABELS[g], shipments: groupMap.get(g)! });
+      }
+    });
+
+    return groups;
+  }, [filtered, getDaysSinceLastStatus, getRecencyGroup]);
+
+  // Recency counts for filter
+  const recencyCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    filtered.forEach(s => {
+      const days = getDaysSinceLastStatus(s);
+      const group = getRecencyGroup(days);
+      counts[group] = (counts[group] || 0) + 1;
+    });
+    return counts;
+  }, [filtered, getDaysSinceLastStatus, getRecencyGroup]);
 
   const updateAction = async (id: string, newStatus: string) => {
     const { error } = await supabase
@@ -511,19 +578,20 @@ const FollowupShipmentsTable = () => {
                 </button>
               </div>
 
-              {/* Date filter */}
+              {/* Date filter - recency groups */}
               <div className="space-y-1">
-                <label className="text-[10px] font-medium text-muted-foreground">التاريخ</label>
+                <label className="text-[10px] font-medium text-muted-foreground">التاريخ (مدة بدون تحديث)</label>
                 <Select value={dateFilter} onValueChange={setDateFilter}>
                   <SelectTrigger className="h-7 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all" className="text-xs">كل التواريخ</SelectItem>
-                    <SelectItem value="1" className="text-xs">خلال يوم</SelectItem>
-                    <SelectItem value="2" className="text-xs">خلال يومين</SelectItem>
-                    <SelectItem value="3plus" className="text-xs">3 أيام أو أكتر</SelectItem>
-                    <SelectItem value="unknown" className="text-xs">بدون تاريخ</SelectItem>
+                    {RECENCY_ORDER.map(g => (
+                      <SelectItem key={g} value={g} className="text-xs">
+                        {RECENCY_LABELS[g]} {recencyCounts[g] ? `(${recencyCounts[g]})` : ''}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -940,77 +1008,91 @@ const FollowupShipmentsTable = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map(s => {
-                const actionInfo = getActionInfo(s.status);
-                const displayStatus = s.final_status || '-';
-                return (
-                  <TableRow
-                    key={s.id}
-                    ref={(el) => { if (el) rowRefs.current.set(s.id, el); else rowRefs.current.delete(s.id); }}
-                    className={`text-xs cursor-pointer transition-colors ${cardVisible && activeShipment?.id === s.id ? 'bg-primary/10 ring-1 ring-primary/20' : ''}`}
-                    onClick={() => handleRowClick(s.id)}
-                  >
-                    <TableCell className="text-center">
-                      <input type="checkbox" checked={selectedIds.has(s.id)} onChange={() => toggleSelect(s.id)} className="rounded border-border" />
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">{s.shipment_code}</TableCell>
-                    <TableCell>
-                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-medium border ${getStatusColor(displayStatus)}`}>
-                        {displayStatus}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-xs max-w-[200px] truncate" title={s.proc_notes || ''}>{s.proc_notes || '-'}</TableCell>
-                    <TableCell>
-                      <Select value={s.status || ''} onValueChange={v => updateAction(s.id, v)}>
-                        <SelectTrigger className={`h-7 text-[10px] border ${actionInfo.color || 'border-border'} bg-transparent w-[130px]`}>
-                          <span>{actionInfo.label || <span className="text-muted-foreground">اختر حالة</span>}</span>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {actionStatuses.map(({ key, label }) => (
-                            <SelectItem key={key} value={key} className="text-xs">{label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell className="max-w-[180px]">
-                      {editingNoteId === s.id ? (
-                        <div className="flex items-center gap-1">
-                          <Input
-                            value={noteText}
-                            onChange={e => setNoteText(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter') saveNote(s.id); if (e.key === 'Escape') setEditingNoteId(null); }}
-                            className="h-7 text-xs flex-1"
-                            dir="auto"
-                            autoFocus
-                          />
-                          <button onClick={() => saveNote(s.id)} className="p-1 rounded hover:bg-green-500/10 text-green-600"><Check className="w-3.5 h-3.5" /></button>
-                          <button onClick={() => setEditingNoteId(null)} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground"><X className="w-3.5 h-3.5" /></button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => startEditNote(s.id, s.notes || '')}
-                          className="text-xs text-right w-full truncate block hover:bg-secondary rounded px-1 py-0.5 transition-colors"
-                          title={s.notes || 'اضغط لإضافة ملاحظة'}
-                        >
-                          {s.notes || <span className="text-muted-foreground">+ ملاحظة</span>}
-                        </button>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {s.wa_template_sent ? (
-                        <span className="text-green-600 text-[10px] font-medium">✅</span>
-                      ) : (
-                        <span className="text-[10px] text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setDetailShipment(s)}>
-                        <Eye className="w-3.5 h-3.5" />
-                      </Button>
+              {groupedFiltered.map(({ group, label, shipments: groupShipments }) => (
+                <Fragment key={`group-${group}`}>
+                  {/* Date group separator */}
+                  <TableRow key={`group-${group}`} className="bg-secondary/50 hover:bg-secondary/50">
+                    <TableCell colSpan={8} className="py-1.5 px-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-foreground">{label}</span>
+                        <span className="text-[10px] text-muted-foreground">({groupShipments.length} شحنة)</span>
+                        <div className="flex-1 h-px bg-border" />
+                      </div>
                     </TableCell>
                   </TableRow>
-                );
-              })}
+                  {groupShipments.map(s => {
+                    const actionInfo = getActionInfo(s.status);
+                    const displayStatus = s.final_status || '-';
+                    return (
+                      <TableRow
+                        key={s.id}
+                        ref={(el) => { if (el) rowRefs.current.set(s.id, el); else rowRefs.current.delete(s.id); }}
+                        className={`text-xs cursor-pointer transition-colors ${cardVisible && activeShipment?.id === s.id ? 'bg-primary/10 ring-1 ring-primary/20' : ''}`}
+                        onClick={() => handleRowClick(s.id)}
+                      >
+                        <TableCell className="text-center">
+                          <input type="checkbox" checked={selectedIds.has(s.id)} onChange={() => toggleSelect(s.id)} className="rounded border-border" />
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">{s.shipment_code}</TableCell>
+                        <TableCell>
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-medium border ${getStatusColor(displayStatus)}`}>
+                            {displayStatus}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-xs max-w-[200px] truncate" title={s.proc_notes || ''}>{s.proc_notes || '-'}</TableCell>
+                        <TableCell>
+                          <Select value={s.status || ''} onValueChange={v => updateAction(s.id, v)}>
+                            <SelectTrigger className={`h-7 text-[10px] border ${actionInfo.color || 'border-border'} bg-transparent w-[130px]`}>
+                              <span>{actionInfo.label || <span className="text-muted-foreground">اختر حالة</span>}</span>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {actionStatuses.map(({ key, label: l }) => (
+                                <SelectItem key={key} value={key} className="text-xs">{l}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell className="max-w-[180px]">
+                          {editingNoteId === s.id ? (
+                            <div className="flex items-center gap-1">
+                              <Input
+                                value={noteText}
+                                onChange={e => setNoteText(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') saveNote(s.id); if (e.key === 'Escape') setEditingNoteId(null); }}
+                                className="h-7 text-xs flex-1"
+                                dir="auto"
+                                autoFocus
+                              />
+                              <button onClick={() => saveNote(s.id)} className="p-1 rounded hover:bg-green-500/10 text-green-600"><Check className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => setEditingNoteId(null)} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground"><X className="w-3.5 h-3.5" /></button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => startEditNote(s.id, s.notes || '')}
+                              className="text-xs text-right w-full truncate block hover:bg-secondary rounded px-1 py-0.5 transition-colors"
+                              title={s.notes || 'اضغط لإضافة ملاحظة'}
+                            >
+                              {s.notes || <span className="text-muted-foreground">+ ملاحظة</span>}
+                            </button>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {s.wa_template_sent ? (
+                            <span className="text-green-600 text-[10px] font-medium">✅</span>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setDetailShipment(s)}>
+                            <Eye className="w-3.5 h-3.5" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </Fragment>
+              ))}
             </TableBody>
           </Table>
         )}

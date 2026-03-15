@@ -8,6 +8,7 @@ export interface Tenant {
   slug: string;
   logo_url: string | null;
   is_active: boolean;
+  timezone: string;
 }
 
 interface TenantContextType {
@@ -56,14 +57,14 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
       if (isSuperAdmin) {
         const { data } = await supabase
           .from('tenants')
-          .select('id, name, slug, logo_url, is_active')
+          .select('id, name, slug, logo_url, is_active, timezone')
           .eq('is_active', true)
           .order('name');
         tenantList = (data as Tenant[]) || [];
       } else {
         const { data: memberships } = await supabase
           .from('tenant_members')
-          .select('tenant_id, tenants(id, name, slug, logo_url, is_active)')
+          .select('tenant_id, tenants(id, name, slug, logo_url, is_active, timezone)')
           .eq('user_id', user.id);
 
         if (memberships) {
