@@ -312,10 +312,19 @@ const AllShipmentsTable = () => {
         return;
       }
 
-      // Archive existing followup data before upsert
+      // Archive followup data before upsert — only archive records with the "done trigger" status
       toast({ title: '📋 جاري حفظ سجل المتابعة...' });
       try {
-        // Get all shipments that have been acted on (status != pending OR have notes)
+        // Get done_trigger_status from config
+        const { data: fConfig } = await supabase
+          .from('followup_status_config')
+          .select('done_trigger_status, action_statuses')
+          .eq('tenant_id', currentTenant.id)
+          .maybeSingle();
+        
+        const doneTrigger = (fConfig as any)?.done_trigger_status || 'pending';
+        
+        // Get shipments that match the done trigger status
         let archiveOffset = 0;
         const archiveBatch = 1000;
         const toArchive: any[] = [];
@@ -324,18 +333,17 @@ const AllShipmentsTable = () => {
             .from('shipment_tracking')
             .select('id, tenant_id, status, notes, final_status')
             .eq('tenant_id', currentTenant.id)
+            .eq('status', doneTrigger)
             .range(archiveOffset, archiveOffset + archiveBatch - 1);
           if (archErr || !existing || existing.length === 0) break;
           existing.forEach((s: any) => {
-            if ((s.status && s.status !== 'pending' && s.status !== '') || (s.notes && s.notes.trim())) {
-              toArchive.push({
-                shipment_id: s.id,
-                tenant_id: s.tenant_id,
-                action_status: s.status,
-                notes: s.notes,
-                final_status_snapshot: s.final_status,
-              });
-            }
+            toArchive.push({
+              shipment_id: s.id,
+              tenant_id: s.tenant_id,
+              action_status: s.status,
+              notes: s.notes,
+              final_status_snapshot: s.final_status,
+            });
           });
           if (existing.length < archiveBatch) break;
           archiveOffset += archiveBatch;
@@ -346,22 +354,22 @@ const AllShipmentsTable = () => {
           for (let i = 0; i < toArchive.length; i += 500) {
             await supabase.from('shipment_followup_history').insert(toArchive.slice(i, i + 500) as any);
           }
+        }
 
-          // Reset status and notes for all shipments
-          let resetOffset = 0;
-          while (true) {
-            const { data: batch } = await supabase
-              .from('shipment_tracking')
-              .select('id')
-              .eq('tenant_id', currentTenant.id)
-              .or('status.neq.pending,notes.not.is.null')
-              .range(resetOffset, resetOffset + 999);
-            if (!batch || batch.length === 0) break;
-            const ids = batch.map((b: any) => b.id);
-            await supabase.from('shipment_tracking').update({ status: '', notes: null } as any).in('id', ids);
-            if (batch.length < 1000) break;
-            resetOffset += 1000;
-          }
+        // Reset status and notes for ALL shipments that have any action taken
+        let resetOffset = 0;
+        while (true) {
+          const { data: batch } = await supabase
+            .from('shipment_tracking')
+            .select('id')
+            .eq('tenant_id', currentTenant.id)
+            .or('status.neq.,notes.not.is.null')
+            .range(resetOffset, resetOffset + 999);
+          if (!batch || batch.length === 0) break;
+          const ids = batch.map((b: any) => b.id);
+          await supabase.from('shipment_tracking').update({ status: '', notes: null } as any).in('id', ids);
+          if (batch.length < 1000) break;
+          resetOffset += 1000;
         }
       } catch (archiveErr) {
         console.error('Archive error (non-blocking):', archiveErr);
