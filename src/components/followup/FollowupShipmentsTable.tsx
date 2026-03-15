@@ -841,9 +841,9 @@ const FollowupShipmentsTable = () => {
                       </span>
                     </TableCell>
                     <TableCell>
-                      <Select value={s.status} onValueChange={v => updateAction(s.id, v)}>
-                        <SelectTrigger className={`h-7 text-[10px] border ${actionInfo.color} bg-transparent w-[130px]`}>
-                          <span>{actionInfo.label}</span>
+                      <Select value={s.status || ''} onValueChange={v => updateAction(s.id, v)}>
+                        <SelectTrigger className={`h-7 text-[10px] border ${actionInfo.color || 'border-border'} bg-transparent w-[130px]`}>
+                          <span>{actionInfo.label || <span className="text-muted-foreground">اختر حالة</span>}</span>
                         </SelectTrigger>
                         <SelectContent>
                           {actionStatuses.map(({ key, label }) => (
