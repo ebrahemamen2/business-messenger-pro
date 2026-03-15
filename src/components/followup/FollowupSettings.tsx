@@ -266,6 +266,14 @@ const FollowupSettings = () => {
           )}
         </TabsContent>
 
+        <TabsContent value="action-statuses" className="flex-1 m-0 overflow-auto p-4">
+          {loading ? (
+            <div className="flex items-center justify-center h-full"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+          ) : (
+            <ActionStatusesSettings statuses={actionStatuses} onChange={setActionStatuses} onSave={saveActionStatuses} saving={savingActions} />
+          )}
+        </TabsContent>
+
         <TabsContent value="wa-templates" className="flex-1 m-0 overflow-hidden">
           <FollowupWATemplates />
         </TabsContent>
