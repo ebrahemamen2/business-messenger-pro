@@ -1,0 +1,1 @@
+ALTER TABLE public.followup_status_config ADD COLUMN IF NOT EXISTS done_trigger_status text NOT NULL DEFAULT 'pending';
