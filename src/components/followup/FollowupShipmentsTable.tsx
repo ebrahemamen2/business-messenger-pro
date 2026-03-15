@@ -1093,7 +1093,6 @@ const FollowupShipmentsTable = () => {
                   })}
                 </>
               ))}
-              })}
             </TableBody>
           </Table>
         )}
