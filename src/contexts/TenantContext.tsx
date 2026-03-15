@@ -64,7 +64,7 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
       } else {
         const { data: memberships } = await supabase
           .from('tenant_members')
-          .select('tenant_id, tenants(id, name, slug, logo_url, is_active)')
+          .select('tenant_id, tenants(id, name, slug, logo_url, is_active, timezone)')
           .eq('user_id', user.id);
 
         if (memberships) {
