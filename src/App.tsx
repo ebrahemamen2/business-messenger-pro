@@ -146,7 +146,7 @@ const DesktopTopBar = () => {
         <h1 className="text-sm font-bold text-foreground">{pageTitle}</h1>
       </div>
 
-      {tenants.length > 0 && (
+      {tenants.length > 1 ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-secondary transition-colors border border-border">
@@ -154,27 +154,32 @@ const DesktopTopBar = () => {
                 <span className="text-[10px] font-bold text-primary">{currentTenant?.name?.charAt(0) || 'B'}</span>
               </div>
               <span className="text-sm font-semibold text-foreground">{currentTenant?.name || 'اختر براند'}</span>
-              {tenants.length > 1 && <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />}
+              <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
             </button>
           </DropdownMenuTrigger>
-          {tenants.length > 1 && (
-            <DropdownMenuContent align="end" className="min-w-[200px]">
-              {tenants.map((t) => (
-                <DropdownMenuItem
-                  key={t.id}
-                  onClick={() => selectTenant(t)}
-                  className={`gap-2 ${t.id === currentTenant?.id ? 'bg-secondary' : ''}`}
-                >
-                  <div className="w-6 h-6 rounded-md bg-primary/15 flex items-center justify-center flex-shrink-0">
-                    <span className="text-[10px] font-bold text-primary">{t.name.charAt(0)}</span>
-                  </div>
-                  <span className="font-medium">{t.name}</span>
-                  {t.id === currentTenant?.id && <CheckCircle className="w-3.5 h-3.5 text-primary mr-auto" />}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          )}
+          <DropdownMenuContent align="end" className="min-w-[200px]">
+            {tenants.map((t) => (
+              <DropdownMenuItem
+                key={t.id}
+                onClick={() => selectTenant(t)}
+                className={`gap-2 ${t.id === currentTenant?.id ? 'bg-secondary' : ''}`}
+              >
+                <div className="w-6 h-6 rounded-md bg-primary/15 flex items-center justify-center flex-shrink-0">
+                  <span className="text-[10px] font-bold text-primary">{t.name.charAt(0)}</span>
+                </div>
+                <span className="font-medium">{t.name}</span>
+                {t.id === currentTenant?.id && <CheckCircle className="w-3.5 h-3.5 text-primary mr-auto" />}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
         </DropdownMenu>
+      ) : (
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border">
+          <div className="w-6 h-6 rounded-md bg-primary/15 flex items-center justify-center flex-shrink-0">
+            <span className="text-[10px] font-bold text-primary">{currentTenant?.name?.charAt(0) || 'B'}</span>
+          </div>
+          <span className="text-sm font-semibold text-foreground">{currentTenant?.name || 'جاري التحميل...'}</span>
+        </div>
       )}
     </div>
   );
