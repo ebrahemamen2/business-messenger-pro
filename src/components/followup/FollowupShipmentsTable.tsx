@@ -765,7 +765,11 @@ const FollowupShipmentsTable = () => {
             <div className="flex items-center gap-5 flex-wrap text-sm">
               <div className="flex items-center gap-1.5">
                 <Package className="w-3.5 h-3.5 text-muted-foreground" />
-                <span className="font-mono font-semibold text-foreground">{activeShipment.shipment_code}</span>
+                {(() => {
+                  const days = getDaysSinceLastStatus(activeShipment);
+                  const isUrgent = days !== null && days >= 3;
+                  return <span className={`font-mono font-semibold ${isUrgent ? 'text-red-600' : 'text-foreground'}`}>{activeShipment.shipment_code}</span>;
+                })()}
               </div>
               {activeShipment.order_code && (
                 <div className="flex items-center gap-1.5">
