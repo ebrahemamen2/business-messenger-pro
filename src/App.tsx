@@ -145,6 +145,7 @@ const ProtectedLayout = () => {
 
         <div className={`flex-1 flex flex-col overflow-hidden ${isMobile ? 'pb-[calc(56px+env(safe-area-inset-bottom,0px))]' : ''}`}>
           {isMobile && <MobileTopBar />}
+          {!isMobile && <DesktopTopBar />}
 
           <main className="flex-1 overflow-hidden">
             <Routes>
