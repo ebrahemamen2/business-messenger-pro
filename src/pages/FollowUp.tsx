@@ -126,6 +126,10 @@ const FollowUp = () => {
           <FollowupShipmentsTable />
         </TabsContent>
 
+        <TabsContent value="done" className="flex-1 m-0 overflow-hidden">
+          <DoneShipmentsTable />
+        </TabsContent>
+
         <TabsContent value="settings" className="flex-1 m-0 overflow-hidden">
           <FollowupSettings />
         </TabsContent>
