@@ -1,0 +1,1 @@
+DELETE FROM public.shipment_followup_history WHERE action_status NOT IN ('pending', 'contacted', 'resolved', 'escalated', 'cancelled', '');
