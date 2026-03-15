@@ -352,13 +352,6 @@ const AllShipmentsTable = () => {
     toast({ title: '✅ تم التصدير', description: `تم تصدير ${exportData.length} شحنة` });
   };
 
-  // Get unique statuses from data
-  const statusCounts = shipments.reduce((acc, s) => {
-    const st = s.final_status || s.status || 'unknown';
-    acc[st] = (acc[st] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="p-3 sm:p-4 border-b border-border bg-card space-y-3 flex-shrink-0">
