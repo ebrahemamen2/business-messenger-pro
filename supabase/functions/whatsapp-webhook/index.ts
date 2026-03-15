@@ -468,16 +468,71 @@ Deno.serve(async (req) => {
 
             totalMessages += 1;
 
-            // Auto-reply logic (keyword-based + AI)
+            // Auto-reply logic (button actions + keyword-based + AI)
             if (config?.access_token && config?.phone_number_id) {
               const msgText = body.toLowerCase();
               let autoResponse: string | null = null;
+              let buttonStatusUpdate: string | null = null;
 
-              // 1. Check keyword-based rules first
-              for (const rule of rules) {
-                if (msgText.includes(rule.trigger_keyword.toLowerCase())) {
-                  autoResponse = rule.response_text;
-                  break;
+              // 0. Check followup button actions FIRST (highest priority)
+              const isButtonReply = message.interactive?.button_reply?.title || message.button?.text;
+              if (isButtonReply && config?.tenant_id) {
+                const buttonTitle = (message.interactive?.button_reply?.title || message.button?.text || "").trim();
+                const { data: buttonAction } = await supabase
+                  .from("followup_button_actions")
+                  .select("auto_reply_text, update_status_to, is_active")
+                  .eq("tenant_id", config.tenant_id)
+                  .eq("button_title", buttonTitle)
+                  .eq("is_active", true)
+                  .limit(1)
+                  .maybeSingle();
+
+                if (buttonAction) {
+                  autoResponse = buttonAction.auto_reply_text || null;
+                  buttonStatusUpdate = buttonAction.update_status_to || null;
+                  console.log("Button action matched:", buttonTitle, "→ status:", buttonStatusUpdate);
+
+                  // Update shipment status in shipment_tracking
+                  if (buttonStatusUpdate) {
+                    const { error: shipErr } = await supabase
+                      .from("shipment_tracking")
+                      .update({
+                        status: buttonStatusUpdate,
+                        proc_notes: `[زر: ${buttonTitle}] ${new Date().toLocaleDateString('ar-EG')}`,
+                        updated_at: new Date().toISOString(),
+                      })
+                      .eq("tenant_id", config.tenant_id)
+                      .eq("customer_phone", contactPhone)
+                      .order("uploaded_at", { ascending: false })
+                      .limit(1);
+
+                    if (shipErr) {
+                      console.error("Button status update error:", shipErr.message);
+                      errors.push(`btn_status: ${shipErr.message}`);
+                    } else {
+                      console.log("Shipment status updated to:", buttonStatusUpdate, "for", contactPhone);
+                    }
+                  }
+
+                  // Also update the conversation module to followup
+                  await upsertConversationFromMessage({
+                    supabase,
+                    contactPhone,
+                    tenantId: config.tenant_id,
+                    module: "followup",
+                    direction: "inbound",
+                    atIso: inboundAt,
+                  });
+                }
+              }
+
+              // 1. Check keyword-based rules (if no button action matched)
+              if (!autoResponse) {
+                for (const rule of rules) {
+                  if (msgText.includes(rule.trigger_keyword.toLowerCase())) {
+                    autoResponse = rule.response_text;
+                    break;
+                  }
                 }
               }
 
@@ -535,7 +590,6 @@ Deno.serve(async (req) => {
                   }
                 } catch (aiErr) {
                   console.error("AI auto-reply error:", aiErr);
-                  // Don't block on AI errors - just skip
                 }
               }
 
@@ -560,6 +614,22 @@ Deno.serve(async (req) => {
                   console.log("Auto-reply sent:", JSON.stringify(waResult));
 
                   const outboundAt = new Date().toISOString();
+                  // Detect the correct module for the outbound message
+                  let outModule = "confirm";
+                  if (buttonStatusUpdate) {
+                    outModule = "followup";
+                  } else {
+                    const { data: convForOut } = await supabase
+                      .from("conversations")
+                      .select("module")
+                      .eq("contact_phone", contactPhone)
+                      .eq("tenant_id", config.tenant_id)
+                      .order("updated_at", { ascending: false })
+                      .limit(1)
+                      .maybeSingle();
+                    if (convForOut?.module) outModule = convForOut.module;
+                  }
+
                   const { error: autoInsertErr } = await supabase.from("messages").insert({
                     wa_message_id: waResult.messages?.[0]?.id,
                     contact_phone: contactPhone,
@@ -579,7 +649,7 @@ Deno.serve(async (req) => {
                       supabase,
                       contactPhone,
                       tenantId: config?.tenant_id || null,
-                      module: "confirm",
+                      module: outModule,
                       direction: "outbound",
                       atIso: outboundAt,
                     });

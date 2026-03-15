@@ -222,9 +222,28 @@ Deno.serve(async (req) => {
     // Add the current incoming message
     history.push({ role: "user", content: incomingMessage });
 
+    // 4b. If followup module, load button actions context for AI
+    let buttonContext = "";
+    if (module === "followup") {
+      const { data: buttonActions } = await supabase
+        .from("followup_button_actions")
+        .select("button_title, auto_reply_text, update_status_to")
+        .eq("tenant_id", tenantId)
+        .eq("is_active", true);
+
+      if (buttonActions && buttonActions.length > 0) {
+        buttonContext = "\n\n--- سياق أزرار القالب ---\n" +
+          "العميل ممكن يكون رد على قالب واتساب بضغط زر. الأزرار المتاحة:\n" +
+          buttonActions.map((b: any) =>
+            `- "${b.button_title}" → الحالة تتغير لـ "${b.update_status_to}" والرد التلقائي: "${b.auto_reply_text}"`
+          ).join("\n") +
+          "\n\nلو رسالة العميل هي نص زر من الأزرار دي، ده معناه إنه ضغط على الزر. كمّل المحادثة بناءً على السياق ده.";
+      }
+    }
+
     // Build full messages array with system prompt
     const messages: ChatMessage[] = [
-      { role: "system", content: modulePrompt.system_prompt },
+      { role: "system", content: modulePrompt.system_prompt + buttonContext },
       ...history,
     ];
 
