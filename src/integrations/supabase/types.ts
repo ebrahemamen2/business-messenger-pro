@@ -372,6 +372,50 @@ export type Database = {
           },
         ]
       }
+      followup_wa_templates: {
+        Row: {
+          created_at: string
+          description: string | null
+          has_variables: boolean
+          id: string
+          language: string
+          template_name: string
+          tenant_id: string
+          updated_at: string
+          variable_mappings: Json | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          has_variables?: boolean
+          id?: string
+          language?: string
+          template_name: string
+          tenant_id: string
+          updated_at?: string
+          variable_mappings?: Json | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          has_variables?: boolean
+          id?: string
+          language?: string
+          template_name?: string
+          tenant_id?: string
+          updated_at?: string
+          variable_mappings?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "followup_wa_templates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_reactions: {
         Row: {
           created_at: string
@@ -720,6 +764,8 @@ export type Database = {
           tenant_id: string
           updated_at: string
           uploaded_at: string
+          wa_sent_at: string | null
+          wa_template_name: string | null
           wa_template_sent: boolean
         }
         Insert: {
@@ -746,6 +792,8 @@ export type Database = {
           tenant_id: string
           updated_at?: string
           uploaded_at?: string
+          wa_sent_at?: string | null
+          wa_template_name?: string | null
           wa_template_sent?: boolean
         }
         Update: {
@@ -772,6 +820,8 @@ export type Database = {
           tenant_id?: string
           updated_at?: string
           uploaded_at?: string
+          wa_sent_at?: string | null
+          wa_template_name?: string | null
           wa_template_sent?: boolean
         }
         Relationships: [
