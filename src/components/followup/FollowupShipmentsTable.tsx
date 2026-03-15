@@ -192,7 +192,8 @@ const FollowupShipmentsTable = () => {
   const filtered = useMemo(() => {
     return shipments.filter(s => {
       // Action filter
-      if (actionFilter !== 'all' && s.status !== actionFilter) return false;
+      if (actionFilter === '__none__' && s.status !== '' && s.status !== null) return false;
+      if (actionFilter !== 'all' && actionFilter !== '__none__' && s.status !== actionFilter) return false;
       
       // Status description filter
       if (statusDescFilter !== 'all' && (s.status_description || '') !== statusDescFilter) return false;
@@ -858,7 +859,7 @@ const FollowupShipmentsTable = () => {
                     <SelectTrigger className="h-7 text-[10px] bg-background"><SelectValue placeholder="الكل" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all" className="text-xs">الكل</SelectItem>
-                      <SelectItem value="" className="text-xs">بدون حالة</SelectItem>
+                      <SelectItem value="__none__" className="text-xs">بدون حالة</SelectItem>
                       {actionStatuses.map(({ key, label }) => (
                         <SelectItem key={key} value={key} className="text-xs">{label}</SelectItem>
                       ))}
