@@ -214,7 +214,7 @@ const FollowupShipmentsTable = () => {
     const dateStr = new Date().toLocaleDateString('en-CA', { timeZone: tenantTimezone });
     const [year, month, day] = dateStr.split('-').map(Number);
     return createStrictDate(year, month, day) ?? new Date(year, month - 1, day);
-  }, [tenantTimezone]);
+  }, [tenantTimezone, createStrictDate]);
 
   // Calculate days since last shipping-company status date
   const getDaysSinceLastStatus = useCallback((shipment: Shipment): number | null => {
