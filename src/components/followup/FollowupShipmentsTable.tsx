@@ -69,6 +69,14 @@ const FollowupShipmentsTable = () => {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [noteText, setNoteText] = useState('');
 
+  // Navigator card state
+  const [cardVisible, setCardVisible] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [cardFilter, setCardFilter] = useState<'all' | 'pending'>('pending');
+  const [cardNoteText, setCardNoteText] = useState('');
+  const [editingCardNote, setEditingCardNote] = useState(false);
+  const rowRefs = useRef<Map<string, HTMLTableRowElement>>(new Map());
+
   // WA sending state
   const [waTemplates, setWaTemplates] = useState<WATemplate[]>([]);
   const [showSendDialog, setShowSendDialog] = useState(false);
