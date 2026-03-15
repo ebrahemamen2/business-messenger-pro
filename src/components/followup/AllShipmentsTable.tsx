@@ -362,7 +362,7 @@ const AllShipmentsTable = () => {
             </div>
             <div>
               <h2 className="text-base font-bold text-foreground">كل الشحنات</h2>
-              <p className="text-xs text-muted-foreground">{shipments.length} شحنة</p>
+              <p className="text-xs text-muted-foreground">{totalCount.toLocaleString()} شحنة</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
