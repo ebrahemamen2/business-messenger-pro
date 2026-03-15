@@ -298,6 +298,7 @@ const FollowupShipmentsTable = () => {
     return counts;
   }, [filtered, getDaysSinceLastStatus, getRecencyGroup]);
 
+  const updateAction = async (id: string, newStatus: string) => {
     const { error } = await supabase
       .from('shipment_tracking')
       .update({ status: newStatus } as any)
