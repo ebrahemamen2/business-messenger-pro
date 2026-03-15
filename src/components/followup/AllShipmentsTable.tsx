@@ -318,6 +318,7 @@ const AllShipmentsTable = () => {
       } else {
         toast({ title: '✅ تم الرفع', description: `تم رفع/تحديث ${shipmentRows.length} شحنة بنجاح` });
         loadShipments();
+        loadStatusCounts();
       }
     } catch (err) {
       console.error('File parse error:', err);
