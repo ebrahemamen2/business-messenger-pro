@@ -338,6 +338,64 @@ const FollowupShipmentsTable = () => {
     }, {} as Record<string, number>);
   }, [filtered]);
 
+  // Navigator card filtered list
+  const cardFiltered = useMemo(() => {
+    if (cardFilter === 'pending') return filtered.filter(s => s.status === 'pending');
+    return filtered;
+  }, [filtered, cardFilter]);
+
+  const activeShipment = cardFiltered[activeIndex] || null;
+
+  // Sync card note text when active shipment changes
+  useEffect(() => {
+    if (activeShipment) {
+      setCardNoteText(activeShipment.notes || '');
+      setEditingCardNote(false);
+    }
+  }, [activeShipment?.id]);
+
+  // Auto-scroll to active row
+  useEffect(() => {
+    if (cardVisible && activeShipment) {
+      const row = rowRefs.current.get(activeShipment.id);
+      row?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [activeIndex, cardVisible, activeShipment?.id]);
+
+  // Clamp activeIndex when cardFiltered changes
+  useEffect(() => {
+    if (activeIndex >= cardFiltered.length && cardFiltered.length > 0) {
+      setActiveIndex(cardFiltered.length - 1);
+    } else if (cardFiltered.length === 0) {
+      setActiveIndex(0);
+    }
+  }, [cardFiltered.length, activeIndex]);
+
+  const navigateCard = (dir: 'prev' | 'next') => {
+    setActiveIndex(prev => {
+      if (dir === 'prev') return Math.max(0, prev - 1);
+      return Math.min(cardFiltered.length - 1, prev + 1);
+    });
+  };
+
+  const handleRowClick = (shipmentId: string) => {
+    if (!cardVisible) return;
+    const idx = cardFiltered.findIndex(s => s.id === shipmentId);
+    if (idx !== -1) setActiveIndex(idx);
+  };
+
+  const saveCardNote = async () => {
+    if (!activeShipment) return;
+    const { error } = await supabase
+      .from('shipment_tracking')
+      .update({ notes: cardNoteText } as any)
+      .eq('id', activeShipment.id);
+    if (!error) {
+      setShipments(prev => prev.map(s => s.id === activeShipment.id ? { ...s, notes: cardNoteText } : s));
+      setEditingCardNote(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="p-3 sm:p-4 border-b border-border bg-card space-y-3 flex-shrink-0">
@@ -352,6 +410,15 @@ const FollowupShipmentsTable = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant={cardVisible ? "default" : "outline"}
+              size="sm"
+              onClick={() => setCardVisible(v => !v)}
+              className="gap-1.5 text-xs"
+            >
+              {cardVisible ? <PanelTopClose className="w-3.5 h-3.5" /> : <PanelTop className="w-3.5 h-3.5" />}
+              {cardVisible ? 'إخفاء العداد' : 'عداد المتابعة'}
+            </Button>
             {selectedIds.size > 0 && waTemplates.length > 0 && (
               <Button size="sm" onClick={() => { setShowSendDialog(true); setSendResults(null); }} className="gap-1.5 text-xs bg-green-600 hover:bg-green-700 text-white">
                 <MessageSquare className="w-3.5 h-3.5" />
