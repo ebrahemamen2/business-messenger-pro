@@ -98,19 +98,26 @@ const AllShipmentsTable = () => {
   const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
-  // Load status counts once (lightweight query)
+  // Load status counts using paginated approach to bypass 1000 row limit
   const loadStatusCounts = useCallback(async () => {
     if (!currentTenant?.id) return;
-    const { data, error } = await supabase
-      .from('shipment_tracking')
-      .select('final_status, status')
-      .eq('tenant_id', currentTenant.id);
-    if (error || !data) return;
     const counts: Record<string, number> = {};
-    data.forEach((s: any) => {
-      const st = s.final_status || s.status || 'unknown';
-      counts[st] = (counts[st] || 0) + 1;
-    });
+    let offset = 0;
+    const batchSize = 1000;
+    while (true) {
+      const { data, error } = await supabase
+        .from('shipment_tracking')
+        .select('final_status, status')
+        .eq('tenant_id', currentTenant.id)
+        .range(offset, offset + batchSize - 1);
+      if (error || !data || data.length === 0) break;
+      data.forEach((s: any) => {
+        const st = s.final_status || s.status || 'unknown';
+        counts[st] = (counts[st] || 0) + 1;
+      });
+      if (data.length < batchSize) break;
+      offset += batchSize;
+    }
     setStatusCounts(counts);
   }, [currentTenant?.id]);
 
