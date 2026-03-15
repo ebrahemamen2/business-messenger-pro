@@ -351,11 +351,27 @@ const FollowupShipmentsTable = () => {
 
   const activeShipment = cardFiltered[activeIndex] || null;
 
-  // Sync card note text when active shipment changes
+  // Sync card note text when active shipment changes + load history
   useEffect(() => {
     if (activeShipment) {
       setCardNoteText(activeShipment.notes || '');
       setEditingCardNote(false);
+      // Fetch last history for this shipment
+      if (!lastHistory[activeShipment.id]) {
+        supabase
+          .from('shipment_followup_history')
+          .select('action_status, notes, created_at')
+          .eq('shipment_id', activeShipment.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .then(({ data }) => {
+            if (data && data.length > 0) {
+              setLastHistory(prev => ({ ...prev, [activeShipment.id]: data[0] as any }));
+            } else {
+              setLastHistory(prev => ({ ...prev, [activeShipment.id]: null }));
+            }
+          });
+      }
     }
   }, [activeShipment?.id]);
 
