@@ -396,7 +396,7 @@ const AllShipmentsTable = () => {
 
         <div className="relative">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-          <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="بحث بالبوليصة أو الاسم أو الرقم أو المنطقة..." className="bg-secondary border-0 text-xs pr-9 h-8" />
+          <Input value={searchInput} onChange={e => handleSearchInput(e.target.value)} placeholder="بحث بالبوليصة أو الاسم أو الرقم أو المنطقة..." className="bg-secondary border-0 text-xs pr-9 h-8" />
         </div>
       </div>
 
