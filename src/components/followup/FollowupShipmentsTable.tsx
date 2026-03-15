@@ -525,7 +525,30 @@ const FollowupShipmentsTable = () => {
                         <span className="text-[10px] text-muted-foreground">-</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-xs max-w-[150px] truncate">{s.proc_notes || '-'}</TableCell>
+                    <TableCell className="max-w-[180px]">
+                      {editingNoteId === s.id ? (
+                        <div className="flex items-center gap-1">
+                          <Input
+                            value={noteText}
+                            onChange={e => setNoteText(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') saveNote(s.id); if (e.key === 'Escape') setEditingNoteId(null); }}
+                            className="h-7 text-xs flex-1"
+                            dir="auto"
+                            autoFocus
+                          />
+                          <button onClick={() => saveNote(s.id)} className="p-1 rounded hover:bg-green-500/10 text-green-600"><Check className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => setEditingNoteId(null)} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground"><X className="w-3.5 h-3.5" /></button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => startEditNote(s.id, s.notes || '')}
+                          className="text-xs text-right w-full truncate block hover:bg-secondary rounded px-1 py-0.5 transition-colors"
+                          title={s.notes || 'اضغط لإضافة ملاحظة'}
+                        >
+                          {s.notes || <span className="text-muted-foreground">+ ملاحظة</span>}
+                        </button>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setDetailShipment(s)}>
                         <Eye className="w-3.5 h-3.5" />
