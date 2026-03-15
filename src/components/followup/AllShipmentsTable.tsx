@@ -80,6 +80,8 @@ export interface Shipment {
   updated_at: string;
 }
 
+const PAGE_SIZE = 500;
+
 const AllShipmentsTable = () => {
   const { currentTenant } = useTenantContext();
   const { toast } = useToast();
@@ -88,40 +90,78 @@ const AllShipmentsTable = () => {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [detailShipment, setDetailShipment] = useState<Shipment | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // Load status counts using paginated approach to bypass 1000 row limit
+  const loadStatusCounts = useCallback(async () => {
+    if (!currentTenant?.id) return;
+    const counts: Record<string, number> = {};
+    let offset = 0;
+    const batchSize = 1000;
+    while (true) {
+      const { data, error } = await supabase
+        .from('shipment_tracking')
+        .select('final_status, status')
+        .eq('tenant_id', currentTenant.id)
+        .range(offset, offset + batchSize - 1);
+      if (error || !data || data.length === 0) break;
+      data.forEach((s: any) => {
+        const st = s.final_status || s.status || 'unknown';
+        counts[st] = (counts[st] || 0) + 1;
+      });
+      if (data.length < batchSize) break;
+      offset += batchSize;
+    }
+    setStatusCounts(counts);
+  }, [currentTenant?.id]);
 
   const loadShipments = useCallback(async () => {
     if (!currentTenant?.id) { setLoading(false); return; }
     setLoading(true);
+    const from = (currentPage - 1) * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+
     let query = supabase
       .from('shipment_tracking')
-      .select('*')
+      .select('*', { count: 'exact' })
       .eq('tenant_id', currentTenant.id)
-      .order('uploaded_at', { ascending: false });
+      .order('uploaded_at', { ascending: false })
+      .range(from, to);
 
     if (statusFilter !== 'all') {
       query = query.eq('final_status', statusFilter);
     }
-    const { data, error } = await query.limit(1000);
+    if (searchQuery) {
+      query = query.or(`shipment_code.ilike.%${searchQuery}%,order_code.ilike.%${searchQuery}%,customer_phone.ilike.%${searchQuery}%,customer_name.ilike.%${searchQuery}%,customer_area.ilike.%${searchQuery}%`);
+    }
+
+    const { data, error, count } = await query;
     if (error) console.error('Load shipments error:', error);
     setShipments((data as Shipment[]) || []);
+    setTotalCount(count ?? 0);
     setLoading(false);
-  }, [currentTenant?.id, statusFilter]);
+  }, [currentTenant?.id, statusFilter, searchQuery, currentPage]);
 
   useEffect(() => { loadShipments(); }, [loadShipments]);
+  useEffect(() => { loadStatusCounts(); }, [loadStatusCounts]);
 
-  const filtered = shipments.filter(s => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      s.shipment_code.toLowerCase().includes(q) ||
-      (s.order_code || '').toLowerCase().includes(q) ||
-      s.customer_phone.includes(q) ||
-      (s.customer_name || '').toLowerCase().includes(q) ||
-      (s.customer_area || '').toLowerCase().includes(q)
-    );
-  });
+  // Reset to page 1 when filters change
+  useEffect(() => { setCurrentPage(1); }, [statusFilter, searchQuery]);
+
+  // Debounced search
+  const handleSearchInput = (value: string) => {
+    setSearchInput(value);
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    searchTimeoutRef.current = setTimeout(() => setSearchQuery(value), 400);
+  };
+
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
   const normalizeHeader = (value: string) =>
     value.toLowerCase().replace(/_x[0-9a-f]{4}_/gi, ' ').replace(/[\s_\-]+/g, '').trim();
@@ -285,6 +325,7 @@ const AllShipmentsTable = () => {
       } else {
         toast({ title: '✅ تم الرفع', description: `تم رفع/تحديث ${shipmentRows.length} شحنة بنجاح` });
         loadShipments();
+        loadStatusCounts();
       }
     } catch (err) {
       console.error('File parse error:', err);
@@ -296,7 +337,7 @@ const AllShipmentsTable = () => {
   };
 
   const exportSheet = () => {
-    const exportData = filtered.map(s => ({
+    const exportData = shipments.map(s => ({
       'رقم البوليصة': s.shipment_code,
       'كود الطلب': s.order_code || '',
       'اسم العميل': s.customer_name || '',
@@ -319,13 +360,6 @@ const AllShipmentsTable = () => {
     toast({ title: '✅ تم التصدير', description: `تم تصدير ${exportData.length} شحنة` });
   };
 
-  // Get unique statuses from data
-  const statusCounts = shipments.reduce((acc, s) => {
-    const st = s.final_status || s.status || 'unknown';
-    acc[st] = (acc[st] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="p-3 sm:p-4 border-b border-border bg-card space-y-3 flex-shrink-0">
@@ -336,7 +370,7 @@ const AllShipmentsTable = () => {
             </div>
             <div>
               <h2 className="text-base font-bold text-foreground">كل الشحنات</h2>
-              <p className="text-xs text-muted-foreground">{shipments.length} شحنة</p>
+              <p className="text-xs text-muted-foreground">{totalCount.toLocaleString()} شحنة</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -349,7 +383,8 @@ const AllShipmentsTable = () => {
               <Download className="w-3.5 h-3.5" />
               تصدير
             </Button>
-            <Button variant="ghost" size="sm" onClick={loadShipments} className="gap-1.5 text-xs">
+        {/* Reload status counts after upload */}
+        <Button variant="ghost" size="sm" onClick={() => { loadShipments(); loadStatusCounts(); }} className="gap-1.5 text-xs">
               <RefreshCw className="w-3.5 h-3.5" />
             </Button>
           </div>
@@ -358,7 +393,7 @@ const AllShipmentsTable = () => {
         {/* Status filter chips */}
         <div className="flex gap-1.5 flex-wrap max-h-16 overflow-y-auto">
           <button onClick={() => setStatusFilter('all')} className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${statusFilter === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
-            الكل ({shipments.length})
+            الكل ({Object.values(statusCounts).reduce((a, b) => a + b, 0).toLocaleString()})
           </button>
           {Object.entries(statusCounts).sort((a, b) => b[1] - a[1]).map(([status, count]) => (
             <button key={status} onClick={() => setStatusFilter(status)} className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${statusFilter === status ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
@@ -369,14 +404,14 @@ const AllShipmentsTable = () => {
 
         <div className="relative">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-          <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="بحث بالبوليصة أو الاسم أو الرقم أو المنطقة..." className="bg-secondary border-0 text-xs pr-9 h-8" />
+          <Input value={searchInput} onChange={e => handleSearchInput(e.target.value)} placeholder="بحث بالبوليصة أو الاسم أو الرقم أو المنطقة..." className="bg-secondary border-0 text-xs pr-9 h-8" />
         </div>
       </div>
 
       <div className="flex-1 overflow-auto">
         {loading ? (
           <div className="flex items-center justify-center h-full"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
-        ) : filtered.length === 0 ? (
+        ) : shipments.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-4 text-muted-foreground">
             <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center"><Package className="w-8 h-8 text-primary" /></div>
             <p className="text-sm font-medium">لا توجد شحنات</p>
@@ -398,7 +433,7 @@ const AllShipmentsTable = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map(s => {
+              {shipments.map(s => {
                 const displayStatus = s.final_status || s.status || '-';
                 return (
                   <TableRow key={s.id} className="text-xs">
@@ -426,6 +461,36 @@ const AllShipmentsTable = () => {
           </Table>
         )}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-4 py-2 border-t border-border bg-card flex-shrink-0">
+          <p className="text-xs text-muted-foreground">
+            صفحة {currentPage} من {totalPages} — عرض {((currentPage - 1) * PAGE_SIZE) + 1} إلى {Math.min(currentPage * PAGE_SIZE, totalCount)} من {totalCount.toLocaleString()}
+          </p>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" className="h-7 text-xs px-2" disabled={currentPage <= 1} onClick={() => setCurrentPage(p => p - 1)}>
+              السابق
+            </Button>
+            {/* Show page numbers */}
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              let page: number;
+              if (totalPages <= 5) { page = i + 1; }
+              else if (currentPage <= 3) { page = i + 1; }
+              else if (currentPage >= totalPages - 2) { page = totalPages - 4 + i; }
+              else { page = currentPage - 2 + i; }
+              return (
+                <Button key={page} variant={page === currentPage ? 'default' : 'outline'} size="sm" className="h-7 w-7 text-xs p-0" onClick={() => setCurrentPage(page)}>
+                  {page}
+                </Button>
+              );
+            })}
+            <Button variant="outline" size="sm" className="h-7 text-xs px-2" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(p => p + 1)}>
+              التالي
+            </Button>
+          </div>
+        </div>
+      )}
 
       <Dialog open={!!detailShipment} onOpenChange={() => setDetailShipment(null)}>
         <DialogContent className="max-w-lg" dir="rtl">
