@@ -81,7 +81,7 @@ const FollowupShipmentsTable = () => {
   const [cardNoteText, setCardNoteText] = useState('');
   const [editingCardNote, setEditingCardNote] = useState(false);
   const rowRefs = useRef<Map<string, HTMLTableRowElement>>(new Map());
-
+  const [lastHistory, setLastHistory] = useState<Record<string, { action_status: string; notes: string | null; created_at: string } | null>>({});
   // WA sending state
   const [waTemplates, setWaTemplates] = useState<WATemplate[]>([]);
   const [showSendDialog, setShowSendDialog] = useState(false);
