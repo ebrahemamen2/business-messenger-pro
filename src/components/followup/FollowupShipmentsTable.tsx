@@ -374,7 +374,7 @@ const FollowupShipmentsTable = () => {
         (s.proc_notes || '').toLowerCase().includes(q)
       );
     });
-  }, [shipments, actionFilter, statusFilter, statusDescFilter, notesFilter, dateFilter, waSentFilter, searchQuery, getDaysSinceLastStatus, getRecencyGroup]);
+  }, [shipments, actionFilter, statusFilter, statusDescFilter, notesFilter, dateFilter, waSentFilter, searchQuery, getDaysSinceLastStatus, getRecencyGroup, noteToGroup]);
 
   // Group filtered shipments by recency
   const groupedFiltered = useMemo(() => {
