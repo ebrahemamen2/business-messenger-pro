@@ -160,6 +160,7 @@ const FollowupShipmentsTable = () => {
       .limit(5000);
 
     if (error) console.error('Load followup shipments error:', error);
+    setNoteGroups({});
     setShipments((data as any[]) || []);
     setLoading(false);
   }, [currentTenant?.id, loadConfig]);
