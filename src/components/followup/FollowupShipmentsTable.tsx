@@ -244,7 +244,7 @@ const FollowupShipmentsTable = () => {
     'unknown': '⚪ بدون تاريخ',
   };
 
-  const RECENCY_ORDER = ['today', 'day1', 'day2', 'day3plus', 'unknown'];
+  const RECENCY_ORDER = ['day3plus', 'day2', 'day1', 'today', 'unknown'];
 
   // Get unique shipping statuses for filter
   const uniqueStatuses = useMemo(() => {
