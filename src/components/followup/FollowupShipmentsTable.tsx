@@ -1056,17 +1056,19 @@ const FollowupShipmentsTable = () => {
                   {groupShipments.map(s => {
                     const actionInfo = getActionInfo(s.status);
                     const displayStatus = s.final_status || '-';
+                    const days = getDaysSinceLastStatus(s);
+                    const isUrgent = days !== null && days >= 3;
                     return (
                       <TableRow
                         key={s.id}
                         ref={(el) => { if (el) rowRefs.current.set(s.id, el); else rowRefs.current.delete(s.id); }}
-                        className={`text-xs cursor-pointer transition-colors ${cardVisible && activeShipment?.id === s.id ? 'bg-primary/10 ring-1 ring-primary/20' : ''}`}
+                        className={`text-xs cursor-pointer transition-colors ${cardVisible && activeShipment?.id === s.id ? 'bg-primary/10 ring-1 ring-primary/20' : ''} ${isUrgent ? 'bg-red-500/5' : ''}`}
                         onClick={() => handleRowClick(s.id)}
                       >
                         <TableCell className="text-center">
                           <input type="checkbox" checked={selectedIds.has(s.id)} onChange={() => toggleSelect(s.id)} className="rounded border-border" />
                         </TableCell>
-                        <TableCell className="font-mono text-xs">{s.shipment_code}</TableCell>
+                        <TableCell className={`font-mono text-xs ${isUrgent ? 'text-red-600 font-bold' : ''}`}>{s.shipment_code}</TableCell>
                         <TableCell>
                           <span className={`px-2 py-0.5 rounded-md text-[10px] font-medium border ${getStatusColor(displayStatus)}`}>
                             {displayStatus}
