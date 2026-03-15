@@ -334,8 +334,12 @@ const FollowupShipmentsTable = () => {
         if (actionFilter.has('__none__') && s.status && s.status !== '') return false;
       }
       
-      // Shipping company notes filter (proc_notes) - multi
-      if (statusDescFilter.size > 0 && !statusDescFilter.has(s.proc_notes || '')) return false;
+      // Shipping company notes filter (proc_notes) - multi, using AI groups
+      if (statusDescFilter.size > 0) {
+        const rawNote = s.proc_notes || '';
+        const group = noteToGroup[rawNote] || rawNote;
+        if (!statusDescFilter.has(group)) return false;
+      }
 
       // Notes filter - multi
       if (notesFilter.size > 0) {
