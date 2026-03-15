@@ -108,6 +108,95 @@ const ShipmentTrackingTable = () => {
     );
   });
 
+  const normalizeHeader = (value: string) =>
+    value
+      .toLowerCase()
+      .replace(/_x[0-9a-f]{4}_/gi, ' ')
+      .replace(/[\s_\-]+/g, '')
+      .trim();
+
+  const readAsBinaryString = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve((reader.result as string) || '');
+      reader.onerror = () => reject(reader.error || new Error('Failed to read binary file'));
+      reader.readAsBinaryString(file);
+    });
+
+  const readWorkbookWithFallback = async (file: File) => {
+    const arrayBuffer = await file.arrayBuffer();
+    const isLegacyXls = file.name.toLowerCase().endsWith('.xls');
+
+    const attempts: Array<() => Promise<XLSX.WorkBook>> = [
+      async () => XLSX.read(arrayBuffer, { type: 'array', dense: true, cellDates: true, raw: false }),
+      async () => XLSX.read(new Uint8Array(arrayBuffer), { type: 'array', dense: true, cellDates: true, raw: false }),
+    ];
+
+    if (isLegacyXls) {
+      attempts.push(
+        async () => {
+          const binary = await readAsBinaryString(file);
+          return XLSX.read(binary, {
+            type: 'binary',
+            dense: true,
+            cellDates: true,
+            raw: false,
+            codepage: 65001,
+          });
+        },
+        async () => {
+          const text = await file.text();
+          return XLSX.read(text, { type: 'string', dense: true, cellDates: true, raw: false });
+        },
+      );
+    }
+
+    let lastError: unknown = null;
+
+    for (let i = 0; i < attempts.length; i++) {
+      try {
+        const workbook = await attempts[i]();
+        if (workbook?.SheetNames?.length) {
+          console.log(`📋 Workbook read success on attempt #${i + 1}`);
+          return workbook;
+        }
+      } catch (error) {
+        lastError = error;
+        console.warn(`📋 Workbook read attempt #${i + 1} failed`, error);
+      }
+    }
+
+    throw lastError || new Error('تعذر قراءة الملف');
+  };
+
+  const parseLocaleNumber = (value: unknown): number | null => {
+    if (value === null || value === undefined || value === '') return null;
+
+    const text = String(value).trim().replace(/[^\d,.-]/g, '');
+    if (!text) return null;
+
+    const lastComma = text.lastIndexOf(',');
+    const lastDot = text.lastIndexOf('.');
+
+    let normalized = text;
+
+    if (lastComma > -1 && lastDot > -1) {
+      normalized = lastComma > lastDot
+        ? text.replace(/\./g, '').replace(',', '.')
+        : text.replace(/,/g, '');
+    } else if (lastComma > -1) {
+      const decimals = text.length - lastComma - 1;
+      normalized = decimals <= 2
+        ? text.replace(/\./g, '').replace(',', '.')
+        : text.replace(/,/g, '');
+    } else {
+      normalized = text.replace(/,/g, '');
+    }
+
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+
   const mapStatus = (raw: string): string => {
     const lower = raw.toLowerCase().trim();
     if (lower.includes('deliver') || lower.includes('تسليم') || lower.includes('مستلم')) return 'delivered';
@@ -124,37 +213,81 @@ const ShipmentTrackingTable = () => {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     console.log('📋 File input changed, files:', e.target.files?.length);
     const file = e.target.files?.[0];
-    if (!file) { console.log('📋 No file selected'); return; }
-    if (!currentTenant?.id) { console.log('📋 No tenant selected'); toast({ title: '❌ خطأ', description: 'لم يتم اختيار البراند', variant: 'destructive' }); return; }
+    if (!file) {
+      console.log('📋 No file selected');
+      return;
+    }
+    if (!currentTenant?.id) {
+      console.log('📋 No tenant selected');
+      toast({ title: '❌ خطأ', description: 'لم يتم اختيار البراند', variant: 'destructive' });
+      return;
+    }
+
     setUploading(true);
     console.log('📋 Starting upload for:', file.name, 'size:', file.size, 'type:', file.type);
 
     try {
       toast({ title: '📂 جاري قراءة الملف...', description: file.name });
-      
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data, { type: 'array' });
+
+      const workbook = await readWorkbookWithFallback(file);
       console.log('📋 Workbook sheets:', workbook.SheetNames);
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
 
-      console.log('📋 Parsed rows count:', rows.length);
+      const firstSheetName = workbook.SheetNames.find((name) => {
+        const candidate = workbook.Sheets[name];
+        return candidate && candidate['!ref'];
+      }) || workbook.SheetNames[0];
 
-      if (rows.length === 0) {
+      const sheet = workbook.Sheets[firstSheetName];
+      if (!sheet) throw new Error('لا يوجد Sheet صالح داخل الملف');
+
+      const aoa = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, defval: '' });
+      const nonEmptyStart = aoa.findIndex((row) => row.some((cell) => String(cell ?? '').trim() !== ''));
+
+      if (nonEmptyStart === -1) {
         toast({ title: '⚠️ الملف فارغ', description: 'لا توجد بيانات في الملف', variant: 'destructive' });
-        setUploading(false);
         return;
       }
 
-      const firstRow = rows[0];
-      const keys = Object.keys(firstRow);
-      
+      const headerSignals = ['ref', 'shipment', 'tracking', 'awb', 'tel', 'phone', 'status', 'بوليص', 'هاتف', 'حاله', 'حالة'];
+      const headerRelativeIndex = aoa.slice(nonEmptyStart).findIndex((row) => {
+        const normalizedRow = row.map((cell) => normalizeHeader(String(cell ?? '')));
+        return normalizedRow.some((cell) => headerSignals.some((signal) => cell.includes(normalizeHeader(signal))));
+      });
+
+      const headerIndex = headerRelativeIndex >= 0 ? nonEmptyStart + headerRelativeIndex : nonEmptyStart;
+      const headerRow = aoa[headerIndex] || [];
+
+      const keys = headerRow.map((cell, index) => {
+        const raw = String(cell ?? '').trim();
+        return raw || `column_${index + 1}`;
+      });
+
+      const dataRows = aoa
+        .slice(headerIndex + 1)
+        .filter((row) => row.some((cell) => String(cell ?? '').trim() !== ''));
+
+      const rows: Record<string, unknown>[] = dataRows.map((row) => {
+        const obj: Record<string, unknown> = {};
+        keys.forEach((key, index) => {
+          obj[key] = row[index] ?? '';
+        });
+        return obj;
+      });
+
+      console.log('📋 Parsed rows count:', rows.length);
       console.log('📋 Sheet columns detected:', keys);
-      console.log('📋 First row sample:', firstRow);
-      console.log('📋 Total rows:', rows.length);
-      
-      const findCol = (patterns: string[]) => 
-        keys.find(k => patterns.some(p => k.toLowerCase().includes(p.toLowerCase())));
+      console.log('📋 Header row index:', headerIndex);
+
+      if (rows.length === 0) {
+        toast({ title: '⚠️ الملف فارغ', description: 'لا توجد بيانات بعد سطر العناوين', variant: 'destructive' });
+        return;
+      }
+
+      const normalizedKeys = keys.map((key) => ({ key, normalized: normalizeHeader(key) }));
+      const findCol = (patterns: string[]) => {
+        const normalizedPatterns = patterns.map(normalizeHeader);
+        return normalizedKeys.find(({ normalized }) => normalizedPatterns.some((p) => normalized.includes(p)))?.key;
+      };
 
       // Map columns from shipping company sheet
       const refCol = findCol(['Ref', 'بوليصة', 'بوليصه', 'shipment', 'tracking', 'awb', 'كود الشحن']);
@@ -181,37 +314,43 @@ const ShipmentTrackingTable = () => {
           description: 'الملف لازم يحتوي على عمود Ref أو Tel على الأقل. الأعمدة: ' + keys.join(', '),
           variant: 'destructive',
         });
-        setUploading(false);
         return;
       }
 
-      const shipmentRows = rows.map(row => {
-        let phone = telCol ? String(row[telCol]).replace(/[\s\-\+]/g, '').trim() : '';
-        // Normalize Egyptian phone
-        if (phone.startsWith('01') && phone.length === 11) phone = '2' + phone;
+      const shipmentRows = rows
+        .map((row, index) => {
+          let phone = telCol ? String(row[telCol] ?? '').replace(/\D/g, '').trim() : '';
+          if (phone.startsWith('0020')) phone = phone.slice(2);
+          if (phone.startsWith('01') && phone.length === 11) phone = `2${phone}`;
 
-        return {
-          tenant_id: currentTenant.id,
-          shipment_code: String(refCol ? row[refCol] : '').trim() || `AUTO-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          order_code: clientRefCol ? String(row[clientRefCol]).trim() || null : null,
-          customer_phone: phone,
-          customer_name: nameCol ? String(row[nameCol]).trim() || null : null,
-          customer_address: addressCol ? String(row[addressCol]).trim() || null : null,
-          customer_area: areaCol ? String(row[areaCol]).trim() || null : null,
-          order_details: remarksCol ? String(row[remarksCol]).trim() || null : null,
-          amount: amountCol ? parseFloat(String(row[amountCol])) || null : null,
-          status: uStatusCol ? mapStatus(String(row[uStatusCol]).trim()) : 'pending',
-          status_description: statusDescCol ? String(row[statusDescCol]).trim() || null : null,
-          pickup_date: pickupCol ? String(row[pickupCol]).trim() || null : null,
-          status_date: uDateCol ? String(row[uDateCol]).trim() || null : null,
-          final_status: finalStatusCol ? String(row[finalStatusCol]).trim() || null : null,
-          last_status_date: lastStatusDateCol ? String(row[lastStatusDateCol]).trim() || null : null,
-          proc_notes: procNotesCol ? String(row[procNotesCol]).trim() || null : null,
-          notes: null,
-          shipping_company: null,
-          wa_template_sent: false,
-        };
-      }).filter(r => r.customer_phone || r.shipment_code);
+          return {
+            tenant_id: currentTenant.id,
+            shipment_code: String(refCol ? row[refCol] ?? '' : '').trim() || `AUTO-${Date.now()}-${index}`,
+            order_code: clientRefCol ? String(row[clientRefCol] ?? '').trim() || null : null,
+            customer_phone: phone,
+            customer_name: nameCol ? String(row[nameCol] ?? '').trim() || null : null,
+            customer_address: addressCol ? String(row[addressCol] ?? '').trim() || null : null,
+            customer_area: areaCol ? String(row[areaCol] ?? '').trim() || null : null,
+            order_details: remarksCol ? String(row[remarksCol] ?? '').trim() || null : null,
+            amount: amountCol ? parseLocaleNumber(row[amountCol]) : null,
+            status: uStatusCol ? mapStatus(String(row[uStatusCol] ?? '').trim()) : 'pending',
+            status_description: statusDescCol ? String(row[statusDescCol] ?? '').trim() || null : null,
+            pickup_date: pickupCol ? String(row[pickupCol] ?? '').trim() || null : null,
+            status_date: uDateCol ? String(row[uDateCol] ?? '').trim() || null : null,
+            final_status: finalStatusCol ? String(row[finalStatusCol] ?? '').trim() || null : null,
+            last_status_date: lastStatusDateCol ? String(row[lastStatusDateCol] ?? '').trim() || null : null,
+            proc_notes: procNotesCol ? String(row[procNotesCol] ?? '').trim() || null : null,
+            notes: null,
+            shipping_company: null,
+            wa_template_sent: false,
+          };
+        })
+        .filter((r) => r.customer_phone || r.shipment_code);
+
+      if (shipmentRows.length === 0) {
+        toast({ title: '❌ لا توجد بيانات صالحة', description: 'تحقق من أعمدة الملف ثم حاول مرة أخرى', variant: 'destructive' });
+        return;
+      }
 
       const { error: insertErr } = await supabase
         .from('shipment_tracking')
@@ -225,7 +364,8 @@ const ShipmentTrackingTable = () => {
       }
     } catch (err) {
       console.error('File parse error:', err);
-      toast({ title: '❌ خطأ', description: 'فشل في قراءة الملف', variant: 'destructive' });
+      const message = err instanceof Error ? err.message : 'فشل في قراءة الملف';
+      toast({ title: '❌ خطأ', description: `فشل في قراءة الملف: ${message}`, variant: 'destructive' });
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
