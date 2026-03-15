@@ -797,15 +797,12 @@ const FollowupShipmentsTable = () => {
                   <input type="checkbox" checked={selectedIds.size === filtered.length && filtered.length > 0} onChange={toggleSelectAll} className="rounded border-border" />
                 </TableHead>
                 <TableHead className="text-right">البوليصة</TableHead>
-                <TableHead className="text-right">العميل</TableHead>
-                <TableHead className="text-right">الهاتف</TableHead>
-                <TableHead className="text-right">المنطقة</TableHead>
-                <TableHead className="text-right">المبلغ</TableHead>
                 <TableHead className="text-right">حالة الشحن</TableHead>
+                <TableHead className="text-right">تفصيل الحالة</TableHead>
                 <TableHead className="text-right">حالة المتابعة</TableHead>
-                <TableHead className="text-right">واتساب</TableHead>
                 <TableHead className="text-right">ملاحظات</TableHead>
-                <TableHead className="text-right w-16">تفاصيل</TableHead>
+                <TableHead className="text-right">واتساب</TableHead>
+                <TableHead className="text-right w-12"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
