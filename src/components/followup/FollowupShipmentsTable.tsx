@@ -90,6 +90,17 @@ const FollowupShipmentsTable = () => {
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [sending, setSending] = useState(false);
   const [sendResults, setSendResults] = useState<{ sent: number; failed: number } | null>(null);
+  // AI-grouped proc_notes: groupName → [raw notes]
+  const [noteGroups, setNoteGroups] = useState<Record<string, string[]>>({});
+  const [noteGroupsLoading, setNoteGroupsLoading] = useState(false);
+  // Reverse map: raw note → group name
+  const noteToGroup = useMemo(() => {
+    const map: Record<string, string> = {};
+    Object.entries(noteGroups).forEach(([group, notes]) => {
+      notes.forEach(n => { map[n] = group; });
+    });
+    return map;
+  }, [noteGroups]);
 
   // Helper to get action info
   const getActionInfo = useCallback((key: string) => {
