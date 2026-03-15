@@ -12,6 +12,44 @@ const json = (data: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
+interface VariableMapping {
+  position: number;
+  field: string;
+  component: string; // 'body' or 'header'
+}
+
+function buildTemplateComponents(
+  mappings: VariableMapping[],
+  shipment: Record<string, any>
+): any[] {
+  // Group by component type
+  const groups: Record<string, VariableMapping[]> = {};
+  for (const m of mappings) {
+    const comp = m.component || 'body';
+    if (!groups[comp]) groups[comp] = [];
+    groups[comp].push(m);
+  }
+
+  const components: any[] = [];
+
+  for (const [compType, vars] of Object.entries(groups)) {
+    // Sort by position
+    vars.sort((a, b) => a.position - b.position);
+
+    const parameters = vars.map((v) => ({
+      type: "text",
+      text: String(shipment[v.field] ?? ""),
+    }));
+
+    components.push({
+      type: compType, // 'body' or 'header'
+      parameters,
+    });
+  }
+
+  return components;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -39,10 +77,21 @@ Deno.serve(async (req) => {
       return json({ error: "WhatsApp API not configured" }, 400);
     }
 
+    // Get template with variable mappings
+    const { data: templateData } = await supabase
+      .from("followup_wa_templates")
+      .select("variable_mappings, has_variables")
+      .eq("tenant_id", tenantId)
+      .eq("template_name", templateName)
+      .maybeSingle();
+
+    const variableMappings: VariableMapping[] =
+      (templateData?.has_variables && templateData?.variable_mappings as VariableMapping[]) || [];
+
     // Get shipments
     const { data: shipments, error: shipErr } = await supabase
       .from("shipment_tracking")
-      .select("id, customer_phone, customer_name, shipment_code, order_code, amount, final_status")
+      .select("*")
       .in("id", shipmentIds)
       .eq("tenant_id", tenantId);
 
@@ -76,6 +125,14 @@ Deno.serve(async (req) => {
           },
         };
 
+        // Add components with variables if mappings exist
+        if (variableMappings.length > 0) {
+          waPayload.template.components = buildTemplateComponents(
+            variableMappings,
+            shipment
+          );
+        }
+
         const res = await fetch(waUrl, {
           method: "POST",
           headers,
@@ -85,6 +142,7 @@ Deno.serve(async (req) => {
         const waResult = await res.json();
 
         if (!res.ok) {
+          console.error("WA template send error:", JSON.stringify(waResult));
           results.push({
             id: shipment.id,
             phone: shipment.customer_phone,
@@ -119,8 +177,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    const successCount = results.filter(r => r.success).length;
-    const failCount = results.filter(r => !r.success).length;
+    const successCount = results.filter((r) => r.success).length;
+    const failCount = results.filter((r) => !r.success).length;
 
     return json({
       success: true,
@@ -130,6 +188,9 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     console.error("Send WA template error:", error);
-    return json({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
+    return json(
+      { error: error instanceof Error ? error.message : "Unknown error" },
+      500
+    );
   }
 });
