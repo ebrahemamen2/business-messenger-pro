@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -27,16 +27,26 @@ const TenantContext = createContext<TenantContextType>({
 export const useTenantContext = () => useContext(TenantContext);
 
 export const TenantProvider = ({ children }: { children: ReactNode }) => {
-  const { user, isSuperAdmin } = useAuth();
+  const { user, isSuperAdmin, loading: authLoading } = useAuth();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [currentTenant, setCurrentTenant] = useState<Tenant | null>(null);
   const [loading, setLoading] = useState(true);
+  const loadedForRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (authLoading) return;
+
     if (!user) {
       setTenants([]);
       setCurrentTenant(null);
       setLoading(false);
+      loadedForRef.current = null;
+      return;
+    }
+
+    // Skip reload if already loaded for this user + role combo
+    const cacheKey = `${user.id}_${isSuperAdmin}`;
+    if (loadedForRef.current === cacheKey && tenants.length > 0) {
       return;
     }
 
@@ -44,7 +54,6 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
       let tenantList: Tenant[] = [];
 
       if (isSuperAdmin) {
-        // Super admin sees all tenants
         const { data } = await supabase
           .from('tenants')
           .select('id, name, slug, logo_url, is_active')
@@ -52,7 +61,6 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
           .order('name');
         tenantList = (data as Tenant[]) || [];
       } else {
-        // Regular users see only their tenants
         const { data: memberships } = await supabase
           .from('tenant_members')
           .select('tenant_id, tenants(id, name, slug, logo_url, is_active)')
@@ -66,16 +74,20 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
       }
 
       setTenants(tenantList);
+      loadedForRef.current = cacheKey;
 
       // Restore last selected or pick first
-      const savedId = localStorage.getItem('current_tenant_id');
-      const saved = tenantList.find((t) => t.id === savedId);
-      setCurrentTenant(saved || tenantList[0] || null);
+      if (!currentTenant || !tenantList.find(t => t.id === currentTenant.id)) {
+        const savedId = localStorage.getItem('current_tenant_id');
+        const saved = tenantList.find((t) => t.id === savedId);
+        setCurrentTenant(saved || tenantList[0] || null);
+      }
+
       setLoading(false);
     };
 
     load();
-  }, [user, isSuperAdmin]);
+  }, [user, isSuperAdmin, authLoading]);
 
   const selectTenant = (tenant: Tenant) => {
     setCurrentTenant(tenant);
