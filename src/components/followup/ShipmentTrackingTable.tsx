@@ -124,10 +124,15 @@ const ShipmentTrackingTable = () => {
     setUploading(true);
 
     try {
+      toast({ title: '📂 جاري قراءة الملف...', description: file.name });
+      
       const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data);
+      const workbook = XLSX.read(data, { type: 'array' });
+      console.log('📋 Workbook sheets:', workbook.SheetNames);
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+      console.log('📋 Parsed rows count:', rows.length);
 
       if (rows.length === 0) {
         toast({ title: '⚠️ الملف فارغ', description: 'لا توجد بيانات في الملف', variant: 'destructive' });
