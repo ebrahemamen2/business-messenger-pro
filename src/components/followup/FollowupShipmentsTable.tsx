@@ -621,7 +621,7 @@ const FollowupShipmentsTable = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all" className="text-xs">الكل ({filtered.length})</SelectItem>
-                <SelectItem value="pending" className="text-xs">لم تُتابع ({filtered.filter(s => s.status === 'pending').length})</SelectItem>
+                <SelectItem value="pending" className="text-xs">لم تُتابع ({filtered.filter(s => !s.status || s.status === '' || s.status === 'pending').length})</SelectItem>
               </SelectContent>
             </Select>
           </div>
