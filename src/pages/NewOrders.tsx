@@ -1,5 +1,6 @@
+
 import { useState, useEffect } from 'react';
-import { ShoppingBag, Search, Filter, RefreshCw, Eye, CheckCircle, Clock, AlertTriangle, Package } from 'lucide-react';
+import { ShoppingBag, Search, Filter, RefreshCw, Eye, CheckCircle, Clock, AlertTriangle, Package, CreditCard, Truck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useTenantContext } from '@/contexts/TenantContext';
 import { Input } from '@/components/ui/input';
@@ -21,8 +22,17 @@ interface Order {
   order_number: string;
   customer_name: string | null;
   customer_phone: string;
+  customer_phone_alt: string | null;
+  customer_email: string | null;
   customer_city: string | null;
+  customer_sub_zone: string | null;
   customer_address: string | null;
+  payment_method: string | null;
+  payment_status: string | null;
+  subtotal: number | null;
+  shipping_cost: number | null;
+  discount_amount: number | null;
+  coupon_code: string | null;
   total_amount: number | null;
   currency: string;
   items: any[];
@@ -31,6 +41,7 @@ interface Order {
   notes: string | null;
   confirmation_message_sent: boolean;
   confirmed_at: string | null;
+  abandoned_checkout_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -41,6 +52,13 @@ const STATUS_MAP: Record<string, { label: string; color: string; icon: any }> = 
   lost: { label: 'مفقود', color: 'bg-destructive/15 text-destructive border-destructive/20', icon: AlertTriangle },
   shipped: { label: 'تم الشحن', color: 'bg-blue-500/15 text-blue-600 border-blue-500/20', icon: Package },
   cancelled: { label: 'ملغي', color: 'bg-muted text-muted-foreground border-border', icon: AlertTriangle },
+};
+
+const PAYMENT_MAP: Record<string, string> = {
+  cod: 'دفع عند الاستلام',
+  card: 'بطاقة',
+  wallet: 'محفظة',
+  bank_transfer: 'تحويل بنكي',
 };
 
 const NewOrders = () => {
@@ -79,7 +97,6 @@ const NewOrders = () => {
     fetchOrders();
   }, [currentTenant?.id, statusFilter]);
 
-  // Realtime subscription
   useEffect(() => {
     if (!currentTenant?.id) return;
 
@@ -115,7 +132,7 @@ const NewOrders = () => {
   };
 
   const formatAmount = (amount: number | null, currency: string) => {
-    if (!amount) return '—';
+    if (amount == null) return '—';
     return `${amount.toFixed(2)} ${currency}`;
   };
 
@@ -208,6 +225,7 @@ const NewOrders = () => {
                 <TableHead className="text-right">الهاتف</TableHead>
                 <TableHead className="text-right">المدينة</TableHead>
                 <TableHead className="text-right">المبلغ</TableHead>
+                <TableHead className="text-right">الدفع</TableHead>
                 <TableHead className="text-right">الحالة</TableHead>
                 <TableHead className="text-right">التاريخ</TableHead>
                 <TableHead className="text-right w-10"></TableHead>
@@ -224,6 +242,7 @@ const NewOrders = () => {
                     <TableCell dir="ltr" className="text-muted-foreground">{order.customer_phone}</TableCell>
                     <TableCell>{order.customer_city || '—'}</TableCell>
                     <TableCell className="font-semibold">{formatAmount(order.total_amount, order.currency)}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{PAYMENT_MAP[order.payment_method || ''] || order.payment_method || '—'}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className={`gap-1 ${st.color}`}>
                         <Icon className="w-3 h-3" />
@@ -244,7 +263,7 @@ const NewOrders = () => {
 
       {/* Order detail dialog */}
       <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ShoppingBag className="w-5 h-5 text-primary" />
@@ -253,6 +272,7 @@ const NewOrders = () => {
           </DialogHeader>
           {selectedOrder && (
             <div className="space-y-4 text-sm">
+              {/* Customer info */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <p className="text-muted-foreground text-xs">العميل</p>
@@ -262,14 +282,28 @@ const NewOrders = () => {
                   <p className="text-muted-foreground text-xs">الهاتف</p>
                   <p className="font-medium" dir="ltr">{selectedOrder.customer_phone}</p>
                 </div>
+                {selectedOrder.customer_phone_alt && (
+                  <div>
+                    <p className="text-muted-foreground text-xs">هاتف بديل</p>
+                    <p className="font-medium" dir="ltr">{selectedOrder.customer_phone_alt}</p>
+                  </div>
+                )}
+                {selectedOrder.customer_email && (
+                  <div>
+                    <p className="text-muted-foreground text-xs">البريد</p>
+                    <p className="font-medium" dir="ltr">{selectedOrder.customer_email}</p>
+                  </div>
+                )}
                 <div>
                   <p className="text-muted-foreground text-xs">المدينة</p>
                   <p className="font-medium">{selectedOrder.customer_city || '—'}</p>
                 </div>
-                <div>
-                  <p className="text-muted-foreground text-xs">المبلغ</p>
-                  <p className="font-medium">{formatAmount(selectedOrder.total_amount, selectedOrder.currency)}</p>
-                </div>
+                {selectedOrder.customer_sub_zone && (
+                  <div>
+                    <p className="text-muted-foreground text-xs">المنطقة</p>
+                    <p className="font-medium">{selectedOrder.customer_sub_zone}</p>
+                  </div>
+                )}
               </div>
 
               {selectedOrder.customer_address && (
@@ -279,20 +313,63 @@ const NewOrders = () => {
                 </div>
               )}
 
+              {/* Items */}
               {selectedOrder.items && selectedOrder.items.length > 0 && (
                 <div>
                   <p className="text-muted-foreground text-xs mb-2">المنتجات</p>
                   <div className="space-y-1.5">
                     {selectedOrder.items.map((item: any, i: number) => (
                       <div key={i} className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2">
-                        <span>{item.name || item.title || `منتج ${i + 1}`}</span>
-                        <span className="text-muted-foreground">
-                          {item.quantity && `×${item.quantity}`}
-                          {item.price && ` — ${item.price} ${selectedOrder.currency}`}
+                        <div>
+                          <span>{item.name || `منتج ${i + 1}`}</span>
+                          {item.variant_info && (
+                            <span className="text-muted-foreground text-xs mr-2">({item.variant_info})</span>
+                          )}
+                        </div>
+                        <span className="text-muted-foreground text-xs">
+                          ×{item.quantity || 1}
+                          {(item.unit_price || item.price) && ` — ${item.total_price || item.price} ${selectedOrder.currency}`}
                         </span>
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* Pricing breakdown */}
+              <div className="rounded-lg bg-muted/30 p-3 space-y-1.5">
+                {selectedOrder.subtotal != null && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">المجموع الفرعي</span>
+                    <span>{formatAmount(selectedOrder.subtotal, selectedOrder.currency)}</span>
+                  </div>
+                )}
+                {(selectedOrder.shipping_cost ?? 0) > 0 && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground flex items-center gap-1"><Truck className="w-3 h-3" /> الشحن</span>
+                    <span>{formatAmount(selectedOrder.shipping_cost, selectedOrder.currency)}</span>
+                  </div>
+                )}
+                {(selectedOrder.discount_amount ?? 0) > 0 && (
+                  <div className="flex justify-between text-xs text-emerald-600">
+                    <span>خصم {selectedOrder.coupon_code ? `(${selectedOrder.coupon_code})` : ''}</span>
+                    <span>-{formatAmount(selectedOrder.discount_amount, selectedOrder.currency)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-semibold border-t border-border pt-1.5 mt-1.5">
+                  <span>الإجمالي</span>
+                  <span>{formatAmount(selectedOrder.total_amount, selectedOrder.currency)}</span>
+                </div>
+              </div>
+
+              {/* Payment info */}
+              {selectedOrder.payment_method && (
+                <div className="flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-xs">{PAYMENT_MAP[selectedOrder.payment_method] || selectedOrder.payment_method}</span>
+                  {selectedOrder.payment_status && (
+                    <Badge variant="outline" className="text-[10px]">{selectedOrder.payment_status}</Badge>
+                  )}
                 </div>
               )}
 
@@ -303,7 +380,7 @@ const NewOrders = () => {
                 </div>
               )}
 
-              <div className="flex items-center gap-2 pt-2">
+              <div className="flex items-center gap-2 pt-2 flex-wrap">
                 {(() => {
                   const st = STATUS_MAP[selectedOrder.status] || STATUS_MAP.pending;
                   const Icon = st.icon;
@@ -328,16 +405,6 @@ const NewOrders = () => {
       </Dialog>
     </div>
   );
-};
-
-const formatAmount = (amount: number | null, currency: string) => {
-  if (!amount) return '—';
-  return `${amount.toFixed(2)} ${currency}`;
-};
-
-const formatDate = (d: string) => {
-  const date = new Date(d);
-  return date.toLocaleDateString('ar-EG', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
 export default NewOrders;
