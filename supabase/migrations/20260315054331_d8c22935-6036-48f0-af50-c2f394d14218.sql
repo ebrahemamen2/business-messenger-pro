@@ -1,0 +1,1 @@
+ALTER TABLE public.shipment_tracking ALTER COLUMN status SET DEFAULT '';

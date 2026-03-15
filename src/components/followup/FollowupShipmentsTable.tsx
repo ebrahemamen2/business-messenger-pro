@@ -91,6 +91,7 @@ const FollowupShipmentsTable = () => {
 
   // Helper to get action info
   const getActionInfo = useCallback((key: string) => {
+    if (!key) return { label: '', color: '' };
     const action = actionStatuses.find(a => a.key === key);
     if (!action) return { label: key, color: COLOR_MAP.gray };
     return { label: action.label, color: COLOR_MAP[action.color] || COLOR_MAP.gray };
@@ -345,7 +346,7 @@ const FollowupShipmentsTable = () => {
 
   // Navigator card filtered list
   const cardFiltered = useMemo(() => {
-    if (cardFilter === 'pending') return filtered.filter(s => s.status === 'pending');
+    if (cardFilter === 'pending') return filtered.filter(s => !s.status || s.status === '' || s.status === 'pending');
     return filtered;
   }, [filtered, cardFilter]);
 
@@ -620,7 +621,7 @@ const FollowupShipmentsTable = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all" className="text-xs">الكل ({filtered.length})</SelectItem>
-                <SelectItem value="pending" className="text-xs">لم تُتابع ({filtered.filter(s => s.status === 'pending').length})</SelectItem>
+                <SelectItem value="pending" className="text-xs">لم تُتابع ({filtered.filter(s => !s.status || s.status === '' || s.status === 'pending').length})</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -709,11 +710,11 @@ const FollowupShipmentsTable = () => {
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">حالة المتابعة:</span>
                 <Select
-                  value={activeShipment.status}
+                  value={activeShipment.status || ''}
                   onValueChange={v => updateAction(activeShipment.id, v)}
                 >
-                  <SelectTrigger className={`h-8 text-xs border ${getActionInfo(activeShipment.status).color} bg-transparent w-[140px]`}>
-                    <span>{getActionInfo(activeShipment.status).label}</span>
+                  <SelectTrigger className={`h-8 text-xs border ${getActionInfo(activeShipment.status).color || 'border-border'} bg-transparent w-[140px]`}>
+                    <span>{getActionInfo(activeShipment.status).label || <span className="text-muted-foreground">اختر حالة</span>}</span>
                   </SelectTrigger>
                   <SelectContent>
                     {actionStatuses.map(({ key, label }) => (
@@ -840,9 +841,9 @@ const FollowupShipmentsTable = () => {
                       </span>
                     </TableCell>
                     <TableCell>
-                      <Select value={s.status} onValueChange={v => updateAction(s.id, v)}>
-                        <SelectTrigger className={`h-7 text-[10px] border ${actionInfo.color} bg-transparent w-[130px]`}>
-                          <span>{actionInfo.label}</span>
+                      <Select value={s.status || ''} onValueChange={v => updateAction(s.id, v)}>
+                        <SelectTrigger className={`h-7 text-[10px] border ${actionInfo.color || 'border-border'} bg-transparent w-[130px]`}>
+                          <span>{actionInfo.label || <span className="text-muted-foreground">اختر حالة</span>}</span>
                         </SelectTrigger>
                         <SelectContent>
                           {actionStatuses.map(({ key, label }) => (

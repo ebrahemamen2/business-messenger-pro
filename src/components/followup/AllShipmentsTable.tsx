@@ -327,7 +327,7 @@ const AllShipmentsTable = () => {
             .range(archiveOffset, archiveOffset + archiveBatch - 1);
           if (archErr || !existing || existing.length === 0) break;
           existing.forEach((s: any) => {
-            if (s.status !== 'pending' || (s.notes && s.notes.trim())) {
+            if ((s.status && s.status !== 'pending' && s.status !== '') || (s.notes && s.notes.trim())) {
               toArchive.push({
                 shipment_id: s.id,
                 tenant_id: s.tenant_id,
@@ -358,7 +358,7 @@ const AllShipmentsTable = () => {
               .range(resetOffset, resetOffset + 999);
             if (!batch || batch.length === 0) break;
             const ids = batch.map((b: any) => b.id);
-            await supabase.from('shipment_tracking').update({ status: 'pending', notes: null } as any).in('id', ids);
+            await supabase.from('shipment_tracking').update({ status: '', notes: null } as any).in('id', ids);
             if (batch.length < 1000) break;
             resetOffset += 1000;
           }
