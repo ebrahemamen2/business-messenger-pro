@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useTenantContext } from '@/contexts/TenantContext';
 import { useToast } from '@/hooks/use-toast';
@@ -7,13 +7,13 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Download, Search, Loader2, Truck, Eye, RefreshCw, Filter, Send,
-  CheckCircle, XCircle, Clock, AlertTriangle
+  CheckCircle, XCircle, Clock, AlertTriangle, MessageSquare, Calendar
 } from 'lucide-react';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -30,16 +30,33 @@ const FOLLOWUP_ACTIONS: Record<string, { label: string; color: string; icon: any
   cancelled: { label: 'ملغي', color: 'bg-muted text-muted-foreground border-border', icon: XCircle },
 };
 
+interface WATemplate {
+  id: string;
+  template_name: string;
+  language: string;
+  description: string | null;
+}
+
 const FollowupShipmentsTable = () => {
   const { currentTenant } = useTenantContext();
   const { toast } = useToast();
-  const [shipments, setShipments] = useState<Shipment[]>([]);
+  const [shipments, setShipments] = useState<(Shipment & { wa_template_name?: string | null; wa_sent_at?: string | null })[]>([]);
   const [followupStatuses, setFollowupStatuses] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [actionFilter, setActionFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [dateFilter, setDateFilter] = useState<string>('all');
+  const [waSentFilter, setWaSentFilter] = useState<string>('all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [detailShipment, setDetailShipment] = useState<Shipment | null>(null);
+  const [detailShipment, setDetailShipment] = useState<(Shipment & { wa_template_name?: string | null; wa_sent_at?: string | null }) | null>(null);
+
+  // WA sending state
+  const [waTemplates, setWaTemplates] = useState<WATemplate[]>([]);
+  const [showSendDialog, setShowSendDialog] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  const [sending, setSending] = useState(false);
+  const [sendResults, setSendResults] = useState<{ sent: number; failed: number } | null>(null);
 
   // Load configured followup statuses
   const loadConfig = useCallback(async () => {
@@ -50,6 +67,16 @@ const FollowupShipmentsTable = () => {
       .eq('tenant_id', currentTenant.id)
       .maybeSingle();
     setFollowupStatuses((data?.followup_statuses as string[]) || []);
+  }, [currentTenant?.id]);
+
+  const loadTemplates = useCallback(async () => {
+    if (!currentTenant?.id) return;
+    const { data } = await supabase
+      .from('followup_wa_templates')
+      .select('id, template_name, language, description')
+      .eq('tenant_id', currentTenant.id)
+      .order('created_at', { ascending: false });
+    setWaTemplates((data as WATemplate[]) || []);
   }, [currentTenant?.id]);
 
   const loadShipments = useCallback(async () => {
@@ -76,26 +103,76 @@ const FollowupShipmentsTable = () => {
       .eq('tenant_id', currentTenant.id)
       .in('final_status', statuses)
       .order('uploaded_at', { ascending: false })
-      .limit(1000);
+      .limit(5000);
 
     if (error) console.error('Load followup shipments error:', error);
-    setShipments((data as Shipment[]) || []);
+    setShipments((data as any[]) || []);
     setLoading(false);
   }, [currentTenant?.id, loadConfig]);
 
-  useEffect(() => { loadShipments(); }, [loadShipments]);
+  useEffect(() => { loadShipments(); loadTemplates(); }, [loadShipments, loadTemplates]);
 
-  const filtered = shipments.filter(s => {
-    if (actionFilter !== 'all' && s.status !== actionFilter) return false;
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      s.shipment_code.toLowerCase().includes(q) ||
-      (s.order_code || '').toLowerCase().includes(q) ||
-      s.customer_phone.includes(q) ||
-      (s.customer_name || '').toLowerCase().includes(q)
-    );
-  });
+  // Calculate days since last status
+  const getDaysSinceLastStatus = (shipment: Shipment): number | null => {
+    const dateStr = shipment.last_status_date || shipment.status_date;
+    if (!dateStr) return null;
+    
+    // Try parsing various date formats
+    const parsed = new Date(dateStr);
+    if (isNaN(parsed.getTime())) {
+      // Try DD/MM/YYYY or DD-MM-YYYY
+      const parts = dateStr.split(/[\/\-\.]/);
+      if (parts.length === 3) {
+        const d = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+        if (!isNaN(d.getTime())) {
+          return Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24));
+        }
+      }
+      return null;
+    }
+    return Math.floor((Date.now() - parsed.getTime()) / (1000 * 60 * 60 * 24));
+  };
+
+  // Get unique shipping statuses for filter
+  const uniqueStatuses = useMemo(() => {
+    const statuses = new Set<string>();
+    shipments.forEach(s => { if (s.final_status) statuses.add(s.final_status); });
+    return Array.from(statuses).sort();
+  }, [shipments]);
+
+  const filtered = useMemo(() => {
+    return shipments.filter(s => {
+      // Action filter
+      if (actionFilter !== 'all' && s.status !== actionFilter) return false;
+      
+      // Status filter (shipping company status)
+      if (statusFilter !== 'all' && s.final_status !== statusFilter) return false;
+      
+      // Date filter
+      if (dateFilter !== 'all') {
+        const days = getDaysSinceLastStatus(s);
+        if (days === null) return dateFilter === 'unknown';
+        if (dateFilter === '1' && days > 1) return false;
+        if (dateFilter === '2' && days > 2) return false;
+        if (dateFilter === '3plus' && days < 3) return false;
+      }
+
+      // WA sent filter
+      if (waSentFilter === 'sent' && !s.wa_template_sent) return false;
+      if (waSentFilter === 'not_sent' && s.wa_template_sent) return false;
+
+      // Search
+      if (!searchQuery) return true;
+      const q = searchQuery.toLowerCase();
+      return (
+        s.shipment_code.toLowerCase().includes(q) ||
+        (s.order_code || '').toLowerCase().includes(q) ||
+        s.customer_phone.includes(q) ||
+        (s.customer_name || '').toLowerCase().includes(q) ||
+        (s.proc_notes || '').toLowerCase().includes(q)
+      );
+    });
+  }, [shipments, actionFilter, statusFilter, dateFilter, waSentFilter, searchQuery]);
 
   const updateAction = async (id: string, newStatus: string) => {
     const { error } = await supabase
@@ -118,6 +195,53 @@ const FollowupShipmentsTable = () => {
       setShipments(prev => prev.map(s => ids.includes(s.id) ? { ...s, status: newStatus } : s));
       setSelectedIds(new Set());
       toast({ title: '✅ تم التحديث', description: `تم تحديث ${ids.length} شحنة` });
+    }
+  };
+
+  const handleSendWA = async () => {
+    if (selectedIds.size === 0 || !selectedTemplate || !currentTenant?.id) return;
+    const template = waTemplates.find(t => t.id === selectedTemplate);
+    if (!template) return;
+
+    setSending(true);
+    setSendResults(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('send-wa-template', {
+        body: {
+          shipmentIds: Array.from(selectedIds),
+          templateName: template.template_name,
+          language: template.language,
+          tenantId: currentTenant.id,
+        },
+      });
+
+      if (error) {
+        toast({ title: '❌ خطأ', description: error.message, variant: 'destructive' });
+      } else {
+        setSendResults({ sent: data.sent, failed: data.failed });
+        toast({
+          title: data.sent > 0 ? '✅ تم الإرسال' : '⚠️ فشل الإرسال',
+          description: `تم إرسال ${data.sent} رسالة${data.failed > 0 ? ` - فشل ${data.failed}` : ''}`,
+          variant: data.sent > 0 ? 'default' : 'destructive',
+        });
+
+        // Update local state for sent shipments
+        if (data.results) {
+          const sentIds = new Set(data.results.filter((r: any) => r.success).map((r: any) => r.id));
+          const nowIso = new Date().toISOString();
+          setShipments(prev => prev.map(s =>
+            sentIds.has(s.id)
+              ? { ...s, wa_template_sent: true, wa_template_name: template.template_name, wa_sent_at: nowIso }
+              : s
+          ));
+        }
+        setSelectedIds(new Set());
+      }
+    } catch (err) {
+      toast({ title: '❌ خطأ', description: 'فشل في الاتصال بالخادم', variant: 'destructive' });
+    } finally {
+      setSending(false);
     }
   };
 
@@ -144,6 +268,9 @@ const FollowupShipmentsTable = () => {
       'حالة المتابعة': FOLLOWUP_ACTIONS[s.status]?.label || s.status,
       'المبلغ': s.amount || '',
       'ملاحظات': s.proc_notes || '',
+      'تم إرسال واتساب': s.wa_template_sent ? 'نعم' : 'لا',
+      'قالب الواتساب': s.wa_template_name || '',
+      'تاريخ الإرسال': s.wa_sent_at ? new Date(s.wa_sent_at).toLocaleString('ar-EG') : '',
     }));
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
@@ -151,10 +278,12 @@ const FollowupShipmentsTable = () => {
     XLSX.writeFile(wb, `followup-${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
-  const actionCounts = filtered.reduce((acc, s) => {
-    acc[s.status] = (acc[s.status] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
+  const actionCounts = useMemo(() => {
+    return filtered.reduce((acc, s) => {
+      acc[s.status] = (acc[s.status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+  }, [filtered]);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -166,10 +295,16 @@ const FollowupShipmentsTable = () => {
             </div>
             <div>
               <h2 className="text-base font-bold text-foreground">جدول المتابعة</h2>
-              <p className="text-xs text-muted-foreground">{shipments.length} شحنة تحتاج متابعة</p>
+              <p className="text-xs text-muted-foreground">{shipments.length} شحنة تحتاج متابعة — عرض {filtered.length}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {selectedIds.size > 0 && waTemplates.length > 0 && (
+              <Button size="sm" onClick={() => { setShowSendDialog(true); setSendResults(null); }} className="gap-1.5 text-xs bg-green-600 hover:bg-green-700 text-white">
+                <MessageSquare className="w-3.5 h-3.5" />
+                إرسال واتساب ({selectedIds.size})
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={exportSheet} className="gap-1.5 text-xs">
               <Download className="w-3.5 h-3.5" />
               تصدير
@@ -185,6 +320,51 @@ const FollowupShipmentsTable = () => {
             ⚠️ لم يتم تحديد حالات للمتابعة بعد. اذهب لتاب "الإعدادات" واختار الحالات التي تريد متابعتها.
           </div>
         )}
+
+        {/* Filters row */}
+        <div className="flex gap-2 flex-wrap items-center">
+          {/* Date filter */}
+          <Select value={dateFilter} onValueChange={setDateFilter}>
+            <SelectTrigger className="h-7 text-[10px] w-auto min-w-[120px] bg-secondary border-0">
+              <Calendar className="w-3 h-3 ml-1" />
+              <SelectValue placeholder="التاريخ" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" className="text-xs">كل التواريخ</SelectItem>
+              <SelectItem value="1" className="text-xs">خلال يوم</SelectItem>
+              <SelectItem value="2" className="text-xs">خلال يومين</SelectItem>
+              <SelectItem value="3plus" className="text-xs">3 أيام أو أكتر</SelectItem>
+              <SelectItem value="unknown" className="text-xs">بدون تاريخ</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Shipping status filter */}
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="h-7 text-[10px] w-auto min-w-[130px] bg-secondary border-0">
+              <Filter className="w-3 h-3 ml-1" />
+              <SelectValue placeholder="حالة الشحن" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" className="text-xs">كل الحالات</SelectItem>
+              {uniqueStatuses.map(s => (
+                <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* WA sent filter */}
+          <Select value={waSentFilter} onValueChange={setWaSentFilter}>
+            <SelectTrigger className="h-7 text-[10px] w-auto min-w-[120px] bg-secondary border-0">
+              <MessageSquare className="w-3 h-3 ml-1" />
+              <SelectValue placeholder="الواتساب" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" className="text-xs">الكل</SelectItem>
+              <SelectItem value="sent" className="text-xs">✅ اتبعتله</SelectItem>
+              <SelectItem value="not_sent" className="text-xs">❌ ماتبعتلهوش</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
         {/* Action filter chips */}
         <div className="flex gap-1.5 flex-wrap">
@@ -205,7 +385,7 @@ const FollowupShipmentsTable = () => {
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-            <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="بحث..." className="bg-secondary border-0 text-xs pr-9 h-8" />
+            <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="بحث بالبوليصة أو الاسم أو الرقم أو الملاحظات..." className="bg-secondary border-0 text-xs pr-9 h-8" />
           </div>
           {selectedIds.size > 0 && (
             <DropdownMenu>
@@ -247,6 +427,7 @@ const FollowupShipmentsTable = () => {
                 <TableHead className="text-right">المبلغ</TableHead>
                 <TableHead className="text-right">حالة الشحن</TableHead>
                 <TableHead className="text-right">حالة المتابعة</TableHead>
+                <TableHead className="text-right">واتساب</TableHead>
                 <TableHead className="text-right">ملاحظات</TableHead>
                 <TableHead className="text-right w-16">تفاصيل</TableHead>
               </TableRow>
@@ -256,12 +437,20 @@ const FollowupShipmentsTable = () => {
                 const actionInfo = FOLLOWUP_ACTIONS[s.status] || FOLLOWUP_ACTIONS.pending;
                 const ActionIcon = actionInfo.icon;
                 const displayStatus = s.final_status || '-';
+                const days = getDaysSinceLastStatus(s);
                 return (
                   <TableRow key={s.id} className="text-xs">
                     <TableCell className="text-center">
                       <input type="checkbox" checked={selectedIds.has(s.id)} onChange={() => toggleSelect(s.id)} className="rounded border-border" />
                     </TableCell>
-                    <TableCell className="font-mono text-xs">{s.shipment_code}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      <div>{s.shipment_code}</div>
+                      {days !== null && (
+                        <span className={`text-[9px] ${days >= 3 ? 'text-destructive font-semibold' : days >= 2 ? 'text-amber-600' : 'text-muted-foreground'}`}>
+                          منذ {days} يوم
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-xs">{s.customer_name || '-'}</TableCell>
                     <TableCell className="font-mono text-xs" dir="ltr">{s.customer_phone}</TableCell>
                     <TableCell className="text-xs">{s.customer_area || '-'}</TableCell>
@@ -286,6 +475,17 @@ const FollowupShipmentsTable = () => {
                         </SelectContent>
                       </Select>
                     </TableCell>
+                    <TableCell>
+                      {s.wa_template_sent ? (
+                        <div className="text-[10px]">
+                          <span className="text-green-600 font-medium">✅ اتبعت</span>
+                          {s.wa_template_name && <p className="text-muted-foreground truncate max-w-[80px]">{s.wa_template_name}</p>}
+                          {s.wa_sent_at && <p className="text-muted-foreground">{new Date(s.wa_sent_at).toLocaleDateString('ar-EG')}</p>}
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-xs max-w-[150px] truncate">{s.proc_notes || '-'}</TableCell>
                     <TableCell>
                       <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setDetailShipment(s)}>
@@ -300,6 +500,7 @@ const FollowupShipmentsTable = () => {
         )}
       </div>
 
+      {/* Detail dialog */}
       <Dialog open={!!detailShipment} onOpenChange={() => setDetailShipment(null)}>
         <DialogContent className="max-w-lg" dir="rtl">
           <DialogHeader>
@@ -320,8 +521,66 @@ const FollowupShipmentsTable = () => {
               <DetailRow label="العنوان" value={detailShipment.customer_address} full />
               <DetailRow label="تفاصيل الطلب" value={detailShipment.order_details} full />
               <DetailRow label="ملاحظات الشحن" value={detailShipment.proc_notes} full />
+              {detailShipment.wa_template_sent && (
+                <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3 space-y-1">
+                  <p className="text-xs font-semibold text-green-700">✅ تم إرسال واتساب</p>
+                  {detailShipment.wa_template_name && <p className="text-xs text-green-600">القالب: {detailShipment.wa_template_name}</p>}
+                  {detailShipment.wa_sent_at && <p className="text-xs text-green-600">التاريخ: {new Date(detailShipment.wa_sent_at).toLocaleString('ar-EG')}</p>}
+                </div>
+              )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Send WA dialog */}
+      <Dialog open={showSendDialog} onOpenChange={setShowSendDialog}>
+        <DialogContent dir="rtl" className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><MessageSquare className="w-5 h-5 text-green-600" />إرسال واتساب جماعي</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">سيتم إرسال قالب واتساب لـ <span className="font-bold text-foreground">{selectedIds.size}</span> شحنة محددة</p>
+            
+            {waTemplates.length === 0 ? (
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-xs text-amber-700">
+                ⚠️ لا توجد قوالب واتساب. اذهب للإعدادات → قوالب واتساب لإضافة قوالب أولاً.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">اختار القالب</label>
+                <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+                  <SelectTrigger><SelectValue placeholder="اختار قالب..." /></SelectTrigger>
+                  <SelectContent>
+                    {waTemplates.map(t => (
+                      <SelectItem key={t.id} value={t.id} className="text-xs">
+                        <span className="font-mono">{t.template_name}</span>
+                        <span className="text-muted-foreground mr-2">({t.language})</span>
+                        {t.description && <span className="text-muted-foreground"> - {t.description}</span>}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {sendResults && (
+              <div className={`rounded-lg p-3 text-xs border ${sendResults.sent > 0 ? 'bg-green-500/10 border-green-500/30 text-green-700' : 'bg-destructive/10 border-destructive/30 text-destructive'}`}>
+                ✅ تم إرسال {sendResults.sent} رسالة{sendResults.failed > 0 && ` — ❌ فشل ${sendResults.failed}`}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSendDialog(false)}>إلغاء</Button>
+            <Button
+              onClick={handleSendWA}
+              disabled={sending || !selectedTemplate || waTemplates.length === 0}
+              className="gap-1.5 bg-green-600 hover:bg-green-700 text-white"
+            >
+              {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              إرسال
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
