@@ -1091,7 +1091,7 @@ const FollowupShipmentsTable = () => {
                       </TableRow>
                     );
                   })}
-                </>
+                </Fragment>
               ))}
             </TableBody>
           </Table>
