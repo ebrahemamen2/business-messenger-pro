@@ -358,7 +358,7 @@ const AllShipmentsTable = () => {
               .range(resetOffset, resetOffset + 999);
             if (!batch || batch.length === 0) break;
             const ids = batch.map((b: any) => b.id);
-            await supabase.from('shipment_tracking').update({ status: 'pending', notes: null } as any).in('id', ids);
+            await supabase.from('shipment_tracking').update({ status: '', notes: null } as any).in('id', ids);
             if (batch.length < 1000) break;
             resetOffset += 1000;
           }
