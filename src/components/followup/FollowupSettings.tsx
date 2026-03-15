@@ -10,6 +10,7 @@ import ConfirmAutoReply from '@/components/confirm/ConfirmAutoReply';
 import AIModulePrompt from '@/components/settings/AIModulePrompt';
 import FollowupWATemplates from '@/components/followup/FollowupWATemplates';
 import { SHIPPING_STATUSES } from './AllShipmentsTable';
+import ActionStatusesSettings, { type ActionStatus } from './ActionStatusesSettings';
 
 const FollowupSettings = () => {
   const { currentTenant } = useTenantContext();
