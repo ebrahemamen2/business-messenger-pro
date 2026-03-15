@@ -1009,7 +1009,7 @@ const FollowupShipmentsTable = () => {
             </TableHeader>
             <TableBody>
               {groupedFiltered.map(({ group, label, shipments: groupShipments }) => (
-                <>
+                <Fragment key={`group-${group}`}>
                   {/* Date group separator */}
                   <TableRow key={`group-${group}`} className="bg-secondary/50 hover:bg-secondary/50">
                     <TableCell colSpan={8} className="py-1.5 px-3">
