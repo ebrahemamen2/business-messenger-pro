@@ -472,7 +472,6 @@ const ShipmentTrackingTable = () => {
               disabled={uploading || !currentTenant?.id}
               className="gap-1.5 text-xs"
               title={!currentTenant?.id ? 'انتظر تحميل البراند...' : 'رفع شيت شركة الشحن'}
-              className="gap-1.5 text-xs"
             >
               {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
               رفع شيت
