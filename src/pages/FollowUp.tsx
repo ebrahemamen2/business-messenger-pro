@@ -5,11 +5,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import ChatList from '@/components/chat/ChatList';
 import ChatWindow from '@/components/chat/ChatWindow';
 import ContactPanel from '@/components/chat/ContactPanel';
-import { Truck, Loader2, MessageSquare, Bot, Brain, ArrowRight, Table2 } from 'lucide-react';
+import { Truck, Loader2, MessageSquare, ArrowRight, Package, Settings2, Table2 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import ConfirmAutoReply from '@/components/confirm/ConfirmAutoReply';
-import AIModulePrompt from '@/components/settings/AIModulePrompt';
-import ShipmentTrackingTable from '@/components/followup/ShipmentTrackingTable';
+import AllShipmentsTable from '@/components/followup/AllShipmentsTable';
+import FollowupShipmentsTable from '@/components/followup/FollowupShipmentsTable';
+import FollowupSettings from '@/components/followup/FollowupSettings';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 
@@ -21,38 +21,18 @@ const FollowUp = () => {
   const [showContact, setShowContact] = useState(false);
   const isMobile = useIsMobile();
 
-  const handleSelect = (id: string) => {
-    setSelectedId(id);
-    selectConversation(id);
-  };
-
-  const handleBack = () => {
-    setSelectedId(null);
-    setShowContact(false);
-  };
-
-  const selected = conversations.find((c) => c.id === selectedId);
+  const handleSelect = (id: string) => { setSelectedId(id); selectConversation(id); };
+  const handleBack = () => { setSelectedId(null); setShowContact(false); };
+  const selected = conversations.find(c => c.id === selectedId);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
+    return <div className="flex items-center justify-center h-full"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
   }
 
   const chatWindowProps = (conv: typeof selected) => conv ? ({
-    conversation: conv,
-    module: "followup" as const,
-    tenantId: currentTenant?.id,
-    conversationDbId: conv.dbId,
-    onStatusChange: updateStatus,
-    onLoadOlder: loadOlderMessages,
-    allConversations: conversations,
-    onTogglePin: togglePin,
-    onToggleArchive: toggleArchive,
-    onAssign: updateAssignment,
-    onMoveConversation: moveConversation,
+    conversation: conv, module: "followup" as const, tenantId: currentTenant?.id, conversationDbId: conv.dbId,
+    onStatusChange: updateStatus, onLoadOlder: loadOlderMessages, allConversations: conversations,
+    onTogglePin: togglePin, onToggleArchive: toggleArchive, onAssign: updateAssignment, onMoveConversation: moveConversation,
   }) : null;
 
   return (
@@ -65,20 +45,20 @@ const FollowUp = () => {
               <span className="hidden sm:inline">المحادثات</span>
               <span className="sm:hidden">الشات</span>
             </TabsTrigger>
-            <TabsTrigger value="tracking" className="gap-1.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+            <TabsTrigger value="all-shipments" className="gap-1.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+              <Package className="w-4 h-4" />
+              <span className="hidden sm:inline">كل الشحنات</span>
+              <span className="sm:hidden">الشحنات</span>
+            </TabsTrigger>
+            <TabsTrigger value="followup-table" className="gap-1.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <Table2 className="w-4 h-4" />
               <span className="hidden sm:inline">جدول المتابعة</span>
-              <span className="sm:hidden">الجدول</span>
+              <span className="sm:hidden">المتابعة</span>
             </TabsTrigger>
-            <TabsTrigger value="auto-reply" className="gap-1.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
-              <Bot className="w-4 h-4" />
-              <span className="hidden sm:inline">الرد التلقائي</span>
-              <span className="sm:hidden">الرد</span>
-            </TabsTrigger>
-            <TabsTrigger value="ai-prompt" className="gap-1.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
-              <Brain className="w-4 h-4" />
-              <span className="hidden sm:inline">توجيهات AI</span>
-              <span className="sm:hidden">AI</span>
+            <TabsTrigger value="settings" className="gap-1.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+              <Settings2 className="w-4 h-4" />
+              <span className="hidden sm:inline">الإعدادات</span>
+              <span className="sm:hidden">⚙️</span>
             </TabsTrigger>
           </TabsList>
         </div>
@@ -87,23 +67,11 @@ const FollowUp = () => {
           {isMobile ? (
             <div className="flex flex-col h-full">
               {!selectedId ? (
-                <ChatList
-                  conversations={conversations}
-                  selectedId={selectedId}
-                  onSelect={handleSelect}
-                  title="محادثات المتابعة"
-                  tenantId={currentTenant?.id}
-                  fullWidth
-                  autoSelect={false}
-                  currentUserId={user?.id}
-                  onBulkUpdateChatStatus={bulkUpdateChatStatus}
-                />
+                <ChatList conversations={conversations} selectedId={selectedId} onSelect={handleSelect} title="محادثات المتابعة" tenantId={currentTenant?.id} fullWidth autoSelect={false} currentUserId={user?.id} onBulkUpdateChatStatus={bulkUpdateChatStatus} />
               ) : selected ? (
                 <div className="flex flex-col h-full">
                   <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-card flex-shrink-0">
-                    <button onClick={handleBack} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground transition-colors">
-                      <ArrowRight className="w-5 h-5" />
-                    </button>
+                    <button onClick={handleBack} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground transition-colors"><ArrowRight className="w-5 h-5" /></button>
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
                         <span className="text-xs font-bold text-primary">{selected.contact.name.charAt(0)}</span>
@@ -115,100 +83,61 @@ const FollowUp = () => {
                     </div>
                   </div>
                   <div className="flex-1 overflow-hidden">
-                    <ChatWindow
-                      {...chatWindowProps(selected)!}
-                      onToggleContact={() => setShowContact(true)}
-                      hideHeader
-                    />
+                    <ChatWindow {...chatWindowProps(selected)!} onToggleContact={() => setShowContact(true)} hideHeader />
                   </div>
                   <Sheet open={showContact} onOpenChange={setShowContact}>
                     <SheetContent side="right" className="p-0 w-[300px]">
-                      <ContactPanel
-                        contact={selected.contact}
-                        onClose={() => setShowContact(false)}
-                        tenantId={currentTenant?.id}
-                        conversationDbId={selected.dbId}
-                        conversationStatus={selected.status}
-                        labels={selected.labels}
-                        onContactUpdate={reload}
-                        onStatusChange={updateStatus}
-                      />
+                      <ContactPanel contact={selected.contact} onClose={() => setShowContact(false)} tenantId={currentTenant?.id} conversationDbId={selected.dbId} conversationStatus={selected.status} labels={selected.labels} onContactUpdate={reload} onStatusChange={updateStatus} />
                     </SheetContent>
                   </Sheet>
                 </div>
               ) : (
-                <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-4 p-8">
-                  <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
-                    <Truck className="w-8 h-8 text-primary" />
-                  </div>
-                  <div className="text-center">
-                    <p className="font-semibold text-foreground">قسم المتابعة</p>
-                    <p className="text-sm mt-1">{conversations.length === 0 ? 'لا توجد محادثات متابعة بعد' : 'اختر محادثة للبدء'}</p>
-                  </div>
-                </div>
+                <EmptyState conversations={conversations} />
               )}
             </div>
           ) : (
             <div className="flex h-full">
-              <ChatList
-                conversations={conversations}
-                selectedId={selectedId}
-                onSelect={handleSelect}
-                title="محادثات المتابعة"
-                tenantId={currentTenant?.id}
-                currentUserId={user?.id}
-                onBulkUpdateChatStatus={bulkUpdateChatStatus}
-              />
+              <ChatList conversations={conversations} selectedId={selectedId} onSelect={handleSelect} title="محادثات المتابعة" tenantId={currentTenant?.id} currentUserId={user?.id} onBulkUpdateChatStatus={bulkUpdateChatStatus} />
               {selected ? (
                 <>
-                  <ChatWindow
-                    {...chatWindowProps(selected)!}
-                    onToggleContact={() => setShowContact(!showContact)}
-                  />
+                  <ChatWindow {...chatWindowProps(selected)!} onToggleContact={() => setShowContact(!showContact)} />
                   {showContact && (
-                    <ContactPanel
-                      contact={selected.contact}
-                      onClose={() => setShowContact(false)}
-                      tenantId={currentTenant?.id}
-                      conversationDbId={selected.dbId}
-                      conversationStatus={selected.status}
-                      labels={selected.labels}
-                      onContactUpdate={reload}
-                      onStatusChange={updateStatus}
-                    />
+                    <ContactPanel contact={selected.contact} onClose={() => setShowContact(false)} tenantId={currentTenant?.id} conversationDbId={selected.dbId} conversationStatus={selected.status} labels={selected.labels} onContactUpdate={reload} onStatusChange={updateStatus} />
                   )}
                 </>
               ) : (
-                <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-4">
-                  <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center">
-                    <Truck className="w-10 h-10 text-primary" />
-                  </div>
-                  <div className="text-center">
-                    <p className="font-semibold text-foreground text-lg">قسم المتابعة</p>
-                    <p className="text-sm mt-1">
-                      {conversations.length === 0 ? 'لا توجد محادثات متابعة بعد' : 'اختر محادثة من القائمة للبدء'}
-                    </p>
-                  </div>
-                </div>
+                <EmptyState conversations={conversations} />
               )}
             </div>
           )}
         </TabsContent>
 
-        <TabsContent value="tracking" className="flex-1 m-0 overflow-hidden">
-          <ShipmentTrackingTable />
+        <TabsContent value="all-shipments" className="flex-1 m-0 overflow-hidden">
+          <AllShipmentsTable />
         </TabsContent>
 
-        <TabsContent value="auto-reply" className="flex-1 m-0 overflow-hidden">
-          <ConfirmAutoReply module="followup" title="قسم المتابعة" />
+        <TabsContent value="followup-table" className="flex-1 m-0 overflow-hidden">
+          <FollowupShipmentsTable />
         </TabsContent>
 
-        <TabsContent value="ai-prompt" className="flex-1 m-0 overflow-hidden">
-          <AIModulePrompt module="followup" title="قسم المتابعة" />
+        <TabsContent value="settings" className="flex-1 m-0 overflow-hidden">
+          <FollowupSettings />
         </TabsContent>
       </Tabs>
     </div>
   );
 };
+
+const EmptyState = ({ conversations }: { conversations: any[] }) => (
+  <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-4 p-8">
+    <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
+      <Truck className="w-8 h-8 text-primary" />
+    </div>
+    <div className="text-center">
+      <p className="font-semibold text-foreground">قسم المتابعة</p>
+      <p className="text-sm mt-1">{conversations.length === 0 ? 'لا توجد محادثات متابعة بعد' : 'اختر محادثة للبدء'}</p>
+    </div>
+  </div>
+);
 
 export default FollowUp;
