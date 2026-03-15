@@ -107,12 +107,12 @@ const AllShipmentsTable = () => {
     while (true) {
       const { data, error } = await supabase
         .from('shipment_tracking')
-        .select('final_status, status')
+        .select('final_status')
         .eq('tenant_id', currentTenant.id)
         .range(offset, offset + batchSize - 1);
       if (error || !data || data.length === 0) break;
       data.forEach((s: any) => {
-        const st = s.final_status || s.status || 'unknown';
+        const st = s.final_status || 'unknown';
         counts[st] = (counts[st] || 0) + 1;
       });
       if (data.length < batchSize) break;
