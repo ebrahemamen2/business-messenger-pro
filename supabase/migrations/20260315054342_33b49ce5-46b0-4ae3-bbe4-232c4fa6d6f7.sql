@@ -1,0 +1,1 @@
+UPDATE public.shipment_tracking SET status = '' WHERE status = 'pending';

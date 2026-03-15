@@ -91,6 +91,7 @@ const FollowupShipmentsTable = () => {
 
   // Helper to get action info
   const getActionInfo = useCallback((key: string) => {
+    if (!key) return { label: '', color: '' };
     const action = actionStatuses.find(a => a.key === key);
     if (!action) return { label: key, color: COLOR_MAP.gray };
     return { label: action.label, color: COLOR_MAP[action.color] || COLOR_MAP.gray };
