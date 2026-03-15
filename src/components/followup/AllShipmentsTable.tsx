@@ -107,12 +107,12 @@ const AllShipmentsTable = () => {
     while (true) {
       const { data, error } = await supabase
         .from('shipment_tracking')
-        .select('final_status, status')
+        .select('final_status')
         .eq('tenant_id', currentTenant.id)
         .range(offset, offset + batchSize - 1);
       if (error || !data || data.length === 0) break;
       data.forEach((s: any) => {
-        const st = s.final_status || s.status || 'unknown';
+        const st = s.final_status || 'unknown';
         counts[st] = (counts[st] || 0) + 1;
       });
       if (data.length < batchSize) break;
@@ -297,16 +297,13 @@ const AllShipmentsTable = () => {
           customer_area: areaCol ? String(row[areaCol] ?? '').trim() || null : null,
           order_details: remarksCol ? String(row[remarksCol] ?? '').trim() || null : null,
           amount: amountCol ? parseLocaleNumber(row[amountCol]) : null,
-          status: rawUStatus || rawFinalStatus || 'pending',
           status_description: statusDescCol ? String(row[statusDescCol] ?? '').trim() || null : null,
           pickup_date: pickupCol ? String(row[pickupCol] ?? '').trim() || null : null,
           status_date: uDateCol ? String(row[uDateCol] ?? '').trim() || null : null,
           final_status: rawFinalStatus,
           last_status_date: lastStatusDateCol ? String(row[lastStatusDateCol] ?? '').trim() || null : null,
           proc_notes: procNotesCol ? String(row[procNotesCol] ?? '').trim() || null : null,
-          notes: null,
           shipping_company: accountNameCol ? String(row[accountNameCol] ?? '').trim() || null : null,
-          wa_template_sent: false,
         };
       }).filter(r => r.customer_phone || r.shipment_code);
 
