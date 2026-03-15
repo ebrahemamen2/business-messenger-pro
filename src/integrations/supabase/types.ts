@@ -393,6 +393,7 @@ export type Database = {
       }
       followup_status_config: {
         Row: {
+          action_statuses: Json
           created_at: string
           followup_statuses: string[]
           id: string
@@ -400,6 +401,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          action_statuses?: Json
           created_at?: string
           followup_statuses?: string[]
           id?: string
@@ -407,6 +409,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          action_statuses?: Json
           created_at?: string
           followup_statuses?: string[]
           id?: string
