@@ -397,7 +397,7 @@ const FollowupShipmentsTable = () => {
           <button onClick={() => setActionFilter('all')} className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${actionFilter === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
             الكل ({filtered.length})
           </button>
-          {Object.entries(FOLLOWUP_ACTIONS).map(([key, { label }]) => {
+          {actionStatuses.map(({ key, label }) => {
             const count = actionCounts[key] || 0;
             if (count === 0) return null;
             return (
