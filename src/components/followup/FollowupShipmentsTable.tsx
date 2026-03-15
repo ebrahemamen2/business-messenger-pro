@@ -166,6 +166,36 @@ const FollowupShipmentsTable = () => {
 
   useEffect(() => { loadShipments(); loadTemplates(); }, [loadShipments, loadTemplates]);
 
+  // AI-group proc_notes when shipments change
+  useEffect(() => {
+    const uniqueNotes = [...new Set(shipments.map(s => s.proc_notes).filter(Boolean))] as string[];
+    if (uniqueNotes.length === 0 || Object.keys(noteGroups).length > 0) return;
+
+    const groupNotes = async () => {
+      setNoteGroupsLoading(true);
+      try {
+        const { data, error } = await supabase.functions.invoke('group-shipping-notes', {
+          body: { notes: uniqueNotes },
+        });
+        if (!error && data?.groups) {
+          setNoteGroups(data.groups);
+        } else {
+          // Fallback: each note is its own group
+          const fallback: Record<string, string[]> = {};
+          uniqueNotes.forEach(n => { fallback[n] = [n]; });
+          setNoteGroups(fallback);
+        }
+      } catch {
+        const fallback: Record<string, string[]> = {};
+        uniqueNotes.forEach(n => { fallback[n] = [n]; });
+        setNoteGroups(fallback);
+      }
+      setNoteGroupsLoading(false);
+    };
+
+    groupNotes();
+  }, [shipments]);
+
   // Get tenant timezone
   const tenantTimezone = currentTenant?.timezone || 'Africa/Cairo';
 
