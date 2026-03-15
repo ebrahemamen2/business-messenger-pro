@@ -80,6 +80,8 @@ export interface Shipment {
   updated_at: string;
 }
 
+const PAGE_SIZE = 500;
+
 const AllShipmentsTable = () => {
   const { currentTenant } = useTenantContext();
   const { toast } = useToast();
@@ -88,40 +90,71 @@ const AllShipmentsTable = () => {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [detailShipment, setDetailShipment] = useState<Shipment | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // Load status counts once (lightweight query)
+  const loadStatusCounts = useCallback(async () => {
+    if (!currentTenant?.id) return;
+    const { data, error } = await supabase
+      .from('shipment_tracking')
+      .select('final_status, status')
+      .eq('tenant_id', currentTenant.id);
+    if (error || !data) return;
+    const counts: Record<string, number> = {};
+    data.forEach((s: any) => {
+      const st = s.final_status || s.status || 'unknown';
+      counts[st] = (counts[st] || 0) + 1;
+    });
+    setStatusCounts(counts);
+  }, [currentTenant?.id]);
 
   const loadShipments = useCallback(async () => {
     if (!currentTenant?.id) { setLoading(false); return; }
     setLoading(true);
+    const from = (currentPage - 1) * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+
     let query = supabase
       .from('shipment_tracking')
-      .select('*')
+      .select('*', { count: 'exact' })
       .eq('tenant_id', currentTenant.id)
-      .order('uploaded_at', { ascending: false });
+      .order('uploaded_at', { ascending: false })
+      .range(from, to);
 
     if (statusFilter !== 'all') {
       query = query.eq('final_status', statusFilter);
     }
-    const { data, error } = await query.limit(1000);
+    if (searchQuery) {
+      query = query.or(`shipment_code.ilike.%${searchQuery}%,order_code.ilike.%${searchQuery}%,customer_phone.ilike.%${searchQuery}%,customer_name.ilike.%${searchQuery}%,customer_area.ilike.%${searchQuery}%`);
+    }
+
+    const { data, error, count } = await query;
     if (error) console.error('Load shipments error:', error);
     setShipments((data as Shipment[]) || []);
+    setTotalCount(count ?? 0);
     setLoading(false);
-  }, [currentTenant?.id, statusFilter]);
+  }, [currentTenant?.id, statusFilter, searchQuery, currentPage]);
 
   useEffect(() => { loadShipments(); }, [loadShipments]);
+  useEffect(() => { loadStatusCounts(); }, [loadStatusCounts]);
 
-  const filtered = shipments.filter(s => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      s.shipment_code.toLowerCase().includes(q) ||
-      (s.order_code || '').toLowerCase().includes(q) ||
-      s.customer_phone.includes(q) ||
-      (s.customer_name || '').toLowerCase().includes(q) ||
-      (s.customer_area || '').toLowerCase().includes(q)
-    );
-  });
+  // Reset to page 1 when filters change
+  useEffect(() => { setCurrentPage(1); }, [statusFilter, searchQuery]);
+
+  // Debounced search
+  const handleSearchInput = (value: string) => {
+    setSearchInput(value);
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    searchTimeoutRef.current = setTimeout(() => setSearchQuery(value), 400);
+  };
+
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
   const normalizeHeader = (value: string) =>
     value.toLowerCase().replace(/_x[0-9a-f]{4}_/gi, ' ').replace(/[\s_\-]+/g, '').trim();
