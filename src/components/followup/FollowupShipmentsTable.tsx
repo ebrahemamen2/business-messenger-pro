@@ -87,10 +87,10 @@ const FollowupShipmentsTable = () => {
     if (!currentTenant?.id) return;
     const { data } = await supabase
       .from('followup_status_config')
-      .select('followup_statuses, action_statuses' as any)
+      .select('*')
       .eq('tenant_id', currentTenant.id)
       .maybeSingle();
-    setFollowupStatuses((data?.followup_statuses as string[]) || []);
+    setFollowupStatuses(((data as any)?.followup_statuses as string[]) || []);
     const actions = (data as any)?.action_statuses as ActionStatus[] | null;
     if (actions && actions.length > 0) setActionStatuses(actions);
   }, [currentTenant?.id]);
