@@ -42,7 +42,7 @@ const FollowupSettings = () => {
     ]);
 
     setSelectedStatuses((configRes.data?.followup_statuses as string[]) || []);
-    setActionStatuses((configRes.data?.action_statuses as ActionStatus[]) || [
+    setActionStatuses(((configRes.data as any)?.action_statuses as ActionStatus[]) || [
       { key: 'pending', label: 'بانتظار المتابعة', color: 'yellow' },
       { key: 'contacted', label: 'تم التواصل', color: 'blue' },
       { key: 'resolved', label: 'تم الحل', color: 'green' },
