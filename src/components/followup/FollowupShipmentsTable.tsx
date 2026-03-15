@@ -90,6 +90,17 @@ const FollowupShipmentsTable = () => {
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [sending, setSending] = useState(false);
   const [sendResults, setSendResults] = useState<{ sent: number; failed: number } | null>(null);
+  // AI-grouped proc_notes: groupName → [raw notes]
+  const [noteGroups, setNoteGroups] = useState<Record<string, string[]>>({});
+  const [noteGroupsLoading, setNoteGroupsLoading] = useState(false);
+  // Reverse map: raw note → group name
+  const noteToGroup = useMemo(() => {
+    const map: Record<string, string> = {};
+    Object.entries(noteGroups).forEach(([group, notes]) => {
+      notes.forEach(n => { map[n] = group; });
+    });
+    return map;
+  }, [noteGroups]);
 
   // Helper to get action info
   const getActionInfo = useCallback((key: string) => {
@@ -149,11 +160,42 @@ const FollowupShipmentsTable = () => {
       .limit(5000);
 
     if (error) console.error('Load followup shipments error:', error);
+    setNoteGroups({});
     setShipments((data as any[]) || []);
     setLoading(false);
   }, [currentTenant?.id, loadConfig]);
 
   useEffect(() => { loadShipments(); loadTemplates(); }, [loadShipments, loadTemplates]);
+
+  // AI-group proc_notes when shipments change
+  useEffect(() => {
+    const uniqueNotes = [...new Set(shipments.map(s => s.proc_notes).filter(Boolean))] as string[];
+    if (uniqueNotes.length === 0 || Object.keys(noteGroups).length > 0) return;
+
+    const groupNotes = async () => {
+      setNoteGroupsLoading(true);
+      try {
+        const { data, error } = await supabase.functions.invoke('group-shipping-notes', {
+          body: { notes: uniqueNotes },
+        });
+        if (!error && data?.groups) {
+          setNoteGroups(data.groups);
+        } else {
+          // Fallback: each note is its own group
+          const fallback: Record<string, string[]> = {};
+          uniqueNotes.forEach(n => { fallback[n] = [n]; });
+          setNoteGroups(fallback);
+        }
+      } catch {
+        const fallback: Record<string, string[]> = {};
+        uniqueNotes.forEach(n => { fallback[n] = [n]; });
+        setNoteGroups(fallback);
+      }
+      setNoteGroupsLoading(false);
+    };
+
+    groupNotes();
+  }, [shipments]);
 
   // Get tenant timezone
   const tenantTimezone = currentTenant?.timezone || 'Africa/Cairo';
@@ -253,11 +295,27 @@ const FollowupShipmentsTable = () => {
     return Array.from(statuses).sort();
   }, [shipments]);
 
-  const uniqueStatusDescs = useMemo(() => {
-    const descs = new Set<string>();
-    shipments.forEach(s => { if (s.proc_notes) descs.add(s.proc_notes); });
-    return Array.from(descs).sort();
-  }, [shipments]);
+  // AI-grouped note categories for filter (group names with counts)
+  const noteGroupNames = useMemo(() => {
+    if (Object.keys(noteGroups).length === 0) {
+      // Fallback to raw unique values
+      const descs = new Set<string>();
+      shipments.forEach(s => { if (s.proc_notes) descs.add(s.proc_notes); });
+      return Array.from(descs).sort();
+    }
+    return Object.keys(noteGroups).sort();
+  }, [shipments, noteGroups]);
+
+  // Count shipments per note group
+  const noteGroupCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    shipments.forEach(s => {
+      if (!s.proc_notes) return;
+      const group = noteToGroup[s.proc_notes] || s.proc_notes;
+      counts[group] = (counts[group] || 0) + 1;
+    });
+    return counts;
+  }, [shipments, noteToGroup]);
 
   // Helper to toggle a value in a Set filter
   const toggleFilter = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, value: string) => {
@@ -277,8 +335,12 @@ const FollowupShipmentsTable = () => {
         if (actionFilter.has('__none__') && s.status && s.status !== '') return false;
       }
       
-      // Shipping company notes filter (proc_notes) - multi
-      if (statusDescFilter.size > 0 && !statusDescFilter.has(s.proc_notes || '')) return false;
+      // Shipping company notes filter (proc_notes) - multi, using AI groups
+      if (statusDescFilter.size > 0) {
+        const rawNote = s.proc_notes || '';
+        const group = noteToGroup[rawNote] || rawNote;
+        if (!statusDescFilter.has(group)) return false;
+      }
 
       // Notes filter - multi
       if (notesFilter.size > 0) {
@@ -313,7 +375,7 @@ const FollowupShipmentsTable = () => {
         (s.proc_notes || '').toLowerCase().includes(q)
       );
     });
-  }, [shipments, actionFilter, statusFilter, statusDescFilter, notesFilter, dateFilter, waSentFilter, searchQuery, getDaysSinceLastStatus, getRecencyGroup]);
+  }, [shipments, actionFilter, statusFilter, statusDescFilter, notesFilter, dateFilter, waSentFilter, searchQuery, getDaysSinceLastStatus, getRecencyGroup, noteToGroup]);
 
   // Group filtered shipments by recency
   const groupedFiltered = useMemo(() => {
@@ -981,13 +1043,15 @@ const FollowupShipmentsTable = () => {
                           <ListFilter className="w-3 h-3" />
                         </button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-52 p-2 max-h-60 overflow-auto" align="start">
+                      <PopoverContent className="w-56 p-2 max-h-60 overflow-auto" align="start">
                         <div className="space-y-0.5">
                           <button onClick={() => setStatusDescFilter(new Set())} className={`w-full text-right text-xs px-2 py-1 rounded ${statusDescFilter.size === 0 ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>الكل</button>
-                          {uniqueStatusDescs.map(d => (
-                            <button key={d} onClick={() => toggleFilter(setStatusDescFilter, d)} className={`w-full text-right text-xs px-2 py-1 rounded truncate flex items-center gap-1 ${statusDescFilter.has(d) ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>
-                              {statusDescFilter.has(d) && <Check className="w-3 h-3 flex-shrink-0" />}
-                              <span>{d}</span>
+                          {noteGroupsLoading && <div className="text-[10px] text-muted-foreground px-2 py-1">⏳ جاري التصنيف بالذكاء الاصطناعي...</div>}
+                          {noteGroupNames.map(g => (
+                            <button key={g} onClick={() => toggleFilter(setStatusDescFilter, g)} className={`w-full text-right text-xs px-2 py-1 rounded truncate flex items-center gap-1 ${statusDescFilter.has(g) ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>
+                              {statusDescFilter.has(g) && <Check className="w-3 h-3 flex-shrink-0" />}
+                              <span>{g}</span>
+                              {noteGroupCounts[g] && <span className="text-[9px] text-muted-foreground mr-auto">({noteGroupCounts[g]})</span>}
                             </button>
                           ))}
                         </div>
