@@ -959,7 +959,7 @@ const FollowupShipmentsTable = () => {
                         {displayStatus}
                       </span>
                     </TableCell>
-                    <TableCell className="text-xs max-w-[200px] truncate" title={s.status_description || ''}>{s.status_description || '-'}</TableCell>
+                    <TableCell className="text-xs max-w-[200px] truncate" title={s.proc_notes || ''}>{s.proc_notes || '-'}</TableCell>
                     <TableCell>
                       <Select value={s.status || ''} onValueChange={v => updateAction(s.id, v)}>
                         <SelectTrigger className={`h-7 text-[10px] border ${actionInfo.color || 'border-border'} bg-transparent w-[130px]`}>
