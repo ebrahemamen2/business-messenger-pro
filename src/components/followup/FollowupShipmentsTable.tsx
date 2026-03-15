@@ -859,7 +859,7 @@ const FollowupShipmentsTable = () => {
                 </TableHead>
                 <TableHead className="text-right">
                   <div className="flex items-center gap-1">
-                    <span>تفصيل الحالة</span>
+                    <span>ملاحظات الشحن</span>
                     <Popover>
                       <PopoverTrigger asChild>
                         <button className={`p-0.5 rounded hover:bg-secondary transition-colors ${statusDescFilter !== 'all' ? 'text-primary' : 'text-muted-foreground'}`}>
