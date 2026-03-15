@@ -578,19 +578,20 @@ const FollowupShipmentsTable = () => {
                 </button>
               </div>
 
-              {/* Date filter */}
+              {/* Date filter - recency groups */}
               <div className="space-y-1">
-                <label className="text-[10px] font-medium text-muted-foreground">التاريخ</label>
+                <label className="text-[10px] font-medium text-muted-foreground">التاريخ (مدة بدون تحديث)</label>
                 <Select value={dateFilter} onValueChange={setDateFilter}>
                   <SelectTrigger className="h-7 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all" className="text-xs">كل التواريخ</SelectItem>
-                    <SelectItem value="1" className="text-xs">خلال يوم</SelectItem>
-                    <SelectItem value="2" className="text-xs">خلال يومين</SelectItem>
-                    <SelectItem value="3plus" className="text-xs">3 أيام أو أكتر</SelectItem>
-                    <SelectItem value="unknown" className="text-xs">بدون تاريخ</SelectItem>
+                    {RECENCY_ORDER.map(g => (
+                      <SelectItem key={g} value={g} className="text-xs">
+                        {RECENCY_LABELS[g]} {recencyCounts[g] ? `(${recencyCounts[g]})` : ''}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
