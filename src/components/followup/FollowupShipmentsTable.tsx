@@ -66,8 +66,10 @@ const FollowupShipmentsTable = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [actionFilter, setActionFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusDescFilter, setStatusDescFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [waSentFilter, setWaSentFilter] = useState<string>('all');
+  const [notesFilter, setNotesFilter] = useState<string>('all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [detailShipment, setDetailShipment] = useState<(Shipment & { wa_template_name?: string | null; wa_sent_at?: string | null; notes?: string | null }) | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
@@ -181,11 +183,24 @@ const FollowupShipmentsTable = () => {
     return Array.from(statuses).sort();
   }, [shipments]);
 
+  const uniqueStatusDescs = useMemo(() => {
+    const descs = new Set<string>();
+    shipments.forEach(s => { if (s.status_description) descs.add(s.status_description); });
+    return Array.from(descs).sort();
+  }, [shipments]);
+
   const filtered = useMemo(() => {
     return shipments.filter(s => {
       // Action filter
       if (actionFilter !== 'all' && s.status !== actionFilter) return false;
       
+      // Status description filter
+      if (statusDescFilter !== 'all' && (s.status_description || '') !== statusDescFilter) return false;
+
+      // Notes filter
+      if (notesFilter === 'has_notes' && !s.notes) return false;
+      if (notesFilter === 'no_notes' && s.notes) return false;
+
       // Status filter (shipping company status)
       if (statusFilter !== 'all' && s.final_status !== statusFilter) return false;
       
@@ -213,7 +228,7 @@ const FollowupShipmentsTable = () => {
         (s.proc_notes || '').toLowerCase().includes(q)
       );
     });
-  }, [shipments, actionFilter, statusFilter, dateFilter, waSentFilter, searchQuery]);
+  }, [shipments, actionFilter, statusFilter, statusDescFilter, notesFilter, dateFilter, waSentFilter, searchQuery]);
 
   const updateAction = async (id: string, newStatus: string) => {
     const { error } = await supabase
@@ -803,6 +818,74 @@ const FollowupShipmentsTable = () => {
                 <TableHead className="text-right">ملاحظات</TableHead>
                 <TableHead className="text-right">واتساب</TableHead>
                 <TableHead className="text-right w-12"></TableHead>
+              </TableRow>
+              {/* Inline filter row */}
+              <TableRow className="bg-muted/30 border-b border-border">
+                <TableHead></TableHead>
+                <TableHead className="py-1">
+                  <Input
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    placeholder="بحث..."
+                    className="h-7 text-[10px] bg-background"
+                    dir="auto"
+                  />
+                </TableHead>
+                <TableHead className="py-1">
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="h-7 text-[10px] bg-background"><SelectValue placeholder="الكل" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all" className="text-xs">الكل</SelectItem>
+                      {uniqueStatuses.map(st => (
+                        <SelectItem key={st} value={st} className="text-xs">{st}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </TableHead>
+                <TableHead className="py-1">
+                  <Select value={statusDescFilter} onValueChange={setStatusDescFilter}>
+                    <SelectTrigger className="h-7 text-[10px] bg-background"><SelectValue placeholder="الكل" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all" className="text-xs">الكل</SelectItem>
+                      {uniqueStatusDescs.map(d => (
+                        <SelectItem key={d} value={d} className="text-xs">{d}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </TableHead>
+                <TableHead className="py-1">
+                  <Select value={actionFilter} onValueChange={setActionFilter}>
+                    <SelectTrigger className="h-7 text-[10px] bg-background"><SelectValue placeholder="الكل" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all" className="text-xs">الكل</SelectItem>
+                      <SelectItem value="" className="text-xs">بدون حالة</SelectItem>
+                      {actionStatuses.map(({ key, label }) => (
+                        <SelectItem key={key} value={key} className="text-xs">{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </TableHead>
+                <TableHead className="py-1">
+                  <Select value={notesFilter} onValueChange={setNotesFilter}>
+                    <SelectTrigger className="h-7 text-[10px] bg-background"><SelectValue placeholder="الكل" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all" className="text-xs">الكل</SelectItem>
+                      <SelectItem value="has_notes" className="text-xs">بها ملاحظات</SelectItem>
+                      <SelectItem value="no_notes" className="text-xs">بدون ملاحظات</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </TableHead>
+                <TableHead className="py-1">
+                  <Select value={waSentFilter} onValueChange={setWaSentFilter}>
+                    <SelectTrigger className="h-7 text-[10px] bg-background"><SelectValue placeholder="الكل" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all" className="text-xs">الكل</SelectItem>
+                      <SelectItem value="sent" className="text-xs">✅ اتبعت</SelectItem>
+                      <SelectItem value="not_sent" className="text-xs">لم ترسل</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </TableHead>
+                <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
