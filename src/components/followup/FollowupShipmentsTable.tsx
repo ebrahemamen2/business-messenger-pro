@@ -266,7 +266,38 @@ const FollowupShipmentsTable = () => {
     });
   }, [shipments, actionFilter, statusFilter, statusDescFilter, notesFilter, dateFilter, waSentFilter, searchQuery]);
 
-  const updateAction = async (id: string, newStatus: string) => {
+  // Group filtered shipments by recency
+  const groupedFiltered = useMemo(() => {
+    const groups: { group: string; label: string; shipments: typeof filtered }[] = [];
+    const groupMap = new Map<string, typeof filtered>();
+    
+    filtered.forEach(s => {
+      const days = getDaysSinceLastStatus(s);
+      const group = getRecencyGroup(days);
+      if (!groupMap.has(group)) groupMap.set(group, []);
+      groupMap.get(group)!.push(s);
+    });
+
+    RECENCY_ORDER.forEach(g => {
+      if (groupMap.has(g)) {
+        groups.push({ group: g, label: RECENCY_LABELS[g], shipments: groupMap.get(g)! });
+      }
+    });
+
+    return groups;
+  }, [filtered, getDaysSinceLastStatus, getRecencyGroup]);
+
+  // Recency counts for filter
+  const recencyCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    filtered.forEach(s => {
+      const days = getDaysSinceLastStatus(s);
+      const group = getRecencyGroup(days);
+      counts[group] = (counts[group] || 0) + 1;
+    });
+    return counts;
+  }, [filtered, getDaysSinceLastStatus, getRecencyGroup]);
+
     const { error } = await supabase
       .from('shipment_tracking')
       .update({ status: newStatus } as any)
