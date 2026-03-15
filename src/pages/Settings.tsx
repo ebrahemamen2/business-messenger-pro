@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
-import { Shield, MessageSquare, Brain } from 'lucide-react';
+import { Shield, MessageSquare, Brain, Store } from 'lucide-react';
 import { useTenantContext } from '@/contexts/TenantContext';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import ConfirmSettings from '@/components/confirm/ConfirmSettings';
 import AISettings from '@/components/settings/AISettings';
+import StoreIntegrationSettings from '@/components/settings/StoreIntegrationSettings';
 
 const Settings = () => {
   const { currentTenant } = useTenantContext();
@@ -23,8 +24,13 @@ const Settings = () => {
             </TabsTrigger>
             <TabsTrigger value="whatsapp" className="gap-1.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <MessageSquare className="w-4 h-4" />
-              <span className="hidden sm:inline">إعدادات الواتساب</span>
+              <span className="hidden sm:inline">الواتساب</span>
               <span className="sm:hidden">واتساب</span>
+            </TabsTrigger>
+            <TabsTrigger value="store" className="gap-1.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+              <Store className="w-4 h-4" />
+              <span className="hidden sm:inline">ربط المتجر</span>
+              <span className="sm:hidden">المتجر</span>
             </TabsTrigger>
             <TabsTrigger value="ai" className="gap-1.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <Brain className="w-4 h-4" />
@@ -64,6 +70,10 @@ const Settings = () => {
 
         <TabsContent value="whatsapp" className="flex-1 m-0 overflow-hidden">
           <ConfirmSettings />
+        </TabsContent>
+
+        <TabsContent value="store" className="flex-1 m-0 overflow-hidden">
+          <StoreIntegrationSettings />
         </TabsContent>
 
         <TabsContent value="ai" className="flex-1 m-0 overflow-hidden">
