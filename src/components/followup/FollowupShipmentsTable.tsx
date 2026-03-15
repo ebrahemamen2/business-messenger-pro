@@ -210,6 +210,23 @@ const FollowupShipmentsTable = () => {
     }
   };
 
+  const startEditNote = (id: string, currentNote: string) => {
+    setEditingNoteId(id);
+    setNoteText(currentNote || '');
+  };
+
+  const saveNote = async (id: string) => {
+    const { error } = await supabase
+      .from('shipment_tracking')
+      .update({ notes: noteText } as any)
+      .eq('id', id);
+    if (!error) {
+      setShipments(prev => prev.map(s => s.id === id ? { ...s, notes: noteText } : s));
+      setEditingNoteId(null);
+      setNoteText('');
+    }
+  };
+
   const bulkUpdateAction = async (newStatus: string) => {
     if (selectedIds.size === 0) return;
     const ids = Array.from(selectedIds);
