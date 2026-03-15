@@ -87,6 +87,21 @@ function buildTemplateComponents(
   return components;
 }
 
+function buildTemplateMessageBody(
+  templateName: string,
+  shipment: Record<string, any>
+): string {
+  const lines: string[] = [`📋 قالب واتساب: ${templateName}`];
+  if (shipment.customer_name) lines.push(`👤 ${shipment.customer_name}`);
+  if (shipment.shipment_code) lines.push(`📦 بوليصة: ${shipment.shipment_code}`);
+  if (shipment.order_code) lines.push(`🧾 طلب: ${shipment.order_code}`);
+  if (shipment.amount) lines.push(`💰 ${shipment.amount} ج.م`);
+  if (shipment.status) lines.push(`📊 الحالة: ${shipment.status}`);
+  if (shipment.customer_address) lines.push(`📍 ${shipment.customer_address}`);
+  if (shipment.order_details) lines.push(`📝 ${shipment.order_details}`);
+  return lines.join("\n");
+}
+
 async function ensureFollowupConversation(
   supabase: any,
   phone: string,
@@ -96,6 +111,7 @@ async function ensureFollowupConversation(
 ): Promise<string | null> {
   const normalized = normalizePhone(phone);
   const variants = getPhoneVariants(phone);
+  const messageBody = buildTemplateMessageBody(templateName, shipment);
 
   // Check if conversation exists for this phone in ANY module
   const { data: existingConvs } = await supabase
@@ -108,34 +124,30 @@ async function ensureFollowupConversation(
   let conversationId: string | null = null;
 
   if (existingConvs && existingConvs.length > 0) {
-    // Check if already in followup
     const followupConv = existingConvs.find(
       (c: any) => c.module === "followup"
     );
     if (followupConv) {
       conversationId = followupConv.id;
-      // Update last message info
       await supabase
         .from("conversations")
         .update({
           last_message_at: nowIso,
-          last_message_body: `📋 قالب: ${templateName}`,
+          last_message_body: messageBody.split("\n").slice(0, 2).join(" | "),
         })
         .eq("id", conversationId);
     } else {
-      // Move first existing conversation to followup
       conversationId = existingConvs[0].id;
       await supabase
         .from("conversations")
         .update({
           module: "followup",
           last_message_at: nowIso,
-          last_message_body: `📋 قالب: ${templateName}`,
+          last_message_body: messageBody.split("\n").slice(0, 2).join(" | "),
         })
         .eq("id", conversationId);
     }
   } else {
-    // Create new conversation in followup
     const { data: newConv } = await supabase
       .from("conversations")
       .insert({
@@ -145,7 +157,7 @@ async function ensureFollowupConversation(
         status: "open",
         chat_status: "replied",
         last_message_at: nowIso,
-        last_message_body: `📋 قالب: ${templateName}`,
+        last_message_body: messageBody.split("\n").slice(0, 2).join(" | "),
         unread_count: 0,
       })
       .select("id")
@@ -154,7 +166,6 @@ async function ensureFollowupConversation(
     if (newConv) {
       conversationId = newConv.id;
 
-      // Ensure contact exists
       const { data: existingContact } = await supabase
         .from("contacts")
         .select("id")
@@ -172,13 +183,13 @@ async function ensureFollowupConversation(
     }
   }
 
-  // Store the template message in messages table
+  // Store the template message with full details
   if (conversationId) {
     await supabase.from("messages").insert({
       contact_phone: normalized,
       tenant_id: tenantId,
       direction: "outbound",
-      body: `📋 قالب واتساب: ${templateName}`,
+      body: messageBody,
       status: "sent",
     });
   }
