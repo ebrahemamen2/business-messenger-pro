@@ -8,7 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Download, Search, Loader2, Truck, Eye, RefreshCw, Filter, Send,
-  CheckCircle, XCircle, Clock, AlertTriangle, MessageSquare, Calendar, StickyNote, Check, X
+  CheckCircle, XCircle, Clock, AlertTriangle, MessageSquare, Calendar, StickyNote, Check, X,
+  ChevronLeft, ChevronRight, Phone, MapPin, Package, ShoppingBag, User, CreditCard, PanelTop, PanelTopClose
 } from 'lucide-react';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
