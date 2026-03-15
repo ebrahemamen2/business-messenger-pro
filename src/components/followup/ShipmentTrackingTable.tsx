@@ -70,7 +70,10 @@ const ShipmentTrackingTable = () => {
   const [detailShipment, setDetailShipment] = useState<Shipment | null>(null);
 
   const loadShipments = useCallback(async () => {
-    if (!currentTenant?.id) return;
+    if (!currentTenant?.id) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
 
     let query = supabase
