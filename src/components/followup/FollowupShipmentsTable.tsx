@@ -183,6 +183,12 @@ const FollowupShipmentsTable = () => {
     return Array.from(statuses).sort();
   }, [shipments]);
 
+  const uniqueStatusDescs = useMemo(() => {
+    const descs = new Set<string>();
+    shipments.forEach(s => { if (s.status_description) descs.add(s.status_description); });
+    return Array.from(descs).sort();
+  }, [shipments]);
+
   const filtered = useMemo(() => {
     return shipments.filter(s => {
       // Action filter
