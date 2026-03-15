@@ -195,8 +195,8 @@ const FollowupShipmentsTable = () => {
       if (actionFilter === '__none__' && s.status !== '' && s.status !== null) return false;
       if (actionFilter !== 'all' && actionFilter !== '__none__' && s.status !== actionFilter) return false;
       
-      // Status description filter
-      if (statusDescFilter !== 'all' && (s.status_description || '') !== statusDescFilter) return false;
+      // Shipping company notes filter (proc_notes)
+      if (statusDescFilter !== 'all' && (s.proc_notes || '') !== statusDescFilter) return false;
 
       // Notes filter
       if (notesFilter === 'has_notes' && !s.notes) return false;
