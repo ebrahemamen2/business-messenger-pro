@@ -954,15 +954,18 @@ const FollowupShipmentsTable = () => {
                     <span>حالة الشحن</span>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <button className={`p-0.5 rounded hover:bg-secondary transition-colors ${statusFilter !== 'all' ? 'text-primary' : 'text-muted-foreground'}`}>
+                        <button className={`p-0.5 rounded hover:bg-secondary transition-colors ${statusFilter.size > 0 ? 'text-primary' : 'text-muted-foreground'}`}>
                           <ListFilter className="w-3 h-3" />
                         </button>
                       </PopoverTrigger>
                       <PopoverContent className="w-48 p-2 max-h-60 overflow-auto" align="start">
                         <div className="space-y-0.5">
-                          <button onClick={() => setStatusFilter('all')} className={`w-full text-right text-xs px-2 py-1 rounded ${statusFilter === 'all' ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>الكل</button>
+                          <button onClick={() => setStatusFilter(new Set())} className={`w-full text-right text-xs px-2 py-1 rounded ${statusFilter.size === 0 ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>الكل</button>
                           {uniqueStatuses.map(st => (
-                            <button key={st} onClick={() => setStatusFilter(st)} className={`w-full text-right text-xs px-2 py-1 rounded truncate ${statusFilter === st ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>{st}</button>
+                            <button key={st} onClick={() => toggleFilter(setStatusFilter, st)} className={`w-full text-right text-xs px-2 py-1 rounded truncate flex items-center gap-1 ${statusFilter.has(st) ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>
+                              {statusFilter.has(st) && <Check className="w-3 h-3 flex-shrink-0" />}
+                              <span>{st}</span>
+                            </button>
                           ))}
                         </div>
                       </PopoverContent>
@@ -974,15 +977,18 @@ const FollowupShipmentsTable = () => {
                     <span>ملاحظات الشحن</span>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <button className={`p-0.5 rounded hover:bg-secondary transition-colors ${statusDescFilter !== 'all' ? 'text-primary' : 'text-muted-foreground'}`}>
+                        <button className={`p-0.5 rounded hover:bg-secondary transition-colors ${statusDescFilter.size > 0 ? 'text-primary' : 'text-muted-foreground'}`}>
                           <ListFilter className="w-3 h-3" />
                         </button>
                       </PopoverTrigger>
                       <PopoverContent className="w-52 p-2 max-h-60 overflow-auto" align="start">
                         <div className="space-y-0.5">
-                          <button onClick={() => setStatusDescFilter('all')} className={`w-full text-right text-xs px-2 py-1 rounded ${statusDescFilter === 'all' ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>الكل</button>
+                          <button onClick={() => setStatusDescFilter(new Set())} className={`w-full text-right text-xs px-2 py-1 rounded ${statusDescFilter.size === 0 ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>الكل</button>
                           {uniqueStatusDescs.map(d => (
-                            <button key={d} onClick={() => setStatusDescFilter(d)} className={`w-full text-right text-xs px-2 py-1 rounded truncate ${statusDescFilter === d ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>{d}</button>
+                            <button key={d} onClick={() => toggleFilter(setStatusDescFilter, d)} className={`w-full text-right text-xs px-2 py-1 rounded truncate flex items-center gap-1 ${statusDescFilter.has(d) ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>
+                              {statusDescFilter.has(d) && <Check className="w-3 h-3 flex-shrink-0" />}
+                              <span>{d}</span>
+                            </button>
                           ))}
                         </div>
                       </PopoverContent>
@@ -994,16 +1000,22 @@ const FollowupShipmentsTable = () => {
                     <span>حالة المتابعة</span>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <button className={`p-0.5 rounded hover:bg-secondary transition-colors ${actionFilter !== 'all' ? 'text-primary' : 'text-muted-foreground'}`}>
+                        <button className={`p-0.5 rounded hover:bg-secondary transition-colors ${actionFilter.size > 0 ? 'text-primary' : 'text-muted-foreground'}`}>
                           <ListFilter className="w-3 h-3" />
                         </button>
                       </PopoverTrigger>
                       <PopoverContent className="w-44 p-2" align="start">
                         <div className="space-y-0.5">
-                          <button onClick={() => setActionFilter('all')} className={`w-full text-right text-xs px-2 py-1 rounded ${actionFilter === 'all' ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>الكل</button>
-                          <button onClick={() => setActionFilter('__none__')} className={`w-full text-right text-xs px-2 py-1 rounded ${actionFilter === '__none__' ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>بدون حالة</button>
+                          <button onClick={() => setActionFilter(new Set())} className={`w-full text-right text-xs px-2 py-1 rounded ${actionFilter.size === 0 ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>الكل</button>
+                          <button onClick={() => toggleFilter(setActionFilter, '__none__')} className={`w-full text-right text-xs px-2 py-1 rounded flex items-center gap-1 ${actionFilter.has('__none__') ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>
+                            {actionFilter.has('__none__') && <Check className="w-3 h-3 flex-shrink-0" />}
+                            <span>بدون حالة</span>
+                          </button>
                           {actionStatuses.map(({ key, label }) => (
-                            <button key={key} onClick={() => setActionFilter(key)} className={`w-full text-right text-xs px-2 py-1 rounded ${actionFilter === key ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>{label}</button>
+                            <button key={key} onClick={() => toggleFilter(setActionFilter, key)} className={`w-full text-right text-xs px-2 py-1 rounded flex items-center gap-1 ${actionFilter.has(key) ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>
+                              {actionFilter.has(key) && <Check className="w-3 h-3 flex-shrink-0" />}
+                              <span>{label}</span>
+                            </button>
                           ))}
                         </div>
                       </PopoverContent>
@@ -1015,15 +1027,21 @@ const FollowupShipmentsTable = () => {
                     <span>ملاحظات</span>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <button className={`p-0.5 rounded hover:bg-secondary transition-colors ${notesFilter !== 'all' ? 'text-primary' : 'text-muted-foreground'}`}>
+                        <button className={`p-0.5 rounded hover:bg-secondary transition-colors ${notesFilter.size > 0 ? 'text-primary' : 'text-muted-foreground'}`}>
                           <ListFilter className="w-3 h-3" />
                         </button>
                       </PopoverTrigger>
                       <PopoverContent className="w-40 p-2" align="start">
                         <div className="space-y-0.5">
-                          <button onClick={() => setNotesFilter('all')} className={`w-full text-right text-xs px-2 py-1 rounded ${notesFilter === 'all' ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>الكل</button>
-                          <button onClick={() => setNotesFilter('has_notes')} className={`w-full text-right text-xs px-2 py-1 rounded ${notesFilter === 'has_notes' ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>بها ملاحظات</button>
-                          <button onClick={() => setNotesFilter('no_notes')} className={`w-full text-right text-xs px-2 py-1 rounded ${notesFilter === 'no_notes' ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>بدون ملاحظات</button>
+                          <button onClick={() => setNotesFilter(new Set())} className={`w-full text-right text-xs px-2 py-1 rounded ${notesFilter.size === 0 ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>الكل</button>
+                          <button onClick={() => toggleFilter(setNotesFilter, 'has_notes')} className={`w-full text-right text-xs px-2 py-1 rounded flex items-center gap-1 ${notesFilter.has('has_notes') ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>
+                            {notesFilter.has('has_notes') && <Check className="w-3 h-3 flex-shrink-0" />}
+                            <span>بها ملاحظات</span>
+                          </button>
+                          <button onClick={() => toggleFilter(setNotesFilter, 'no_notes')} className={`w-full text-right text-xs px-2 py-1 rounded flex items-center gap-1 ${notesFilter.has('no_notes') ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>
+                            {notesFilter.has('no_notes') && <Check className="w-3 h-3 flex-shrink-0" />}
+                            <span>بدون ملاحظات</span>
+                          </button>
                         </div>
                       </PopoverContent>
                     </Popover>
@@ -1034,15 +1052,21 @@ const FollowupShipmentsTable = () => {
                     <span>واتساب</span>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <button className={`p-0.5 rounded hover:bg-secondary transition-colors ${waSentFilter !== 'all' ? 'text-primary' : 'text-muted-foreground'}`}>
+                        <button className={`p-0.5 rounded hover:bg-secondary transition-colors ${waSentFilter.size > 0 ? 'text-primary' : 'text-muted-foreground'}`}>
                           <ListFilter className="w-3 h-3" />
                         </button>
                       </PopoverTrigger>
                       <PopoverContent className="w-36 p-2" align="start">
                         <div className="space-y-0.5">
-                          <button onClick={() => setWaSentFilter('all')} className={`w-full text-right text-xs px-2 py-1 rounded ${waSentFilter === 'all' ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>الكل</button>
-                          <button onClick={() => setWaSentFilter('sent')} className={`w-full text-right text-xs px-2 py-1 rounded ${waSentFilter === 'sent' ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>✅ اتبعت</button>
-                          <button onClick={() => setWaSentFilter('not_sent')} className={`w-full text-right text-xs px-2 py-1 rounded ${waSentFilter === 'not_sent' ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>لم ترسل</button>
+                          <button onClick={() => setWaSentFilter(new Set())} className={`w-full text-right text-xs px-2 py-1 rounded ${waSentFilter.size === 0 ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>الكل</button>
+                          <button onClick={() => toggleFilter(setWaSentFilter, 'sent')} className={`w-full text-right text-xs px-2 py-1 rounded flex items-center gap-1 ${waSentFilter.has('sent') ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>
+                            {waSentFilter.has('sent') && <Check className="w-3 h-3 flex-shrink-0" />}
+                            <span>✅ اتبعت</span>
+                          </button>
+                          <button onClick={() => toggleFilter(setWaSentFilter, 'not_sent')} className={`w-full text-right text-xs px-2 py-1 rounded flex items-center gap-1 ${waSentFilter.has('not_sent') ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>
+                            {waSentFilter.has('not_sent') && <Check className="w-3 h-3 flex-shrink-0" />}
+                            <span>لم ترسل</span>
+                          </button>
                         </div>
                       </PopoverContent>
                     </Popover>
