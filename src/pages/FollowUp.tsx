@@ -9,6 +9,7 @@ import { Truck, Loader2, MessageSquare, ArrowRight, Package, Settings2, Table2, 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import AllShipmentsTable from '@/components/followup/AllShipmentsTable';
 import FollowupShipmentsTable from '@/components/followup/FollowupShipmentsTable';
+import DoneShipmentsTable from '@/components/followup/DoneShipmentsTable';
 import FollowupSettings from '@/components/followup/FollowupSettings';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent } from '@/components/ui/sheet';

@@ -76,7 +76,7 @@ const DoneShipmentsTable = () => {
       .select('action_statuses')
       .eq('tenant_id', currentTenant.id)
       .maybeSingle();
-    const actions = (config?.action_statuses as ActionStatus[] | null) || [];
+    const actions = (config?.action_statuses as unknown as ActionStatus[] | null) || [];
     setActionStatuses(actions);
 
     // Load history records with shipment data
