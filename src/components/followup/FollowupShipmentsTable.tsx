@@ -723,7 +723,12 @@ const FollowupShipmentsTable = () => {
                 const displayStatus = s.final_status || '-';
                 const days = getDaysSinceLastStatus(s);
                 return (
-                  <TableRow key={s.id} className="text-xs">
+                  <TableRow
+                    key={s.id}
+                    ref={(el) => { if (el) rowRefs.current.set(s.id, el); else rowRefs.current.delete(s.id); }}
+                    className={`text-xs cursor-pointer transition-colors ${cardVisible && activeShipment?.id === s.id ? 'bg-primary/10 ring-1 ring-primary/20' : ''}`}
+                    onClick={() => handleRowClick(s.id)}
+                  >
                     <TableCell className="text-center">
                       <input type="checkbox" checked={selectedIds.has(s.id)} onChange={() => toggleSelect(s.id)} className="rounded border-border" />
                     </TableCell>
