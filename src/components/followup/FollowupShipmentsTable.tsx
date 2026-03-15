@@ -710,11 +710,11 @@ const FollowupShipmentsTable = () => {
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">حالة المتابعة:</span>
                 <Select
-                  value={activeShipment.status}
+                  value={activeShipment.status || ''}
                   onValueChange={v => updateAction(activeShipment.id, v)}
                 >
-                  <SelectTrigger className={`h-8 text-xs border ${getActionInfo(activeShipment.status).color} bg-transparent w-[140px]`}>
-                    <span>{getActionInfo(activeShipment.status).label}</span>
+                  <SelectTrigger className={`h-8 text-xs border ${getActionInfo(activeShipment.status).color || 'border-border'} bg-transparent w-[140px]`}>
+                    <span>{getActionInfo(activeShipment.status).label || <span className="text-muted-foreground">اختر حالة</span>}</span>
                   </SelectTrigger>
                   <SelectContent>
                     {actionStatuses.map(({ key, label }) => (
