@@ -620,9 +620,9 @@ const FollowupShipmentsTable = () => {
               <Button variant="outline" size="sm" className="gap-1 text-xs h-7 relative">
                 <Filter className="w-3.5 h-3.5" />
                 فلترة
-                {(dateFilter !== 'all' || statusFilter !== 'all' || waSentFilter !== 'all' || actionFilter !== 'all') && (
+                {(dateFilter.size > 0 || statusFilter.size > 0 || waSentFilter.size > 0 || actionFilter.size > 0) && (
                   <span className="absolute -top-1.5 -left-1.5 w-4 h-4 rounded-full bg-primary text-primary-foreground text-[8px] flex items-center justify-center font-bold">
-                    {[dateFilter !== 'all', statusFilter !== 'all', waSentFilter !== 'all', actionFilter !== 'all'].filter(Boolean).length}
+                    {[dateFilter.size > 0, statusFilter.size > 0, waSentFilter.size > 0, actionFilter.size > 0].filter(Boolean).length}
                   </span>
                 )}
               </Button>
@@ -631,74 +631,54 @@ const FollowupShipmentsTable = () => {
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-foreground">الفلاتر</span>
                 <button
-                  onClick={() => { setDateFilter('all'); setStatusFilter('all'); setWaSentFilter('all'); setActionFilter('all'); }}
+                  onClick={() => { setDateFilter(new Set()); setStatusFilter(new Set()); setWaSentFilter(new Set()); setActionFilter(new Set()); }}
                   className="text-[10px] text-primary hover:underline"
                 >
                   إزالة الكل
                 </button>
               </div>
 
-              {/* Date filter - recency groups */}
+              {/* Date filter - recency groups (multi-select chips) */}
               <div className="space-y-1">
                 <label className="text-[10px] font-medium text-muted-foreground">التاريخ (مدة بدون تحديث)</label>
-                <Select value={dateFilter} onValueChange={setDateFilter}>
-                  <SelectTrigger className="h-7 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all" className="text-xs">كل التواريخ</SelectItem>
-                    {RECENCY_ORDER.map(g => (
-                      <SelectItem key={g} value={g} className="text-xs">
-                        {RECENCY_LABELS[g]} {recencyCounts[g] ? `(${recencyCounts[g]})` : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-1 flex-wrap">
+                  {RECENCY_ORDER.map(g => (
+                    <button key={g} onClick={() => toggleFilter(setDateFilter, g)} className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors ${dateFilter.has(g) ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
+                      {RECENCY_LABELS[g]} {recencyCounts[g] ? `(${recencyCounts[g]})` : ''}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              {/* Shipping status */}
+              {/* Shipping status (multi-select chips) */}
               <div className="space-y-1">
                 <label className="text-[10px] font-medium text-muted-foreground">حالة الشحن</label>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="h-7 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all" className="text-xs">كل الحالات</SelectItem>
-                    {uniqueStatuses.map(s => (
-                      <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-1 flex-wrap max-h-24 overflow-auto">
+                  {uniqueStatuses.map(s => (
+                    <button key={s} onClick={() => toggleFilter(setStatusFilter, s)} className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors ${statusFilter.has(s) ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              {/* WA sent */}
+              {/* WA sent (multi-select chips) */}
               <div className="space-y-1">
                 <label className="text-[10px] font-medium text-muted-foreground">الواتساب</label>
-                <Select value={waSentFilter} onValueChange={setWaSentFilter}>
-                  <SelectTrigger className="h-7 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all" className="text-xs">الكل</SelectItem>
-                    <SelectItem value="sent" className="text-xs">✅ اتبعتله</SelectItem>
-                    <SelectItem value="not_sent" className="text-xs">❌ ماتبعتلهوش</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-1 flex-wrap">
+                  <button onClick={() => toggleFilter(setWaSentFilter, 'sent')} className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors ${waSentFilter.has('sent') ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>✅ اتبعتله</button>
+                  <button onClick={() => toggleFilter(setWaSentFilter, 'not_sent')} className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors ${waSentFilter.has('not_sent') ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>❌ ماتبعتلهوش</button>
+                </div>
               </div>
 
-              {/* Action status */}
+              {/* Action status (multi-select chips) */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-medium text-muted-foreground">حالة المتابعة</label>
                 <div className="flex gap-1 flex-wrap">
-                  <button onClick={() => setActionFilter('all')} className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors ${actionFilter === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
-                    الكل ({filtered.length})
-                  </button>
                   {actionStatuses.map(({ key, label }) => {
                     const count = actionCounts[key] || 0;
-                    if (count === 0) return null;
                     return (
-                      <button key={key} onClick={() => setActionFilter(key)} className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors ${actionFilter === key ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
+                      <button key={key} onClick={() => toggleFilter(setActionFilter, key)} className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors ${actionFilter.has(key) ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
                         {label} ({count})
                       </button>
                     );
