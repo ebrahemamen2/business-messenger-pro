@@ -185,7 +185,7 @@ const FollowupShipmentsTable = () => {
 
   const uniqueStatusDescs = useMemo(() => {
     const descs = new Set<string>();
-    shipments.forEach(s => { if (s.status_description) descs.add(s.status_description); });
+    shipments.forEach(s => { if (s.proc_notes) descs.add(s.proc_notes); });
     return Array.from(descs).sort();
   }, [shipments]);
 
@@ -195,8 +195,8 @@ const FollowupShipmentsTable = () => {
       if (actionFilter === '__none__' && s.status !== '' && s.status !== null) return false;
       if (actionFilter !== 'all' && actionFilter !== '__none__' && s.status !== actionFilter) return false;
       
-      // Status description filter
-      if (statusDescFilter !== 'all' && (s.status_description || '') !== statusDescFilter) return false;
+      // Shipping company notes filter (proc_notes)
+      if (statusDescFilter !== 'all' && (s.proc_notes || '') !== statusDescFilter) return false;
 
       // Notes filter
       if (notesFilter === 'has_notes' && !s.notes) return false;
@@ -859,7 +859,7 @@ const FollowupShipmentsTable = () => {
                 </TableHead>
                 <TableHead className="text-right">
                   <div className="flex items-center gap-1">
-                    <span>تفصيل الحالة</span>
+                    <span>ملاحظات الشحن</span>
                     <Popover>
                       <PopoverTrigger asChild>
                         <button className={`p-0.5 rounded hover:bg-secondary transition-colors ${statusDescFilter !== 'all' ? 'text-primary' : 'text-muted-foreground'}`}>
@@ -959,7 +959,7 @@ const FollowupShipmentsTable = () => {
                         {displayStatus}
                       </span>
                     </TableCell>
-                    <TableCell className="text-xs max-w-[200px] truncate" title={s.status_description || ''}>{s.status_description || '-'}</TableCell>
+                    <TableCell className="text-xs max-w-[200px] truncate" title={s.proc_notes || ''}>{s.proc_notes || '-'}</TableCell>
                     <TableCell>
                       <Select value={s.status || ''} onValueChange={v => updateAction(s.id, v)}>
                         <SelectTrigger className={`h-7 text-[10px] border ${actionInfo.color || 'border-border'} bg-transparent w-[130px]`}>
