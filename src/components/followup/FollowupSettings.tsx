@@ -141,6 +141,9 @@ const FollowupSettings = () => {
         <div className="border-b border-border bg-card px-4 flex-shrink-0">
           <TabsList className="bg-transparent h-10 gap-1">
             <TabsTrigger value="statuses" className="text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+              حالات الشحن
+            </TabsTrigger>
+            <TabsTrigger value="action-statuses" className="text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               حالات المتابعة
             </TabsTrigger>
             <TabsTrigger value="wa-templates" className="text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
