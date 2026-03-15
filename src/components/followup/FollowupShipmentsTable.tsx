@@ -192,7 +192,8 @@ const FollowupShipmentsTable = () => {
   const filtered = useMemo(() => {
     return shipments.filter(s => {
       // Action filter
-      if (actionFilter !== 'all' && s.status !== actionFilter) return false;
+      if (actionFilter === '__none__' && s.status !== '' && s.status !== null) return false;
+      if (actionFilter !== 'all' && actionFilter !== '__none__' && s.status !== actionFilter) return false;
       
       // Status description filter
       if (statusDescFilter !== 'all' && (s.status_description || '') !== statusDescFilter) return false;
