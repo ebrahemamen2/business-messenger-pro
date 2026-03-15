@@ -403,7 +403,7 @@ const AllShipmentsTable = () => {
       <div className="flex-1 overflow-auto">
         {loading ? (
           <div className="flex items-center justify-center h-full"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
-        ) : filtered.length === 0 ? (
+        ) : shipments.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-4 text-muted-foreground">
             <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center"><Package className="w-8 h-8 text-primary" /></div>
             <p className="text-sm font-medium">لا توجد شحنات</p>
