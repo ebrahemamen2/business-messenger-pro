@@ -42,6 +42,13 @@ const FollowupSettings = () => {
     ]);
 
     setSelectedStatuses((configRes.data?.followup_statuses as string[]) || []);
+    setActionStatuses((configRes.data?.action_statuses as ActionStatus[]) || [
+      { key: 'pending', label: 'بانتظار المتابعة', color: 'yellow' },
+      { key: 'contacted', label: 'تم التواصل', color: 'blue' },
+      { key: 'resolved', label: 'تم الحل', color: 'green' },
+      { key: 'escalated', label: 'تصعيد', color: 'red' },
+      { key: 'cancelled', label: 'ملغي', color: 'gray' },
+    ]);
 
     // Extract unique statuses from shipments
     const uniqueFromDb = [...new Set(
