@@ -54,8 +54,9 @@ interface WATemplate {
 const FollowupShipmentsTable = () => {
   const { currentTenant } = useTenantContext();
   const { toast } = useToast();
-  const [shipments, setShipments] = useState<(Shipment & { wa_template_name?: string | null; wa_sent_at?: string | null })[]>([]);
+  const [shipments, setShipments] = useState<(Shipment & { wa_template_name?: string | null; wa_sent_at?: string | null; notes?: string | null })[]>([]);
   const [followupStatuses, setFollowupStatuses] = useState<string[]>([]);
+  const [actionStatuses, setActionStatuses] = useState<ActionStatus[]>(DEFAULT_FOLLOWUP_ACTIONS);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [actionFilter, setActionFilter] = useState<string>('all');
@@ -63,7 +64,9 @@ const FollowupShipmentsTable = () => {
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [waSentFilter, setWaSentFilter] = useState<string>('all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [detailShipment, setDetailShipment] = useState<(Shipment & { wa_template_name?: string | null; wa_sent_at?: string | null }) | null>(null);
+  const [detailShipment, setDetailShipment] = useState<(Shipment & { wa_template_name?: string | null; wa_sent_at?: string | null; notes?: string | null }) | null>(null);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [noteText, setNoteText] = useState('');
 
   // WA sending state
   const [waTemplates, setWaTemplates] = useState<WATemplate[]>([]);
@@ -71,6 +74,13 @@ const FollowupShipmentsTable = () => {
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [sending, setSending] = useState(false);
   const [sendResults, setSendResults] = useState<{ sent: number; failed: number } | null>(null);
+
+  // Helper to get action info
+  const getActionInfo = useCallback((key: string) => {
+    const action = actionStatuses.find(a => a.key === key);
+    if (!action) return { label: key, color: COLOR_MAP.gray };
+    return { label: action.label, color: COLOR_MAP[action.color] || COLOR_MAP.gray };
+  }, [actionStatuses]);
 
   // Load configured followup statuses
   const loadConfig = useCallback(async () => {
