@@ -3,7 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useTenantContext } from '@/contexts/TenantContext';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Loader2, Save, CheckSquare, Square } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Loader2, Save, CheckSquare, Square, Plus, X, Search } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import ConfirmAutoReply from '@/components/confirm/ConfirmAutoReply';
 import AIModulePrompt from '@/components/settings/AIModulePrompt';
@@ -16,16 +17,35 @@ const FollowupSettings = () => {
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [dbStatuses, setDbStatuses] = useState<string[]>([]);
+  const [newStatus, setNewStatus] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const loadConfig = useCallback(async () => {
     if (!currentTenant?.id) { setLoading(false); return; }
     setLoading(true);
-    const { data } = await supabase
-      .from('followup_status_config')
-      .select('followup_statuses')
-      .eq('tenant_id', currentTenant.id)
-      .maybeSingle();
-    setSelectedStatuses((data?.followup_statuses as string[]) || []);
+
+    // Load saved config + distinct statuses from shipments in parallel
+    const [configRes, statusesRes] = await Promise.all([
+      supabase
+        .from('followup_status_config')
+        .select('followup_statuses')
+        .eq('tenant_id', currentTenant.id)
+        .maybeSingle(),
+      supabase
+        .from('shipment_tracking')
+        .select('status')
+        .eq('tenant_id', currentTenant.id),
+    ]);
+
+    setSelectedStatuses((configRes.data?.followup_statuses as string[]) || []);
+
+    // Extract unique statuses from shipments
+    const uniqueFromDb = [...new Set(
+      (statusesRes.data || []).map(r => r.status).filter(Boolean)
+    )];
+    setDbStatuses(uniqueFromDb);
+
     setLoading(false);
   }, [currentTenant?.id]);
 
@@ -35,6 +55,19 @@ const FollowupSettings = () => {
     setSelectedStatuses(prev =>
       prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
     );
+  };
+
+  const addCustomStatus = () => {
+    const trimmed = newStatus.trim();
+    if (!trimmed) return;
+    if (!selectedStatuses.includes(trimmed)) {
+      setSelectedStatuses(prev => [...prev, trimmed]);
+    }
+    setNewStatus('');
+  };
+
+  const removeStatus = (status: string) => {
+    setSelectedStatuses(prev => prev.filter(s => s !== status));
   };
 
   const saveConfig = async () => {
@@ -56,12 +89,22 @@ const FollowupSettings = () => {
     setSaving(false);
   };
 
-  const statusGroups = {
-    'حالات تحتاج متابعة عادة': ['CR', 'Follow', 'تأجيل الى تاريخ', 'تحديد معاد', 'OH', 'Undelivered', 'Another try', 'Next Day'],
-    'حالات التسليم': ['OK', 'OD', 'Cash Delivered', 'Collected', 'تحت التسليم', 'Cash in Transit'],
-    'حالات المرتجع': ['RO', 'ROWF', 'Returned to the Shipper', 'Cancel Shipment'],
-    'حالات النقل': ['in transit', 'Received', 'Branch Delivered'],
-  };
+  // Combine: known statuses + statuses from DB + already selected (custom ones)
+  const allAvailableStatuses = [...new Set([
+    ...Object.keys(SHIPPING_STATUSES),
+    ...dbStatuses,
+    ...selectedStatuses,
+  ])];
+
+  const filteredStatuses = searchTerm
+    ? allAvailableStatuses.filter(s => {
+        const info = SHIPPING_STATUSES[s];
+        const lower = searchTerm.toLowerCase();
+        return s.toLowerCase().includes(lower) ||
+          info?.en.toLowerCase().includes(lower) ||
+          info?.ar.toLowerCase().includes(lower);
+      })
+    : allAvailableStatuses;
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -87,7 +130,8 @@ const FollowupSettings = () => {
           {loading ? (
             <div className="flex items-center justify-center h-full"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
           ) : (
-            <div className="space-y-6 max-w-3xl mx-auto">
+            <div className="space-y-5 max-w-3xl mx-auto">
+              {/* Header */}
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-bold text-foreground">اختيار حالات المتابعة</h3>
@@ -101,43 +145,91 @@ const FollowupSettings = () => {
                 </Button>
               </div>
 
-              {Object.entries(statusGroups).map(([group, statuses]) => (
-                <div key={group} className="space-y-2">
-                  <h4 className="text-sm font-semibold text-foreground border-b border-border pb-1">{group}</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {statuses.map(status => {
-                      const info = SHIPPING_STATUSES[status];
-                      const isSelected = selectedStatuses.includes(status);
-                      return (
-                        <button
-                          key={status}
-                          onClick={() => toggleStatus(status)}
-                          className={`flex items-start gap-3 p-3 rounded-lg border text-right transition-all ${
-                            isSelected
-                              ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
-                              : 'border-border bg-card hover:border-primary/30'
-                          }`}
-                        >
-                          {isSelected ? (
-                            <CheckSquare className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                          ) : (
-                            <Square className="w-5 h-5 text-muted-foreground flex-shrink-0 mt-0.5" />
-                          )}
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium text-foreground">{status}</p>
-                            {info && (
-                              <>
-                                <p className="text-xs text-muted-foreground mt-0.5">{info.en}</p>
-                                <p className="text-xs text-muted-foreground">{info.ar}</p>
-                              </>
-                            )}
-                          </div>
+              {/* Selected statuses chips */}
+              {selectedStatuses.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold text-foreground">الحالات المختارة ({selectedStatuses.length})</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedStatuses.map(status => (
+                      <span key={status} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
+                        {status}
+                        <button onClick={() => removeStatus(status)} className="hover:bg-primary/20 rounded-full p-0.5 transition-colors">
+                          <X className="w-3 h-3" />
                         </button>
-                      );
-                    })}
+                      </span>
+                    ))}
                   </div>
                 </div>
-              ))}
+              )}
+
+              {/* Add custom status */}
+              <div className="flex gap-2">
+                <Input
+                  value={newStatus}
+                  onChange={e => setNewStatus(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && addCustomStatus()}
+                  placeholder="أضف حالة مخصصة..."
+                  className="flex-1"
+                  dir="auto"
+                />
+                <Button onClick={addCustomStatus} disabled={!newStatus.trim()} variant="outline" className="gap-1.5">
+                  <Plus className="w-4 h-4" />
+                  إضافة
+                </Button>
+              </div>
+
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  placeholder="ابحث في الحالات..."
+                  className="pr-9"
+                  dir="auto"
+                />
+              </div>
+
+              {/* All statuses grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {filteredStatuses.map(status => {
+                  const info = SHIPPING_STATUSES[status];
+                  const isSelected = selectedStatuses.includes(status);
+                  const isFromDb = dbStatuses.includes(status);
+                  return (
+                    <button
+                      key={status}
+                      onClick={() => toggleStatus(status)}
+                      className={`flex items-start gap-3 p-3 rounded-lg border text-right transition-all ${
+                        isSelected
+                          ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                          : 'border-border bg-card hover:border-primary/30'
+                      }`}
+                    >
+                      {isSelected ? (
+                        <CheckSquare className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                      ) : (
+                        <Square className="w-5 h-5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium text-foreground">{status}</p>
+                          {isFromDb && !Object.keys(SHIPPING_STATUSES).includes(status) && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent text-accent-foreground">من شحناتك</span>
+                          )}
+                        </div>
+                        {info && (
+                          <p className="text-xs text-muted-foreground mt-0.5">{info.ar}</p>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {filteredStatuses.length === 0 && (
+                <p className="text-center text-sm text-muted-foreground py-8">لا توجد حالات مطابقة للبحث</p>
+              )}
             </div>
           )}
         </TabsContent>
