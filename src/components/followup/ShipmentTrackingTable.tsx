@@ -70,7 +70,10 @@ const ShipmentTrackingTable = () => {
   const [detailShipment, setDetailShipment] = useState<Shipment | null>(null);
 
   const loadShipments = useCallback(async () => {
-    if (!currentTenant?.id) return;
+    if (!currentTenant?.id) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
 
     let query = supabase
@@ -119,9 +122,12 @@ const ShipmentTrackingTable = () => {
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('📋 File input changed, files:', e.target.files?.length);
     const file = e.target.files?.[0];
-    if (!file || !currentTenant?.id) return;
+    if (!file) { console.log('📋 No file selected'); return; }
+    if (!currentTenant?.id) { console.log('📋 No tenant selected'); toast({ title: '❌ خطأ', description: 'لم يتم اختيار البراند', variant: 'destructive' }); return; }
     setUploading(true);
+    console.log('📋 Starting upload for:', file.name, 'size:', file.size, 'type:', file.type);
 
     try {
       toast({ title: '📂 جاري قراءة الملف...', description: file.name });
