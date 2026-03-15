@@ -15,36 +15,68 @@ const json = (data: unknown, status = 200) =>
 interface VariableMapping {
   position: number;
   field: string;
-  component: string; // 'body' or 'header'
+  component: string; // 'body' | 'header' | 'button'
+  sub_type?: string; // 'url' | 'quick_reply' — buttons only
+  button_index?: number; // 0, 1, 2 — buttons only
 }
 
 function buildTemplateComponents(
   mappings: VariableMapping[],
   shipment: Record<string, any>
 ): any[] {
-  // Group by component type
-  const groups: Record<string, VariableMapping[]> = {};
-  for (const m of mappings) {
-    const comp = m.component || 'body';
-    if (!groups[comp]) groups[comp] = [];
-    groups[comp].push(m);
-  }
-
   const components: any[] = [];
 
-  for (const [compType, vars] of Object.entries(groups)) {
-    // Sort by position
-    vars.sort((a, b) => a.position - b.position);
+  // Group body/header mappings by component type
+  const bodyVars = mappings
+    .filter((m) => m.component === "body")
+    .sort((a, b) => a.position - b.position);
+  const headerVars = mappings
+    .filter((m) => m.component === "header")
+    .sort((a, b) => a.position - b.position);
+  const buttonVars = mappings
+    .filter((m) => m.component === "button")
+    .sort((a, b) => (a.button_index ?? 0) - (b.button_index ?? 0));
 
-    const parameters = vars.map((v) => ({
-      type: "text",
-      text: String(shipment[v.field] ?? ""),
-    }));
-
+  if (headerVars.length > 0) {
     components.push({
-      type: compType, // 'body' or 'header'
-      parameters,
+      type: "header",
+      parameters: headerVars.map((v) => ({
+        type: "text",
+        text: String(shipment[v.field] ?? ""),
+      })),
     });
+  }
+
+  if (bodyVars.length > 0) {
+    components.push({
+      type: "body",
+      parameters: bodyVars.map((v) => ({
+        type: "text",
+        text: String(shipment[v.field] ?? ""),
+      })),
+    });
+  }
+
+  // Buttons — each button is a separate component entry
+  for (const btn of buttonVars) {
+    const value = String(shipment[btn.field] ?? "");
+    const subType = btn.sub_type || "url";
+
+    if (subType === "url") {
+      components.push({
+        type: "button",
+        sub_type: "url",
+        index: btn.button_index ?? 0,
+        parameters: [{ type: "text", text: value }],
+      });
+    } else if (subType === "quick_reply") {
+      components.push({
+        type: "button",
+        sub_type: "quick_reply",
+        index: btn.button_index ?? 0,
+        parameters: [{ type: "payload", payload: value }],
+      });
+    }
   }
 
   return components;
@@ -63,7 +95,10 @@ Deno.serve(async (req) => {
     const { shipmentIds, templateName, language, tenantId } = await req.json();
 
     if (!shipmentIds?.length || !templateName || !tenantId) {
-      return json({ error: "Missing shipmentIds, templateName, or tenantId" }, 400);
+      return json(
+        { error: "Missing shipmentIds, templateName, or tenantId" },
+        400
+      );
     }
 
     // Get WA config
@@ -86,7 +121,9 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     const variableMappings: VariableMapping[] =
-      (templateData?.has_variables && templateData?.variable_mappings as VariableMapping[]) || [];
+      (templateData?.has_variables &&
+        (templateData?.variable_mappings as VariableMapping[])) ||
+      [];
 
     // Get shipments
     const { data: shipments, error: shipErr } = await supabase
@@ -105,12 +142,22 @@ Deno.serve(async (req) => {
       "Content-Type": "application/json",
     };
 
-    const results: { id: string; phone: string; success: boolean; error?: string }[] = [];
+    const results: {
+      id: string;
+      phone: string;
+      success: boolean;
+      error?: string;
+    }[] = [];
     const nowIso = new Date().toISOString();
 
     for (const shipment of shipments) {
       if (!shipment.customer_phone) {
-        results.push({ id: shipment.id, phone: "", success: false, error: "No phone" });
+        results.push({
+          id: shipment.id,
+          phone: "",
+          success: false,
+          error: "No phone",
+        });
         continue;
       }
 
@@ -125,7 +172,7 @@ Deno.serve(async (req) => {
           },
         };
 
-        // Add components with variables if mappings exist
+        // Add components with variables/buttons if mappings exist
         if (variableMappings.length > 0) {
           waPayload.template.components = buildTemplateComponents(
             variableMappings,
@@ -142,7 +189,12 @@ Deno.serve(async (req) => {
         const waResult = await res.json();
 
         if (!res.ok) {
-          console.error("WA template send error:", JSON.stringify(waResult));
+          console.error(
+            "WA template send error:",
+            JSON.stringify(waResult),
+            "Payload:",
+            JSON.stringify(waPayload)
+          );
           results.push({
             id: shipment.id,
             phone: shipment.customer_phone,
