@@ -242,13 +242,11 @@ const FollowupShipmentsTable = () => {
       // Status filter (shipping company status)
       if (statusFilter !== 'all' && s.final_status !== statusFilter) return false;
       
-      // Date filter
+      // Date filter (recency group)
       if (dateFilter !== 'all') {
         const days = getDaysSinceLastStatus(s);
-        if (days === null) return dateFilter === 'unknown';
-        if (dateFilter === '1' && days > 1) return false;
-        if (dateFilter === '2' && days > 2) return false;
-        if (dateFilter === '3plus' && days < 3) return false;
+        const group = getRecencyGroup(days);
+        if (dateFilter !== group) return false;
       }
 
       // WA sent filter
