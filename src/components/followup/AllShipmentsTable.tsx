@@ -297,7 +297,7 @@ const AllShipmentsTable = () => {
           customer_area: areaCol ? String(row[areaCol] ?? '').trim() || null : null,
           order_details: remarksCol ? String(row[remarksCol] ?? '').trim() || null : null,
           amount: amountCol ? parseLocaleNumber(row[amountCol]) : null,
-          status: rawUStatus || rawFinalStatus || 'pending',
+          status: 'pending',
           status_description: statusDescCol ? String(row[statusDescCol] ?? '').trim() || null : null,
           pickup_date: pickupCol ? String(row[pickupCol] ?? '').trim() || null : null,
           status_date: uDateCol ? String(row[uDateCol] ?? '').trim() || null : null,
