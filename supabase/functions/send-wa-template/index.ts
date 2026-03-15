@@ -15,9 +15,26 @@ const json = (data: unknown, status = 200) =>
 interface VariableMapping {
   position: number;
   field: string;
-  component: string; // 'body' | 'header' | 'button'
-  sub_type?: string; // 'url' | 'quick_reply' — buttons only
-  button_index?: number; // 0, 1, 2 — buttons only
+  component: string;
+  sub_type?: string;
+  button_index?: number;
+}
+
+function normalizePhone(phone: string): string {
+  let p = phone.replace(/[\s\-\+]/g, "");
+  if (/^0\d{10}$/.test(p)) p = "2" + p;
+  if (/^200\d{9}$/.test(p)) p = "20" + p.slice(3);
+  return p;
+}
+
+function getPhoneVariants(phone: string): string[] {
+  const clean = phone.replace(/[\s\-\+]/g, "");
+  const normalized = normalizePhone(clean);
+  const variants = new Set<string>([clean, normalized]);
+  if (/^20\d{10}$/.test(normalized)) {
+    variants.add(`0${normalized.slice(2)}`);
+  }
+  return [...variants];
 }
 
 function buildTemplateComponents(
@@ -26,7 +43,6 @@ function buildTemplateComponents(
 ): any[] {
   const components: any[] = [];
 
-  // Group body/header mappings by component type
   const bodyVars = mappings
     .filter((m) => m.component === "body")
     .sort((a, b) => a.position - b.position);
@@ -57,10 +73,8 @@ function buildTemplateComponents(
     });
   }
 
-  // Buttons — only URL buttons need dynamic parameters
-  // Quick Reply buttons are static (automation handled via followup_button_actions table)
   for (const btn of buttonVars) {
-    if (btn.sub_type === "quick_reply") continue; // skip — no dynamic params needed
+    if (btn.sub_type === "quick_reply") continue;
     const value = String(shipment[btn.field] ?? "");
     components.push({
       type: "button",
@@ -71,6 +85,114 @@ function buildTemplateComponents(
   }
 
   return components;
+}
+
+async function ensureFollowupConversation(
+  supabase: any,
+  phone: string,
+  tenantId: string,
+  templateName: string,
+  shipment: Record<string, any>
+): Promise<string | null> {
+  const normalized = normalizePhone(phone);
+  const variants = getPhoneVariants(phone);
+
+  // Check if conversation exists for this phone in ANY module
+  const { data: existingConvs } = await supabase
+    .from("conversations")
+    .select("id, module, contact_phone")
+    .eq("tenant_id", tenantId)
+    .in("contact_phone", variants);
+
+  const nowIso = new Date().toISOString();
+  let conversationId: string | null = null;
+
+  if (existingConvs && existingConvs.length > 0) {
+    // Check if already in followup
+    const followupConv = existingConvs.find(
+      (c: any) => c.module === "followup"
+    );
+    if (followupConv) {
+      conversationId = followupConv.id;
+      // Update last message info
+      await supabase
+        .from("conversations")
+        .update({
+          last_message_at: nowIso,
+          last_message_body: `📋 قالب: ${templateName}`,
+        })
+        .eq("id", conversationId);
+    } else {
+      // Move first existing conversation to followup
+      conversationId = existingConvs[0].id;
+      await supabase
+        .from("conversations")
+        .update({
+          module: "followup",
+          last_message_at: nowIso,
+          last_message_body: `📋 قالب: ${templateName}`,
+        })
+        .eq("id", conversationId);
+    }
+  } else {
+    // Create new conversation in followup
+    const { data: newConv } = await supabase
+      .from("conversations")
+      .insert({
+        contact_phone: normalized,
+        tenant_id: tenantId,
+        module: "followup",
+        status: "open",
+        chat_status: "replied",
+        last_message_at: nowIso,
+        last_message_body: `📋 قالب: ${templateName}`,
+        unread_count: 0,
+      })
+      .select("id")
+      .single();
+
+    if (newConv) {
+      conversationId = newConv.id;
+
+      // Ensure contact exists
+      const { data: existingContact } = await supabase
+        .from("contacts")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .in("phone", variants)
+        .maybeSingle();
+
+      if (!existingContact) {
+        await supabase.from("contacts").insert({
+          phone: normalized,
+          name: shipment.customer_name || null,
+          tenant_id: tenantId,
+        });
+      }
+    }
+  }
+
+  // Store the template message in messages table
+  if (conversationId) {
+    await supabase.from("messages").insert({
+      contact_phone: normalized,
+      tenant_id: tenantId,
+      direction: "outbound",
+      body: `📋 قالب واتساب: ${templateName}`,
+      status: "sent",
+    });
+  }
+
+  // Link conversation to shipment if not already linked
+  if (conversationId) {
+    await supabase
+      .from("shipment_tracking")
+      .update({ conversation_id: conversationId } as any)
+      .eq("id", shipment.id)
+      .is("conversation_id", null);
+  }
+
+  return conversationId;
 }
 
 Deno.serve(async (req) => {
@@ -163,7 +285,6 @@ Deno.serve(async (req) => {
           },
         };
 
-        // Add components with variables/buttons if mappings exist
         if (variableMappings.length > 0) {
           waPayload.template.components = buildTemplateComponents(
             variableMappings,
@@ -204,6 +325,20 @@ Deno.serve(async (req) => {
             wa_sent_at: nowIso,
           } as any)
           .eq("id", shipment.id);
+
+        // Ensure conversation exists in followup module
+        try {
+          await ensureFollowupConversation(
+            supabase,
+            shipment.customer_phone,
+            tenantId,
+            templateName,
+            shipment
+          );
+        } catch (convErr) {
+          console.error("Conversation upsert error:", convErr);
+          // Don't fail the whole send if conversation creation fails
+        }
 
         results.push({
           id: shipment.id,
