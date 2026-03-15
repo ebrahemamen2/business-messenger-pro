@@ -64,12 +64,12 @@ const FollowupShipmentsTable = () => {
   const [actionStatuses, setActionStatuses] = useState<ActionStatus[]>(DEFAULT_FOLLOWUP_ACTIONS);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [actionFilter, setActionFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [statusDescFilter, setStatusDescFilter] = useState<string>('all');
-  const [dateFilter, setDateFilter] = useState<string>('all');
-  const [waSentFilter, setWaSentFilter] = useState<string>('all');
-  const [notesFilter, setNotesFilter] = useState<string>('all');
+  const [actionFilter, setActionFilter] = useState<Set<string>>(new Set());
+  const [statusFilter, setStatusFilter] = useState<Set<string>>(new Set());
+  const [statusDescFilter, setStatusDescFilter] = useState<Set<string>>(new Set());
+  const [dateFilter, setDateFilter] = useState<Set<string>>(new Set());
+  const [waSentFilter, setWaSentFilter] = useState<Set<string>>(new Set());
+  const [notesFilter, setNotesFilter] = useState<Set<string>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [detailShipment, setDetailShipment] = useState<(Shipment & { wa_template_name?: string | null; wa_sent_at?: string | null; notes?: string | null }) | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
@@ -259,32 +259,48 @@ const FollowupShipmentsTable = () => {
     return Array.from(descs).sort();
   }, [shipments]);
 
+  // Helper to toggle a value in a Set filter
+  const toggleFilter = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, value: string) => {
+    setter(prev => {
+      const next = new Set(prev);
+      if (next.has(value)) next.delete(value); else next.add(value);
+      return next;
+    });
+  };
+
   const filtered = useMemo(() => {
     return shipments.filter(s => {
-      // Action filter
-      if (actionFilter === '__none__' && s.status !== '' && s.status !== null) return false;
-      if (actionFilter !== 'all' && actionFilter !== '__none__' && s.status !== actionFilter) return false;
+      // Action filter (multi-select)
+      if (actionFilter.size > 0) {
+        if (actionFilter.has('__none__') && (!s.status || s.status === '')) return true;
+        if (!actionFilter.has(s.status) && !actionFilter.has('__none__')) return false;
+        if (actionFilter.has('__none__') && s.status && s.status !== '') return false;
+      }
       
-      // Shipping company notes filter (proc_notes)
-      if (statusDescFilter !== 'all' && (s.proc_notes || '') !== statusDescFilter) return false;
+      // Shipping company notes filter (proc_notes) - multi
+      if (statusDescFilter.size > 0 && !statusDescFilter.has(s.proc_notes || '')) return false;
 
-      // Notes filter
-      if (notesFilter === 'has_notes' && !s.notes) return false;
-      if (notesFilter === 'no_notes' && s.notes) return false;
-
-      // Status filter (shipping company status)
-      if (statusFilter !== 'all' && s.final_status !== statusFilter) return false;
-      
-      // Date filter (recency group)
-      if (dateFilter !== 'all') {
-        const days = getDaysSinceLastStatus(s);
-        const group = getRecencyGroup(days);
-        if (dateFilter !== group) return false;
+      // Notes filter - multi
+      if (notesFilter.size > 0) {
+        if (notesFilter.has('has_notes') && !notesFilter.has('no_notes') && !s.notes) return false;
+        if (notesFilter.has('no_notes') && !notesFilter.has('has_notes') && s.notes) return false;
       }
 
-      // WA sent filter
-      if (waSentFilter === 'sent' && !s.wa_template_sent) return false;
-      if (waSentFilter === 'not_sent' && s.wa_template_sent) return false;
+      // Status filter (shipping company status) - multi
+      if (statusFilter.size > 0 && !statusFilter.has(s.final_status || '')) return false;
+      
+      // Date filter (recency group) - multi
+      if (dateFilter.size > 0) {
+        const days = getDaysSinceLastStatus(s);
+        const group = getRecencyGroup(days);
+        if (!dateFilter.has(group)) return false;
+      }
+
+      // WA sent filter - multi
+      if (waSentFilter.size > 0) {
+        if (waSentFilter.has('sent') && !waSentFilter.has('not_sent') && !s.wa_template_sent) return false;
+        if (waSentFilter.has('not_sent') && !waSentFilter.has('sent') && s.wa_template_sent) return false;
+      }
 
       // Search
       if (!searchQuery) return true;
@@ -297,7 +313,7 @@ const FollowupShipmentsTable = () => {
         (s.proc_notes || '').toLowerCase().includes(q)
       );
     });
-  }, [shipments, actionFilter, statusFilter, statusDescFilter, notesFilter, dateFilter, waSentFilter, searchQuery]);
+  }, [shipments, actionFilter, statusFilter, statusDescFilter, notesFilter, dateFilter, waSentFilter, searchQuery, getDaysSinceLastStatus, getRecencyGroup]);
 
   // Group filtered shipments by recency
   const groupedFiltered = useMemo(() => {
@@ -604,9 +620,9 @@ const FollowupShipmentsTable = () => {
               <Button variant="outline" size="sm" className="gap-1 text-xs h-7 relative">
                 <Filter className="w-3.5 h-3.5" />
                 فلترة
-                {(dateFilter !== 'all' || statusFilter !== 'all' || waSentFilter !== 'all' || actionFilter !== 'all') && (
+                {(dateFilter.size > 0 || statusFilter.size > 0 || waSentFilter.size > 0 || actionFilter.size > 0) && (
                   <span className="absolute -top-1.5 -left-1.5 w-4 h-4 rounded-full bg-primary text-primary-foreground text-[8px] flex items-center justify-center font-bold">
-                    {[dateFilter !== 'all', statusFilter !== 'all', waSentFilter !== 'all', actionFilter !== 'all'].filter(Boolean).length}
+                    {[dateFilter.size > 0, statusFilter.size > 0, waSentFilter.size > 0, actionFilter.size > 0].filter(Boolean).length}
                   </span>
                 )}
               </Button>
@@ -615,74 +631,54 @@ const FollowupShipmentsTable = () => {
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-foreground">الفلاتر</span>
                 <button
-                  onClick={() => { setDateFilter('all'); setStatusFilter('all'); setWaSentFilter('all'); setActionFilter('all'); }}
+                  onClick={() => { setDateFilter(new Set()); setStatusFilter(new Set()); setWaSentFilter(new Set()); setActionFilter(new Set()); }}
                   className="text-[10px] text-primary hover:underline"
                 >
                   إزالة الكل
                 </button>
               </div>
 
-              {/* Date filter - recency groups */}
+              {/* Date filter - recency groups (multi-select chips) */}
               <div className="space-y-1">
                 <label className="text-[10px] font-medium text-muted-foreground">التاريخ (مدة بدون تحديث)</label>
-                <Select value={dateFilter} onValueChange={setDateFilter}>
-                  <SelectTrigger className="h-7 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all" className="text-xs">كل التواريخ</SelectItem>
-                    {RECENCY_ORDER.map(g => (
-                      <SelectItem key={g} value={g} className="text-xs">
-                        {RECENCY_LABELS[g]} {recencyCounts[g] ? `(${recencyCounts[g]})` : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-1 flex-wrap">
+                  {RECENCY_ORDER.map(g => (
+                    <button key={g} onClick={() => toggleFilter(setDateFilter, g)} className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors ${dateFilter.has(g) ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
+                      {RECENCY_LABELS[g]} {recencyCounts[g] ? `(${recencyCounts[g]})` : ''}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              {/* Shipping status */}
+              {/* Shipping status (multi-select chips) */}
               <div className="space-y-1">
                 <label className="text-[10px] font-medium text-muted-foreground">حالة الشحن</label>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="h-7 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all" className="text-xs">كل الحالات</SelectItem>
-                    {uniqueStatuses.map(s => (
-                      <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-1 flex-wrap max-h-24 overflow-auto">
+                  {uniqueStatuses.map(s => (
+                    <button key={s} onClick={() => toggleFilter(setStatusFilter, s)} className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors ${statusFilter.has(s) ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              {/* WA sent */}
+              {/* WA sent (multi-select chips) */}
               <div className="space-y-1">
                 <label className="text-[10px] font-medium text-muted-foreground">الواتساب</label>
-                <Select value={waSentFilter} onValueChange={setWaSentFilter}>
-                  <SelectTrigger className="h-7 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all" className="text-xs">الكل</SelectItem>
-                    <SelectItem value="sent" className="text-xs">✅ اتبعتله</SelectItem>
-                    <SelectItem value="not_sent" className="text-xs">❌ ماتبعتلهوش</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-1 flex-wrap">
+                  <button onClick={() => toggleFilter(setWaSentFilter, 'sent')} className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors ${waSentFilter.has('sent') ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>✅ اتبعتله</button>
+                  <button onClick={() => toggleFilter(setWaSentFilter, 'not_sent')} className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors ${waSentFilter.has('not_sent') ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>❌ ماتبعتلهوش</button>
+                </div>
               </div>
 
-              {/* Action status */}
+              {/* Action status (multi-select chips) */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-medium text-muted-foreground">حالة المتابعة</label>
                 <div className="flex gap-1 flex-wrap">
-                  <button onClick={() => setActionFilter('all')} className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors ${actionFilter === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
-                    الكل ({filtered.length})
-                  </button>
                   {actionStatuses.map(({ key, label }) => {
                     const count = actionCounts[key] || 0;
-                    if (count === 0) return null;
                     return (
-                      <button key={key} onClick={() => setActionFilter(key)} className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors ${actionFilter === key ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
+                      <button key={key} onClick={() => toggleFilter(setActionFilter, key)} className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors ${actionFilter.has(key) ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
                         {label} ({count})
                       </button>
                     );
@@ -958,15 +954,18 @@ const FollowupShipmentsTable = () => {
                     <span>حالة الشحن</span>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <button className={`p-0.5 rounded hover:bg-secondary transition-colors ${statusFilter !== 'all' ? 'text-primary' : 'text-muted-foreground'}`}>
+                        <button className={`p-0.5 rounded hover:bg-secondary transition-colors ${statusFilter.size > 0 ? 'text-primary' : 'text-muted-foreground'}`}>
                           <ListFilter className="w-3 h-3" />
                         </button>
                       </PopoverTrigger>
                       <PopoverContent className="w-48 p-2 max-h-60 overflow-auto" align="start">
                         <div className="space-y-0.5">
-                          <button onClick={() => setStatusFilter('all')} className={`w-full text-right text-xs px-2 py-1 rounded ${statusFilter === 'all' ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>الكل</button>
+                          <button onClick={() => setStatusFilter(new Set())} className={`w-full text-right text-xs px-2 py-1 rounded ${statusFilter.size === 0 ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>الكل</button>
                           {uniqueStatuses.map(st => (
-                            <button key={st} onClick={() => setStatusFilter(st)} className={`w-full text-right text-xs px-2 py-1 rounded truncate ${statusFilter === st ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>{st}</button>
+                            <button key={st} onClick={() => toggleFilter(setStatusFilter, st)} className={`w-full text-right text-xs px-2 py-1 rounded truncate flex items-center gap-1 ${statusFilter.has(st) ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>
+                              {statusFilter.has(st) && <Check className="w-3 h-3 flex-shrink-0" />}
+                              <span>{st}</span>
+                            </button>
                           ))}
                         </div>
                       </PopoverContent>
@@ -978,15 +977,18 @@ const FollowupShipmentsTable = () => {
                     <span>ملاحظات الشحن</span>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <button className={`p-0.5 rounded hover:bg-secondary transition-colors ${statusDescFilter !== 'all' ? 'text-primary' : 'text-muted-foreground'}`}>
+                        <button className={`p-0.5 rounded hover:bg-secondary transition-colors ${statusDescFilter.size > 0 ? 'text-primary' : 'text-muted-foreground'}`}>
                           <ListFilter className="w-3 h-3" />
                         </button>
                       </PopoverTrigger>
                       <PopoverContent className="w-52 p-2 max-h-60 overflow-auto" align="start">
                         <div className="space-y-0.5">
-                          <button onClick={() => setStatusDescFilter('all')} className={`w-full text-right text-xs px-2 py-1 rounded ${statusDescFilter === 'all' ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>الكل</button>
+                          <button onClick={() => setStatusDescFilter(new Set())} className={`w-full text-right text-xs px-2 py-1 rounded ${statusDescFilter.size === 0 ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>الكل</button>
                           {uniqueStatusDescs.map(d => (
-                            <button key={d} onClick={() => setStatusDescFilter(d)} className={`w-full text-right text-xs px-2 py-1 rounded truncate ${statusDescFilter === d ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>{d}</button>
+                            <button key={d} onClick={() => toggleFilter(setStatusDescFilter, d)} className={`w-full text-right text-xs px-2 py-1 rounded truncate flex items-center gap-1 ${statusDescFilter.has(d) ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>
+                              {statusDescFilter.has(d) && <Check className="w-3 h-3 flex-shrink-0" />}
+                              <span>{d}</span>
+                            </button>
                           ))}
                         </div>
                       </PopoverContent>
@@ -998,16 +1000,22 @@ const FollowupShipmentsTable = () => {
                     <span>حالة المتابعة</span>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <button className={`p-0.5 rounded hover:bg-secondary transition-colors ${actionFilter !== 'all' ? 'text-primary' : 'text-muted-foreground'}`}>
+                        <button className={`p-0.5 rounded hover:bg-secondary transition-colors ${actionFilter.size > 0 ? 'text-primary' : 'text-muted-foreground'}`}>
                           <ListFilter className="w-3 h-3" />
                         </button>
                       </PopoverTrigger>
                       <PopoverContent className="w-44 p-2" align="start">
                         <div className="space-y-0.5">
-                          <button onClick={() => setActionFilter('all')} className={`w-full text-right text-xs px-2 py-1 rounded ${actionFilter === 'all' ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>الكل</button>
-                          <button onClick={() => setActionFilter('__none__')} className={`w-full text-right text-xs px-2 py-1 rounded ${actionFilter === '__none__' ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>بدون حالة</button>
+                          <button onClick={() => setActionFilter(new Set())} className={`w-full text-right text-xs px-2 py-1 rounded ${actionFilter.size === 0 ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>الكل</button>
+                          <button onClick={() => toggleFilter(setActionFilter, '__none__')} className={`w-full text-right text-xs px-2 py-1 rounded flex items-center gap-1 ${actionFilter.has('__none__') ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>
+                            {actionFilter.has('__none__') && <Check className="w-3 h-3 flex-shrink-0" />}
+                            <span>بدون حالة</span>
+                          </button>
                           {actionStatuses.map(({ key, label }) => (
-                            <button key={key} onClick={() => setActionFilter(key)} className={`w-full text-right text-xs px-2 py-1 rounded ${actionFilter === key ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>{label}</button>
+                            <button key={key} onClick={() => toggleFilter(setActionFilter, key)} className={`w-full text-right text-xs px-2 py-1 rounded flex items-center gap-1 ${actionFilter.has(key) ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>
+                              {actionFilter.has(key) && <Check className="w-3 h-3 flex-shrink-0" />}
+                              <span>{label}</span>
+                            </button>
                           ))}
                         </div>
                       </PopoverContent>
@@ -1019,15 +1027,21 @@ const FollowupShipmentsTable = () => {
                     <span>ملاحظات</span>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <button className={`p-0.5 rounded hover:bg-secondary transition-colors ${notesFilter !== 'all' ? 'text-primary' : 'text-muted-foreground'}`}>
+                        <button className={`p-0.5 rounded hover:bg-secondary transition-colors ${notesFilter.size > 0 ? 'text-primary' : 'text-muted-foreground'}`}>
                           <ListFilter className="w-3 h-3" />
                         </button>
                       </PopoverTrigger>
                       <PopoverContent className="w-40 p-2" align="start">
                         <div className="space-y-0.5">
-                          <button onClick={() => setNotesFilter('all')} className={`w-full text-right text-xs px-2 py-1 rounded ${notesFilter === 'all' ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>الكل</button>
-                          <button onClick={() => setNotesFilter('has_notes')} className={`w-full text-right text-xs px-2 py-1 rounded ${notesFilter === 'has_notes' ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>بها ملاحظات</button>
-                          <button onClick={() => setNotesFilter('no_notes')} className={`w-full text-right text-xs px-2 py-1 rounded ${notesFilter === 'no_notes' ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>بدون ملاحظات</button>
+                          <button onClick={() => setNotesFilter(new Set())} className={`w-full text-right text-xs px-2 py-1 rounded ${notesFilter.size === 0 ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>الكل</button>
+                          <button onClick={() => toggleFilter(setNotesFilter, 'has_notes')} className={`w-full text-right text-xs px-2 py-1 rounded flex items-center gap-1 ${notesFilter.has('has_notes') ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>
+                            {notesFilter.has('has_notes') && <Check className="w-3 h-3 flex-shrink-0" />}
+                            <span>بها ملاحظات</span>
+                          </button>
+                          <button onClick={() => toggleFilter(setNotesFilter, 'no_notes')} className={`w-full text-right text-xs px-2 py-1 rounded flex items-center gap-1 ${notesFilter.has('no_notes') ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>
+                            {notesFilter.has('no_notes') && <Check className="w-3 h-3 flex-shrink-0" />}
+                            <span>بدون ملاحظات</span>
+                          </button>
                         </div>
                       </PopoverContent>
                     </Popover>
@@ -1038,15 +1052,21 @@ const FollowupShipmentsTable = () => {
                     <span>واتساب</span>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <button className={`p-0.5 rounded hover:bg-secondary transition-colors ${waSentFilter !== 'all' ? 'text-primary' : 'text-muted-foreground'}`}>
+                        <button className={`p-0.5 rounded hover:bg-secondary transition-colors ${waSentFilter.size > 0 ? 'text-primary' : 'text-muted-foreground'}`}>
                           <ListFilter className="w-3 h-3" />
                         </button>
                       </PopoverTrigger>
                       <PopoverContent className="w-36 p-2" align="start">
                         <div className="space-y-0.5">
-                          <button onClick={() => setWaSentFilter('all')} className={`w-full text-right text-xs px-2 py-1 rounded ${waSentFilter === 'all' ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>الكل</button>
-                          <button onClick={() => setWaSentFilter('sent')} className={`w-full text-right text-xs px-2 py-1 rounded ${waSentFilter === 'sent' ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>✅ اتبعت</button>
-                          <button onClick={() => setWaSentFilter('not_sent')} className={`w-full text-right text-xs px-2 py-1 rounded ${waSentFilter === 'not_sent' ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>لم ترسل</button>
+                          <button onClick={() => setWaSentFilter(new Set())} className={`w-full text-right text-xs px-2 py-1 rounded ${waSentFilter.size === 0 ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>الكل</button>
+                          <button onClick={() => toggleFilter(setWaSentFilter, 'sent')} className={`w-full text-right text-xs px-2 py-1 rounded flex items-center gap-1 ${waSentFilter.has('sent') ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>
+                            {waSentFilter.has('sent') && <Check className="w-3 h-3 flex-shrink-0" />}
+                            <span>✅ اتبعت</span>
+                          </button>
+                          <button onClick={() => toggleFilter(setWaSentFilter, 'not_sent')} className={`w-full text-right text-xs px-2 py-1 rounded flex items-center gap-1 ${waSentFilter.has('not_sent') ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-secondary'}`}>
+                            {waSentFilter.has('not_sent') && <Check className="w-3 h-3 flex-shrink-0" />}
+                            <span>لم ترسل</span>
+                          </button>
                         </div>
                       </PopoverContent>
                     </Popover>
