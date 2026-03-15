@@ -194,6 +194,13 @@ const FollowupShipmentsTable = () => {
       // Action filter
       if (actionFilter !== 'all' && s.status !== actionFilter) return false;
       
+      // Status description filter
+      if (statusDescFilter !== 'all' && (s.status_description || '') !== statusDescFilter) return false;
+
+      // Notes filter
+      if (notesFilter === 'has_notes' && !s.notes) return false;
+      if (notesFilter === 'no_notes' && s.notes) return false;
+
       // Status filter (shipping company status)
       if (statusFilter !== 'all' && s.final_status !== statusFilter) return false;
       
