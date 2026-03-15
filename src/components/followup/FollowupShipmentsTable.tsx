@@ -460,8 +460,7 @@ const FollowupShipmentsTable = () => {
             </TableHeader>
             <TableBody>
               {filtered.map(s => {
-                const actionInfo = FOLLOWUP_ACTIONS[s.status] || FOLLOWUP_ACTIONS.pending;
-                const ActionIcon = actionInfo.icon;
+                const actionInfo = getActionInfo(s.status);
                 const displayStatus = s.final_status || '-';
                 const days = getDaysSinceLastStatus(s);
                 return (
@@ -489,13 +488,10 @@ const FollowupShipmentsTable = () => {
                     <TableCell>
                       <Select value={s.status} onValueChange={v => updateAction(s.id, v)}>
                         <SelectTrigger className={`h-7 text-[10px] border ${actionInfo.color} bg-transparent w-[130px]`}>
-                          <div className="flex items-center gap-1">
-                            <ActionIcon className="w-3 h-3" />
-                            <span>{actionInfo.label}</span>
-                          </div>
+                          <span>{actionInfo.label}</span>
                         </SelectTrigger>
                         <SelectContent>
-                          {Object.entries(FOLLOWUP_ACTIONS).map(([key, { label }]) => (
+                          {actionStatuses.map(({ key, label }) => (
                             <SelectItem key={key} value={key} className="text-xs">{label}</SelectItem>
                           ))}
                         </SelectContent>
