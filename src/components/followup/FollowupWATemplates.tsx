@@ -476,7 +476,7 @@ const FollowupWATemplates = () => {
                     return (
                       <p key={i} className="flex items-center gap-1">
                         <MousePointerClick className="w-2.5 h-2.5 inline" />
-                        <span>زر {(v.button_index ?? 0) + 1} ({v.sub_type === 'url' ? 'رابط' : 'رد سريع'})</span>
+                        <span>🔗 زر URL {(v.button_index ?? 0) + 1}</span>
                         <span>→</span>
                         <span className="font-medium">{field?.label}</span>
                         <span className="text-muted-foreground">({field?.example})</span>

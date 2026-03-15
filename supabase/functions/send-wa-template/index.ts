@@ -57,26 +57,17 @@ function buildTemplateComponents(
     });
   }
 
-  // Buttons — each button is a separate component entry
+  // Buttons — only URL buttons need dynamic parameters
+  // Quick Reply buttons are static (automation handled via followup_button_actions table)
   for (const btn of buttonVars) {
+    if (btn.sub_type === "quick_reply") continue; // skip — no dynamic params needed
     const value = String(shipment[btn.field] ?? "");
-    const subType = btn.sub_type || "url";
-
-    if (subType === "url") {
-      components.push({
-        type: "button",
-        sub_type: "url",
-        index: btn.button_index ?? 0,
-        parameters: [{ type: "text", text: value }],
-      });
-    } else if (subType === "quick_reply") {
-      components.push({
-        type: "button",
-        sub_type: "quick_reply",
-        index: btn.button_index ?? 0,
-        parameters: [{ type: "payload", payload: value }],
-      });
-    }
+    components.push({
+      type: "button",
+      sub_type: "url",
+      index: btn.button_index ?? 0,
+      parameters: [{ type: "text", text: value }],
+    });
   }
 
   return components;
