@@ -66,8 +66,10 @@ const FollowupShipmentsTable = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [actionFilter, setActionFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusDescFilter, setStatusDescFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [waSentFilter, setWaSentFilter] = useState<string>('all');
+  const [notesFilter, setNotesFilter] = useState<string>('all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [detailShipment, setDetailShipment] = useState<(Shipment & { wa_template_name?: string | null; wa_sent_at?: string | null; notes?: string | null }) | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
