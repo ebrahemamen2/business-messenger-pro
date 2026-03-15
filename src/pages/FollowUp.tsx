@@ -5,10 +5,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import ChatList from '@/components/chat/ChatList';
 import ChatWindow from '@/components/chat/ChatWindow';
 import ContactPanel from '@/components/chat/ContactPanel';
-import { Truck, Loader2, MessageSquare, ArrowRight, Package, Settings2, Table2 } from 'lucide-react';
+import { Truck, Loader2, MessageSquare, ArrowRight, Package, Settings2, Table2, CheckCircle2 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import AllShipmentsTable from '@/components/followup/AllShipmentsTable';
 import FollowupShipmentsTable from '@/components/followup/FollowupShipmentsTable';
+import DoneShipmentsTable from '@/components/followup/DoneShipmentsTable';
 import FollowupSettings from '@/components/followup/FollowupSettings';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
@@ -54,6 +55,11 @@ const FollowUp = () => {
               <Table2 className="w-4 h-4" />
               <span className="hidden sm:inline">جدول المتابعة</span>
               <span className="sm:hidden">المتابعة</span>
+            </TabsTrigger>
+            <TabsTrigger value="done" className="gap-1.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+              <CheckCircle2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Done</span>
+              <span className="sm:hidden">✅</span>
             </TabsTrigger>
             <TabsTrigger value="settings" className="gap-1.5 text-xs sm:text-sm data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <Settings2 className="w-4 h-4" />
@@ -118,6 +124,10 @@ const FollowUp = () => {
 
         <TabsContent value="followup-table" className="flex-1 m-0 overflow-hidden">
           <FollowupShipmentsTable />
+        </TabsContent>
+
+        <TabsContent value="done" className="flex-1 m-0 overflow-hidden">
+          <DoneShipmentsTable />
         </TabsContent>
 
         <TabsContent value="settings" className="flex-1 m-0 overflow-hidden">

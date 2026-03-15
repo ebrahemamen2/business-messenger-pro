@@ -793,6 +793,57 @@ export type Database = {
           },
         ]
       }
+      shipment_followup_history: {
+        Row: {
+          action_status: string
+          created_at: string
+          done_notes: string | null
+          done_status: string
+          final_status_snapshot: string | null
+          id: string
+          notes: string | null
+          shipment_id: string
+          tenant_id: string
+        }
+        Insert: {
+          action_status?: string
+          created_at?: string
+          done_notes?: string | null
+          done_status?: string
+          final_status_snapshot?: string | null
+          id?: string
+          notes?: string | null
+          shipment_id: string
+          tenant_id: string
+        }
+        Update: {
+          action_status?: string
+          created_at?: string
+          done_notes?: string | null
+          done_status?: string
+          final_status_snapshot?: string | null
+          id?: string
+          notes?: string | null
+          shipment_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipment_followup_history_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipment_tracking"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_followup_history_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shipment_tracking: {
         Row: {
           amount: number | null

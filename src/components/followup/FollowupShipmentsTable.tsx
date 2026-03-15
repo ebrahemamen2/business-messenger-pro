@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   Download, Search, Loader2, Truck, Eye, RefreshCw, Filter, Send,
   CheckCircle, XCircle, Clock, AlertTriangle, MessageSquare, Calendar, StickyNote, Check, X,
-  ChevronLeft, ChevronRight, Phone, MapPin, Package, ShoppingBag, User, CreditCard, PanelTop, PanelTopClose
+  ChevronLeft, ChevronRight, Phone, MapPin, Package, ShoppingBag, User, CreditCard, PanelTop, PanelTopClose,
+  History
 } from 'lucide-react';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -80,7 +81,7 @@ const FollowupShipmentsTable = () => {
   const [cardNoteText, setCardNoteText] = useState('');
   const [editingCardNote, setEditingCardNote] = useState(false);
   const rowRefs = useRef<Map<string, HTMLTableRowElement>>(new Map());
-
+  const [lastHistory, setLastHistory] = useState<Record<string, { action_status: string; notes: string | null; created_at: string } | null>>({});
   // WA sending state
   const [waTemplates, setWaTemplates] = useState<WATemplate[]>([]);
   const [showSendDialog, setShowSendDialog] = useState(false);
@@ -350,11 +351,27 @@ const FollowupShipmentsTable = () => {
 
   const activeShipment = cardFiltered[activeIndex] || null;
 
-  // Sync card note text when active shipment changes
+  // Sync card note text when active shipment changes + load history
   useEffect(() => {
     if (activeShipment) {
       setCardNoteText(activeShipment.notes || '');
       setEditingCardNote(false);
+      // Fetch last history for this shipment
+      if (!lastHistory[activeShipment.id]) {
+        supabase
+          .from('shipment_followup_history')
+          .select('action_status, notes, created_at')
+          .eq('shipment_id', activeShipment.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .then(({ data }) => {
+            if (data && data.length > 0) {
+              setLastHistory(prev => ({ ...prev, [activeShipment.id]: data[0] as any }));
+            } else {
+              setLastHistory(prev => ({ ...prev, [activeShipment.id]: null }));
+            }
+          });
+      }
     }
   }, [activeShipment?.id]);
 
@@ -731,6 +748,28 @@ const FollowupShipmentsTable = () => {
                 )}
               </div>
             </div>
+
+            {/* Last followup history */}
+            {lastHistory[activeShipment.id] && (
+              <div className="flex items-center gap-2 pt-2 border-t border-border text-xs">
+                <History className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                <span className="text-muted-foreground">آخر متابعة:</span>
+                <span className="font-medium text-foreground">
+                  {getActionInfo(lastHistory[activeShipment.id]!.action_status).label}
+                </span>
+                {lastHistory[activeShipment.id]!.notes && (
+                  <span className="text-muted-foreground truncate max-w-[200px]">
+                    — {lastHistory[activeShipment.id]!.notes}
+                  </span>
+                )}
+                <span className="text-muted-foreground text-[10px]">
+                  ({(() => {
+                    const days = Math.floor((Date.now() - new Date(lastHistory[activeShipment.id]!.created_at).getTime()) / (1000 * 60 * 60 * 24));
+                    return days === 0 ? 'اليوم' : `منذ ${days} يوم`;
+                  })()})
+                </span>
+              </div>
+            )}
           </div>
         </div>
       )}
