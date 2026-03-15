@@ -65,6 +65,7 @@ const DoneShipmentsTable = () => {
   const [noteText, setNoteText] = useState('');
   const [detailRecord, setDetailRecord] = useState<HistoryRecord | null>(null);
   const [actionStatuses, setActionStatuses] = useState<ActionStatus[]>([]);
+  const [doneTriggerStatus, setDoneTriggerStatus] = useState<string>('pending');
 
   const loadRecords = useCallback(async () => {
     if (!currentTenant?.id) { setLoading(false); return; }
