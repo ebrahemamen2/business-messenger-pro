@@ -425,7 +425,7 @@ const AllShipmentsTable = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map(s => {
+              {shipments.map(s => {
                 const displayStatus = s.final_status || s.status || '-';
                 return (
                   <TableRow key={s.id} className="text-xs">
@@ -453,6 +453,36 @@ const AllShipmentsTable = () => {
           </Table>
         )}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-4 py-2 border-t border-border bg-card flex-shrink-0">
+          <p className="text-xs text-muted-foreground">
+            صفحة {currentPage} من {totalPages} — عرض {((currentPage - 1) * PAGE_SIZE) + 1} إلى {Math.min(currentPage * PAGE_SIZE, totalCount)} من {totalCount.toLocaleString()}
+          </p>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" className="h-7 text-xs px-2" disabled={currentPage <= 1} onClick={() => setCurrentPage(p => p - 1)}>
+              السابق
+            </Button>
+            {/* Show page numbers */}
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              let page: number;
+              if (totalPages <= 5) { page = i + 1; }
+              else if (currentPage <= 3) { page = i + 1; }
+              else if (currentPage >= totalPages - 2) { page = totalPages - 4 + i; }
+              else { page = currentPage - 2 + i; }
+              return (
+                <Button key={page} variant={page === currentPage ? 'default' : 'outline'} size="sm" className="h-7 w-7 text-xs p-0" onClick={() => setCurrentPage(page)}>
+                  {page}
+                </Button>
+              );
+            })}
+            <Button variant="outline" size="sm" className="h-7 text-xs px-2" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(p => p + 1)}>
+              التالي
+            </Button>
+          </div>
+        </div>
+      )}
 
       <Dialog open={!!detailShipment} onOpenChange={() => setDetailShipment(null)}>
         <DialogContent className="max-w-lg" dir="rtl">
