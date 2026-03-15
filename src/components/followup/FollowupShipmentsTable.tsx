@@ -1008,76 +1008,91 @@ const FollowupShipmentsTable = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map(s => {
-                const actionInfo = getActionInfo(s.status);
-                const displayStatus = s.final_status || '-';
-                return (
-                  <TableRow
-                    key={s.id}
-                    ref={(el) => { if (el) rowRefs.current.set(s.id, el); else rowRefs.current.delete(s.id); }}
-                    className={`text-xs cursor-pointer transition-colors ${cardVisible && activeShipment?.id === s.id ? 'bg-primary/10 ring-1 ring-primary/20' : ''}`}
-                    onClick={() => handleRowClick(s.id)}
-                  >
-                    <TableCell className="text-center">
-                      <input type="checkbox" checked={selectedIds.has(s.id)} onChange={() => toggleSelect(s.id)} className="rounded border-border" />
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">{s.shipment_code}</TableCell>
-                    <TableCell>
-                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-medium border ${getStatusColor(displayStatus)}`}>
-                        {displayStatus}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-xs max-w-[200px] truncate" title={s.proc_notes || ''}>{s.proc_notes || '-'}</TableCell>
-                    <TableCell>
-                      <Select value={s.status || ''} onValueChange={v => updateAction(s.id, v)}>
-                        <SelectTrigger className={`h-7 text-[10px] border ${actionInfo.color || 'border-border'} bg-transparent w-[130px]`}>
-                          <span>{actionInfo.label || <span className="text-muted-foreground">اختر حالة</span>}</span>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {actionStatuses.map(({ key, label }) => (
-                            <SelectItem key={key} value={key} className="text-xs">{label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell className="max-w-[180px]">
-                      {editingNoteId === s.id ? (
-                        <div className="flex items-center gap-1">
-                          <Input
-                            value={noteText}
-                            onChange={e => setNoteText(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter') saveNote(s.id); if (e.key === 'Escape') setEditingNoteId(null); }}
-                            className="h-7 text-xs flex-1"
-                            dir="auto"
-                            autoFocus
-                          />
-                          <button onClick={() => saveNote(s.id)} className="p-1 rounded hover:bg-green-500/10 text-green-600"><Check className="w-3.5 h-3.5" /></button>
-                          <button onClick={() => setEditingNoteId(null)} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground"><X className="w-3.5 h-3.5" /></button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => startEditNote(s.id, s.notes || '')}
-                          className="text-xs text-right w-full truncate block hover:bg-secondary rounded px-1 py-0.5 transition-colors"
-                          title={s.notes || 'اضغط لإضافة ملاحظة'}
-                        >
-                          {s.notes || <span className="text-muted-foreground">+ ملاحظة</span>}
-                        </button>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {s.wa_template_sent ? (
-                        <span className="text-green-600 text-[10px] font-medium">✅</span>
-                      ) : (
-                        <span className="text-[10px] text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setDetailShipment(s)}>
-                        <Eye className="w-3.5 h-3.5" />
-                      </Button>
+              {groupedFiltered.map(({ group, label, shipments: groupShipments }) => (
+                <>
+                  {/* Date group separator */}
+                  <TableRow key={`group-${group}`} className="bg-secondary/50 hover:bg-secondary/50">
+                    <TableCell colSpan={8} className="py-1.5 px-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-foreground">{label}</span>
+                        <span className="text-[10px] text-muted-foreground">({groupShipments.length} شحنة)</span>
+                        <div className="flex-1 h-px bg-border" />
+                      </div>
                     </TableCell>
                   </TableRow>
-                );
+                  {groupShipments.map(s => {
+                    const actionInfo = getActionInfo(s.status);
+                    const displayStatus = s.final_status || '-';
+                    return (
+                      <TableRow
+                        key={s.id}
+                        ref={(el) => { if (el) rowRefs.current.set(s.id, el); else rowRefs.current.delete(s.id); }}
+                        className={`text-xs cursor-pointer transition-colors ${cardVisible && activeShipment?.id === s.id ? 'bg-primary/10 ring-1 ring-primary/20' : ''}`}
+                        onClick={() => handleRowClick(s.id)}
+                      >
+                        <TableCell className="text-center">
+                          <input type="checkbox" checked={selectedIds.has(s.id)} onChange={() => toggleSelect(s.id)} className="rounded border-border" />
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">{s.shipment_code}</TableCell>
+                        <TableCell>
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-medium border ${getStatusColor(displayStatus)}`}>
+                            {displayStatus}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-xs max-w-[200px] truncate" title={s.proc_notes || ''}>{s.proc_notes || '-'}</TableCell>
+                        <TableCell>
+                          <Select value={s.status || ''} onValueChange={v => updateAction(s.id, v)}>
+                            <SelectTrigger className={`h-7 text-[10px] border ${actionInfo.color || 'border-border'} bg-transparent w-[130px]`}>
+                              <span>{actionInfo.label || <span className="text-muted-foreground">اختر حالة</span>}</span>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {actionStatuses.map(({ key, label: l }) => (
+                                <SelectItem key={key} value={key} className="text-xs">{l}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell className="max-w-[180px]">
+                          {editingNoteId === s.id ? (
+                            <div className="flex items-center gap-1">
+                              <Input
+                                value={noteText}
+                                onChange={e => setNoteText(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') saveNote(s.id); if (e.key === 'Escape') setEditingNoteId(null); }}
+                                className="h-7 text-xs flex-1"
+                                dir="auto"
+                                autoFocus
+                              />
+                              <button onClick={() => saveNote(s.id)} className="p-1 rounded hover:bg-green-500/10 text-green-600"><Check className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => setEditingNoteId(null)} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground"><X className="w-3.5 h-3.5" /></button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => startEditNote(s.id, s.notes || '')}
+                              className="text-xs text-right w-full truncate block hover:bg-secondary rounded px-1 py-0.5 transition-colors"
+                              title={s.notes || 'اضغط لإضافة ملاحظة'}
+                            >
+                              {s.notes || <span className="text-muted-foreground">+ ملاحظة</span>}
+                            </button>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {s.wa_template_sent ? (
+                            <span className="text-green-600 text-[10px] font-medium">✅</span>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setDetailShipment(s)}>
+                            <Eye className="w-3.5 h-3.5" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </>
+              ))}
               })}
             </TableBody>
           </Table>
