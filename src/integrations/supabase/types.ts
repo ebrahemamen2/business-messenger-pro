@@ -492,64 +492,94 @@ export type Database = {
       }
       orders: {
         Row: {
+          abandoned_checkout_id: string | null
           confirmation_message_sent: boolean
           confirmed_at: string | null
           conversation_id: string | null
+          coupon_code: string | null
           created_at: string
           currency: string | null
           customer_address: string | null
           customer_city: string | null
+          customer_email: string | null
           customer_name: string | null
           customer_phone: string
+          customer_phone_alt: string | null
+          customer_sub_zone: string | null
+          discount_amount: number | null
           id: string
           items: Json | null
           notes: string | null
           order_number: string
           order_source: string | null
+          payment_method: string | null
+          payment_status: string | null
+          shipping_cost: number | null
           status: string
           store_order_id: string | null
+          subtotal: number | null
           tenant_id: string
           total_amount: number | null
           updated_at: string
         }
         Insert: {
+          abandoned_checkout_id?: string | null
           confirmation_message_sent?: boolean
           confirmed_at?: string | null
           conversation_id?: string | null
+          coupon_code?: string | null
           created_at?: string
           currency?: string | null
           customer_address?: string | null
           customer_city?: string | null
+          customer_email?: string | null
           customer_name?: string | null
           customer_phone: string
+          customer_phone_alt?: string | null
+          customer_sub_zone?: string | null
+          discount_amount?: number | null
           id?: string
           items?: Json | null
           notes?: string | null
           order_number: string
           order_source?: string | null
+          payment_method?: string | null
+          payment_status?: string | null
+          shipping_cost?: number | null
           status?: string
           store_order_id?: string | null
+          subtotal?: number | null
           tenant_id: string
           total_amount?: number | null
           updated_at?: string
         }
         Update: {
+          abandoned_checkout_id?: string | null
           confirmation_message_sent?: boolean
           confirmed_at?: string | null
           conversation_id?: string | null
+          coupon_code?: string | null
           created_at?: string
           currency?: string | null
           customer_address?: string | null
           customer_city?: string | null
+          customer_email?: string | null
           customer_name?: string | null
           customer_phone?: string
+          customer_phone_alt?: string | null
+          customer_sub_zone?: string | null
+          discount_amount?: number | null
           id?: string
           items?: Json | null
           notes?: string | null
           order_number?: string
           order_source?: string | null
+          payment_method?: string | null
+          payment_status?: string | null
+          shipping_cost?: number | null
           status?: string
           store_order_id?: string | null
+          subtotal?: number | null
           tenant_id?: string
           total_amount?: number | null
           updated_at?: string

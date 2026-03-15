@@ -1,3 +1,4 @@
+
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -41,27 +42,22 @@ Deno.serve(async (req) => {
     const tenantId = config.tenant_id;
     const { event } = body;
 
-    // --- Test connection ---
     if (event === "test_connection") {
       return json({ success: true, message: "Connection verified", tenant_id: tenantId });
     }
 
-    // --- New order from store ---
     if (event === "new_order") {
       return await handleNewOrder(supabase, body, tenantId, json);
     }
 
-    // --- Order modified (edit or thank-you page upsell) ---
     if (event === "order_modified") {
       return await handleOrderModified(supabase, body, tenantId, json);
     }
 
-    // --- Lost order from store ---
     if (event === "lost_order") {
       return await handleLostOrder(supabase, body, tenantId, json);
     }
 
-    // --- Legacy: outbound_message (store-sent messages) ---
     if (event === "outbound_message") {
       return await handleOutboundMessage(supabase, body, tenantId, json);
     }
@@ -73,20 +69,32 @@ Deno.serve(async (req) => {
   }
 });
 
+// ─── Normalize Egyptian phone to international format ───
+function normalizePhone(phone: string): string {
+  let p = phone.replace(/[\s\-\+]/g, "");
+  // Egyptian mobile: 01xxxxxxxxx → 201xxxxxxxxx
+  if (p.startsWith("01") && p.length === 11) {
+    p = "2" + p;
+  }
+  return p;
+}
+
 // ─── New Order ───
 async function handleNewOrder(supabase: any, body: any, tenantId: string, json: Function) {
   const {
-    order_number, customer_name, customer_phone, customer_city,
-    customer_address, total_amount, currency, items, store_order_id, notes,
+    order_number, customer_name, customer_phone, customer_phone_alt,
+    customer_email, customer_city, customer_sub_zone, customer_address,
+    payment_method, payment_status, order_status,
+    subtotal, shipping_cost, discount_amount, coupon_code,
+    total_amount, currency, items, store_order_id, notes,
   } = body;
 
   if (!order_number || !customer_phone) {
     return json({ error: "Missing required: order_number, customer_phone" }, 400);
   }
 
-  const phone = customer_phone.replace(/[\s\-\+]/g, "");
+  const phone = normalizePhone(customer_phone);
 
-  // Upsert contact
   await upsertContact(supabase, phone, customer_name, tenantId);
 
   // Check duplicate
@@ -101,7 +109,6 @@ async function handleNewOrder(supabase: any, body: any, tenantId: string, json: 
     return json({ success: true, message: "Order already exists", order_id: existing.id });
   }
 
-  // Insert order
   const { data: order, error: orderErr } = await supabase
     .from("orders")
     .insert({
@@ -109,14 +116,23 @@ async function handleNewOrder(supabase: any, body: any, tenantId: string, json: 
       order_number,
       customer_name: customer_name || null,
       customer_phone: phone,
+      customer_phone_alt: customer_phone_alt ? normalizePhone(customer_phone_alt) : null,
+      customer_email: customer_email || null,
       customer_city: customer_city || null,
+      customer_sub_zone: customer_sub_zone || null,
       customer_address: customer_address || null,
+      payment_method: payment_method || null,
+      payment_status: payment_status || "pending",
+      subtotal: subtotal || null,
+      shipping_cost: shipping_cost || 0,
+      discount_amount: discount_amount || 0,
+      coupon_code: coupon_code || null,
       total_amount: total_amount || null,
-      currency: currency || "SAR",
+      currency: currency || "EGP",
       items: items || [],
       store_order_id: store_order_id || null,
       notes: notes || null,
-      status: "pending",
+      status: order_status || "pending",
     })
     .select("id")
     .single();
@@ -138,13 +154,16 @@ async function handleNewOrder(supabase: any, body: any, tenantId: string, json: 
 
 // ─── Order Modified ───
 async function handleOrderModified(supabase: any, body: any, tenantId: string, json: Function) {
-  const { order_number, modification_type, old_data, new_data, items, total_amount, customer_phone } = body;
+  const {
+    order_number, modification_type, old_data, new_data,
+    items, total_amount, subtotal, shipping_cost, discount_amount,
+    customer_phone, customer_name,
+  } = body;
 
   if (!order_number) {
     return json({ error: "Missing required: order_number" }, 400);
   }
 
-  // Find the order
   const { data: order } = await supabase
     .from("orders")
     .select("id, customer_phone")
@@ -156,16 +175,17 @@ async function handleOrderModified(supabase: any, body: any, tenantId: string, j
     return json({ error: "Order not found" }, 404);
   }
 
-  // Update order if new data provided
   const updateData: Record<string, any> = {};
   if (items) updateData.items = items;
-  if (total_amount) updateData.total_amount = total_amount;
+  if (total_amount !== undefined) updateData.total_amount = total_amount;
+  if (subtotal !== undefined) updateData.subtotal = subtotal;
+  if (shipping_cost !== undefined) updateData.shipping_cost = shipping_cost;
+  if (discount_amount !== undefined) updateData.discount_amount = discount_amount;
 
   if (Object.keys(updateData).length > 0) {
     await supabase.from("orders").update(updateData).eq("id", order.id);
   }
 
-  // Log modification
   await supabase.from("order_modifications").insert({
     order_id: order.id,
     tenant_id: tenantId,
@@ -187,18 +207,21 @@ async function handleOrderModified(supabase: any, body: any, tenantId: string, j
 // ─── Lost Order ───
 async function handleLostOrder(supabase: any, body: any, tenantId: string, json: Function) {
   const {
-    order_number, customer_name, customer_phone, customer_city,
-    customer_address, total_amount, currency, items, store_order_id, notes,
+    abandoned_checkout_id, customer_name, customer_phone,
+    customer_city, customer_sub_zone, customer_address,
+    total_amount, currency, items, notes,
   } = body;
 
-  if (!order_number || !customer_phone) {
-    return json({ error: "Missing required: order_number, customer_phone" }, 400);
+  if (!customer_phone) {
+    return json({ error: "Missing required: customer_phone" }, 400);
   }
 
-  const phone = customer_phone.replace(/[\s\-\+]/g, "");
+  const phone = normalizePhone(customer_phone);
   await upsertContact(supabase, phone, customer_name, tenantId);
 
-  // Insert as order with status 'lost'
+  // Generate order number for lost orders if not provided
+  const order_number = body.order_number || `LOST-${Date.now()}`;
+
   const { data: order, error: orderErr } = await supabase
     .from("orders")
     .insert({
@@ -207,14 +230,15 @@ async function handleLostOrder(supabase: any, body: any, tenantId: string, json:
       customer_name: customer_name || null,
       customer_phone: phone,
       customer_city: customer_city || null,
+      customer_sub_zone: customer_sub_zone || null,
       customer_address: customer_address || null,
       total_amount: total_amount || null,
-      currency: currency || "SAR",
+      currency: currency || "EGP",
       items: items || [],
-      store_order_id: store_order_id || null,
       notes: notes || null,
       status: "lost",
       order_source: "store_lost",
+      abandoned_checkout_id: abandoned_checkout_id || null,
     })
     .select("id")
     .single();
@@ -270,7 +294,7 @@ async function handleOutboundMessage(supabase: any, body: any, tenantId: string,
     return json({ error: "Missing required fields: customer_phone, message_content" }, 400);
   }
 
-  const phone = customer_phone.replace(/[\s\-\+]/g, "");
+  const phone = normalizePhone(customer_phone);
   await upsertContact(supabase, phone, customer_name, tenantId);
 
   const messageCreatedAt = timestamp ? new Date(timestamp).toISOString() : new Date().toISOString();
@@ -295,7 +319,6 @@ async function handleOutboundMessage(supabase: any, body: any, tenantId: string,
     return json({ error: "Failed to store message" }, 500);
   }
 
-  // Upsert conversation
   const { data: existingConv } = await supabase
     .from("conversations")
     .select("id")

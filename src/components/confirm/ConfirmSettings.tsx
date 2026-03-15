@@ -14,62 +14,113 @@ const SUPABASE_PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'mhbmxvg
 
 function generateApiKey() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let key = 'sk_';
-  for (let i = 0; i < 32; i++) key += chars.charAt(Math.floor(Math.random() * chars.length));
+  let key = 'sk_store_';
+  for (let i = 0; i < 24; i++) key += chars.charAt(Math.floor(Math.random() * chars.length));
   return key;
 }
 
 function buildApiDocs(webhookUrl: string, apiKey: string) {
-  return `=== Store Integration API Documentation ===
+  return `📖 توثيق API للربط مع المتجر
 
-🔐 Authentication:
-All requests must include the API key in the header:
+🔐 Authentication
+كل الطلبات لازم تحتوي على API Key في الـ Header:
 x-store-api-key: ${apiKey || '<YOUR_API_KEY>'}
 
-📦 1. New Order (POST ${webhookUrl})
+📦 1. طلب جديد — new_order
+POST ${webhookUrl}
+Header: x-store-api-key: <API_KEY>
+
 {
   "event": "new_order",
-  "order_number": "ORD-1234",
-  "customer_name": "Customer Name",
-  "customer_phone": "966501234567",
-  "customer_city": "City",
-  "customer_address": "Address",
-  "total_amount": 350.00,
-  "currency": "SAR",
-  "items": [{"name": "Product", "quantity": 1, "price": 100, "sku": "SKU-001"}],
-  "store_order_id": "shop_12345",
-  "notes": "optional"
+  "timestamp": "2026-03-15T12:00:00Z",
+  "order_number": "8270",
+  "store_order_id": "uuid-xxx",
+  "customer_name": "أحمد محمد",
+  "customer_phone": "01012345678",
+  "customer_phone_alt": "01198765432",
+  "customer_email": null,
+  "customer_city": "القاهرة",
+  "customer_sub_zone": "مدينة نصر",
+  "customer_address": "شارع عباس العقاد - عمارة 15",
+  "payment_method": "cod",
+  "payment_status": "pending",
+  "order_status": "pending",
+  "subtotal": 450.00,
+  "shipping_cost": 50.00,
+  "discount_amount": 0,
+  "coupon_code": null,
+  "total_amount": 500.00,
+  "currency": "EGP",
+  "notes": null,
+  "items": [
+    {
+      "name": "منتج 1 (عرض القطعتين)",
+      "product_id": "uuid-product",
+      "quantity": 2,
+      "unit_price": 150,
+      "total_price": 300,
+      "variant_info": "أحمر / XL"
+    }
+  ],
+  "created_at": "2026-03-15T12:00:00Z"
 }
 
-✏️ 2. Order Modified (POST ${webhookUrl})
+✏️ 2. تعديل طلب — order_modified
+POST ${webhookUrl}
+Header: x-store-api-key: <API_KEY>
+
 {
   "event": "order_modified",
-  "order_number": "ORD-1234",
-  "modification_type": "edit" or "upsell",
-  "items": [...updated items...],
-  "total_amount": 500.00,
-  "old_data": {...},
-  "new_data": {...}
+  "timestamp": "2026-03-15T12:05:00Z",
+  "order_number": "8270",
+  "store_order_id": "uuid-xxx",
+  "modification_type": "edit",
+  "customer_name": "أحمد محمد",
+  "customer_phone": "01012345678",
+  "items": [...],
+  "subtotal": 540,
+  "shipping_cost": 50,
+  "discount_amount": 0,
+  "total_amount": 590,
+  "currency": "EGP",
+  "old_data": { "total_amount": 500, "items_count": 2 },
+  "new_data": { "total_amount": 590, "items_count": 2 }
 }
 
-🚫 3. Lost Order (POST ${webhookUrl})
+modification_type: "edit" لتعديل عادي، "upsell" لإضافة من عرض صفحة الشكر
+
+🚫 3. طلب مفقود — lost_order
+POST ${webhookUrl}
+Header: x-store-api-key: <API_KEY>
+
 {
   "event": "lost_order",
-  "order_number": "ORD-5678",
-  "customer_name": "Customer",
-  "customer_phone": "966509876543",
-  "customer_city": "City",
+  "timestamp": "2026-03-15T12:30:00Z",
+  "abandoned_checkout_id": "uuid-abandoned",
+  "customer_name": "سارة أحمد",
+  "customer_phone": "01098765432",
+  "customer_city": "الإسكندرية",
+  "customer_sub_zone": "سموحة",
+  "customer_address": "شارع 14 مايو",
   "total_amount": 200.00,
-  "currency": "SAR",
-  "items": [...]
+  "currency": "EGP",
+  "items": [
+    { "name": "منتج", "quantity": 1, "price": 200, "product_id": "uuid-product" }
+  ],
+  "notes": "سلة متروكة",
+  "created_at": "2026-03-15T12:00:00Z"
 }
 
-🔗 4. Test Connection (POST ${webhookUrl})
-{ "event": "test_connection" }
+🔗 4. اختبار الربط — test_connection
+{ "event": "test_connection", "timestamp": "..." }
 
-⚠️ Notes:
-- Phone numbers without + or spaces (e.g. 966501234567)
-- Required fields: new_order (order_number, customer_phone), order_modified (order_number), lost_order (order_number, customer_phone)
+⚠️ ملاحظات مهمة:
+• أرقام الهواتف بصيغة مصرية 11 رقم (مثال: 01012345678)
+• الحقول المطلوبة في new_order: order_number, customer_phone, items
+• الحقول المطلوبة في order_modified: order_number, items
+• الحقول المطلوبة في lost_order: customer_phone
+• عند التعديل يتم إرسال البيانات الجديدة كاملة + old_data
+• عند الإضافة من عرض بعد الشراء: modification_type = "upsell"
 `;
 }
 
@@ -399,29 +450,37 @@ Header: x-store-api-key: <API_KEY>
 
 {
   "event": "new_order",
-  "order_number": "ORD-1234",
+  "timestamp": "2026-03-15T12:00:00Z",
+  "order_number": "8270",
+  "store_order_id": "uuid-xxx",
   "customer_name": "أحمد محمد",
-  "customer_phone": "966501234567",
-  "customer_city": "الرياض",
-  "customer_address": "حي النرجس - شارع 15",
-  "total_amount": 350.00,
-  "currency": "SAR",
+  "customer_phone": "01012345678",
+  "customer_phone_alt": "01198765432",
+  "customer_email": null,
+  "customer_city": "القاهرة",
+  "customer_sub_zone": "مدينة نصر",
+  "customer_address": "شارع عباس العقاد - عمارة 15",
+  "payment_method": "cod",
+  "payment_status": "pending",
+  "order_status": "pending",
+  "subtotal": 450.00,
+  "shipping_cost": 50.00,
+  "discount_amount": 0,
+  "coupon_code": null,
+  "total_amount": 500.00,
+  "currency": "EGP",
+  "notes": null,
   "items": [
     {
-      "name": "منتج 1",
+      "name": "منتج 1 (عرض القطعتين)",
+      "product_id": "uuid-product",
       "quantity": 2,
-      "price": 100,
-      "sku": "SKU-001"
-    },
-    {
-      "name": "منتج 2",
-      "quantity": 1,
-      "price": 150,
-      "sku": "SKU-002"
+      "unit_price": 150,
+      "total_price": 300,
+      "variant_info": "أحمر / XL"
     }
   ],
-  "store_order_id": "shop_12345",
-  "notes": "ملاحظات اختيارية"
+  "created_at": "2026-03-15T12:00:00Z"
 }`}
             </pre>
           </div>
@@ -429,32 +488,36 @@ Header: x-store-api-key: <API_KEY>
           {/* Event 2: order_modified */}
           <div className="p-3 rounded-xl bg-secondary/50 space-y-2">
             <p className="text-xs font-medium text-foreground">✏️ 2. تعديل طلب — <code className="text-primary">order_modified</code></p>
-            <p className="text-xs text-muted-foreground">يتم إرساله عند تعديل الطلب أو إضافة منتجات من صفحة الشكر (Upsell)</p>
+            <p className="text-xs text-muted-foreground">يتم إرساله عند تعديل الطلب أو إضافة منتجات من عرض صفحة الشكر (Upsell)</p>
             <pre className="p-2 rounded-lg bg-background text-xs text-muted-foreground overflow-x-auto" dir="ltr">
 {`POST ${storeWebhookUrl}
 Header: x-store-api-key: <API_KEY>
 
 {
   "event": "order_modified",
-  "order_number": "ORD-1234",
+  "timestamp": "2026-03-15T12:05:00Z",
+  "order_number": "8270",
+  "store_order_id": "uuid-xxx",
   "modification_type": "edit",
+  "customer_name": "أحمد محمد",
+  "customer_phone": "01012345678",
   "items": [
     {
-      "name": "منتج 1",
+      "name": "منتج 1 (عرض 3 قطع)",
+      "product_id": "uuid-product",
       "quantity": 3,
-      "price": 100,
-      "sku": "SKU-001"
-    },
-    {
-      "name": "منتج جديد",
-      "quantity": 1,
-      "price": 200,
-      "sku": "SKU-003"
+      "unit_price": 130,
+      "total_price": 390,
+      "variant_info": "أحمر / XL"
     }
   ],
-  "total_amount": 500.00,
-  "old_data": { "total_amount": 350, "items_count": 2 },
-  "new_data": { "total_amount": 500, "items_count": 3 }
+  "subtotal": 540,
+  "shipping_cost": 50,
+  "discount_amount": 0,
+  "total_amount": 590,
+  "currency": "EGP",
+  "old_data": { "total_amount": 500, "items_count": 2 },
+  "new_data": { "total_amount": 590, "items_count": 2 }
 }`}
             </pre>
             <p className="text-xs text-muted-foreground">
@@ -465,29 +528,32 @@ Header: x-store-api-key: <API_KEY>
           {/* Event 3: lost_order */}
           <div className="p-3 rounded-xl bg-secondary/50 space-y-2">
             <p className="text-xs font-medium text-foreground">🚫 3. طلب مفقود — <code className="text-primary">lost_order</code></p>
-            <p className="text-xs text-muted-foreground">يتم إرساله عند سلة متروكة أو طلب ملغي من العميل</p>
+            <p className="text-xs text-muted-foreground">يتم إرساله بعد انتهاء مدة الانتظار المحددة (سلة متروكة)</p>
             <pre className="p-2 rounded-lg bg-background text-xs text-muted-foreground overflow-x-auto" dir="ltr">
 {`POST ${storeWebhookUrl}
 Header: x-store-api-key: <API_KEY>
 
 {
   "event": "lost_order",
-  "order_number": "ORD-5678",
+  "timestamp": "2026-03-15T12:30:00Z",
+  "abandoned_checkout_id": "uuid-abandoned",
   "customer_name": "سارة أحمد",
-  "customer_phone": "966509876543",
-  "customer_city": "جدة",
-  "customer_address": "حي الصفا",
+  "customer_phone": "01098765432",
+  "customer_city": "الإسكندرية",
+  "customer_sub_zone": "سموحة",
+  "customer_address": "شارع 14 مايو",
   "total_amount": 200.00,
-  "currency": "SAR",
+  "currency": "EGP",
   "items": [
     {
       "name": "منتج",
       "quantity": 1,
       "price": 200,
-      "sku": "SKU-010"
+      "product_id": "uuid-product"
     }
   ],
-  "notes": "سلة متروكة"
+  "notes": "سلة متروكة",
+  "created_at": "2026-03-15T12:00:00Z"
 }`}
             </pre>
           </div>
@@ -500,11 +566,12 @@ Header: x-store-api-key: <API_KEY>
 Header: x-store-api-key: <API_KEY>
 
 {
-  "event": "test_connection"
+  "event": "test_connection",
+  "timestamp": "2026-03-15T12:00:00Z"
 }`}
             </pre>
             <p className="text-xs text-muted-foreground">
-              الرد: <code>{`{"success": true, "message": "Connection verified"}`}</code>
+              الرد المتوقع: أي رد بـ HTTP Status 200
             </p>
           </div>
 
@@ -512,11 +579,13 @@ Header: x-store-api-key: <API_KEY>
           <div className="p-3 rounded-xl border border-primary/20 bg-primary/5 space-y-1.5">
             <p className="text-xs font-semibold text-foreground">⚠️ ملاحظات مهمة:</p>
             <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
-              <li>رقم الهاتف بدون + أو مسافات (مثال: <code>966501234567</code>)</li>
-              <li>الحقول المطلوبة في <code>new_order</code>: <code>order_number</code>, <code>customer_phone</code></li>
-              <li>الحقول المطلوبة في <code>order_modified</code>: <code>order_number</code></li>
-              <li>الحقول المطلوبة في <code>lost_order</code>: <code>order_number</code>, <code>customer_phone</code></li>
-              <li>باقي الحقول اختيارية لكن يُفضل إرسالها كاملة</li>
+              <li>أرقام الهواتف بصيغة مصرية 11 رقم (مثال: <code dir="ltr">01012345678</code>)</li>
+              <li>الحقول المطلوبة في <code>new_order</code>: <code>order_number</code>, <code>customer_phone</code>, <code>items</code></li>
+              <li>الحقول المطلوبة في <code>order_modified</code>: <code>order_number</code>, <code>items</code></li>
+              <li>الحقول المطلوبة في <code>lost_order</code>: <code>customer_phone</code></li>
+              <li>يتم إرسال كل البيانات الكاملة للطلب بما فيها الشحن والخصم والكوبون</li>
+              <li>عند التعديل يتم إرسال البيانات الجديدة كاملة + بيانات قبل التعديل في <code>old_data</code></li>
+              <li>عند الإضافة من عرض بعد الشراء يكون <code>modification_type = "upsell"</code></li>
             </ul>
           </div>
         </div>
