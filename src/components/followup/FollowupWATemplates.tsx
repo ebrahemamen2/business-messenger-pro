@@ -77,7 +77,7 @@ const FollowupWATemplates = () => {
       .select('*')
       .eq('tenant_id', currentTenant.id)
       .order('created_at', { ascending: false });
-    setTemplates((data as WATemplate[]) || []);
+    setTemplates((data as unknown as WATemplate[]) || []);
     setLoading(false);
   }, [currentTenant?.id]);
 
