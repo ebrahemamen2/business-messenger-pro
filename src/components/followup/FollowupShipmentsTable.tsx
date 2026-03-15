@@ -460,11 +460,22 @@ const FollowupShipmentsTable = () => {
     }, {} as Record<string, number>);
   }, [filtered]);
 
+  // Flat list sorted by recency (oldest first, matching table group order)
+  const filteredByRecency = useMemo(() => {
+    const orderMap: Record<string, number> = {};
+    RECENCY_ORDER.forEach((g, i) => { orderMap[g] = i; });
+    return [...filtered].sort((a, b) => {
+      const ga = getRecencyGroup(getDaysSinceLastStatus(a));
+      const gb = getRecencyGroup(getDaysSinceLastStatus(b));
+      return (orderMap[ga] ?? 99) - (orderMap[gb] ?? 99);
+    });
+  }, [filtered, getDaysSinceLastStatus, getRecencyGroup]);
+
   // Navigator card filtered list
   const cardFiltered = useMemo(() => {
-    if (cardFilter === 'pending') return filtered.filter(s => !s.status || s.status === '' || s.status === 'pending');
-    return filtered;
-  }, [filtered, cardFilter]);
+    if (cardFilter === 'pending') return filteredByRecency.filter(s => !s.status || s.status === '' || s.status === 'pending');
+    return filteredByRecency;
+  }, [filteredByRecency, cardFilter]);
 
   const activeShipment = cardFiltered[activeIndex] || null;
 
