@@ -158,41 +158,74 @@ const FollowupShipmentsTable = () => {
   // Get tenant timezone
   const tenantTimezone = currentTenant?.timezone || 'Africa/Cairo';
 
-  // Get "today" in tenant timezone as a Date at midnight
-  const getTenantToday = useCallback(() => {
-    const now = new Date();
-    // Get date string in tenant timezone
-    const dateStr = now.toLocaleDateString('en-CA', { timeZone: tenantTimezone }); // YYYY-MM-DD
-    return new Date(dateStr + 'T00:00:00');
-  }, [tenantTimezone]);
+  const createStrictDate = useCallback((year: number, month: number, day: number): Date | null => {
+    if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return null;
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
 
-  // Calculate days since last status using tenant timezone
-  const getDaysSinceLastStatus = useCallback((shipment: Shipment): number | null => {
-    const dateStr = shipment.last_status_date || shipment.status_date;
-    if (!dateStr) return null;
-    
-    // Try parsing various date formats
-    let statusDate: Date | null = null;
-    const parsed = new Date(dateStr);
-    if (!isNaN(parsed.getTime())) {
-      statusDate = parsed;
-    } else {
-      // Try DD/MM/YYYY or DD-MM-YYYY
-      const parts = dateStr.split(/[\/\-\.]/);
-      if (parts.length === 3) {
-        const d = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
-        if (!isNaN(d.getTime())) statusDate = d;
+    const date = new Date(year, month - 1, day);
+    if (
+      date.getFullYear() !== year ||
+      date.getMonth() !== month - 1 ||
+      date.getDate() !== day
+    ) {
+      return null;
+    }
+
+    return date;
+  }, []);
+
+  // Parse shipping sheet date safely (without ambiguous UTC/MM-DD parsing)
+  const parseSheetDate = useCallback((rawValue: string | null | undefined): Date | null => {
+    if (!rawValue) return null;
+    const value = String(rawValue).trim();
+    if (!value) return null;
+
+    // ISO date only: YYYY-MM-DD
+    let match = value.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (match) {
+      return createStrictDate(Number(match[1]), Number(match[2]), Number(match[3]));
+    }
+
+    // Day-first from shipping sheets: DD/MM/YYYY or DD-MM-YYYY or DD.MM.YYYY
+    match = value.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
+    if (match) {
+      return createStrictDate(Number(match[3]), Number(match[2]), Number(match[1]));
+    }
+
+    // Year-first variants: YYYY/MM/DD or YYYY.MM.DD
+    match = value.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})$/);
+    if (match) {
+      return createStrictDate(Number(match[1]), Number(match[2]), Number(match[3]));
+    }
+
+    // ISO datetime / timestamp
+    if (/^\d{4}-\d{2}-\d{2}T/.test(value)) {
+      const date = new Date(value);
+      if (!Number.isNaN(date.getTime())) {
+        return createStrictDate(date.getFullYear(), date.getMonth() + 1, date.getDate());
       }
     }
+
+    return null;
+  }, [createStrictDate]);
+
+  // Get "today" in tenant timezone as calendar date (midnight)
+  const getTenantToday = useCallback(() => {
+    const dateStr = new Date().toLocaleDateString('en-CA', { timeZone: tenantTimezone });
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return createStrictDate(year, month, day) ?? new Date(year, month - 1, day);
+  }, [tenantTimezone, createStrictDate]);
+
+  // Calculate days since last shipping-company status date
+  const getDaysSinceLastStatus = useCallback((shipment: Shipment): number | null => {
+    const statusDate = parseSheetDate(shipment.last_status_date) ?? parseSheetDate(shipment.status_date);
     if (!statusDate) return null;
 
     const today = getTenantToday();
-    // Normalize status date to midnight
-    const statusDateStr = statusDate.toLocaleDateString('en-CA', { timeZone: tenantTimezone });
-    const statusMidnight = new Date(statusDateStr + 'T00:00:00');
-    
-    return Math.floor((today.getTime() - statusMidnight.getTime()) / (1000 * 60 * 60 * 24));
-  }, [tenantTimezone, getTenantToday]);
+    const statusUtc = Date.UTC(statusDate.getFullYear(), statusDate.getMonth(), statusDate.getDate());
+    const todayUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+    return Math.floor((todayUtc - statusUtc) / (1000 * 60 * 60 * 24));
+  }, [getTenantToday, parseSheetDate]);
 
   // Get recency group label
   const getRecencyGroup = useCallback((days: number | null): string => {
