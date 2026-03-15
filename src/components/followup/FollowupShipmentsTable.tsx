@@ -748,7 +748,30 @@ const FollowupShipmentsTable = () => {
                 )}
               </div>
             </div>
+
+            {/* Last followup history */}
+            {lastHistory[activeShipment.id] && (
+              <div className="flex items-center gap-2 pt-2 border-t border-border text-xs">
+                <History className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                <span className="text-muted-foreground">آخر متابعة:</span>
+                <span className="font-medium text-foreground">
+                  {getActionInfo(lastHistory[activeShipment.id]!.action_status).label}
+                </span>
+                {lastHistory[activeShipment.id]!.notes && (
+                  <span className="text-muted-foreground truncate max-w-[200px]">
+                    — {lastHistory[activeShipment.id]!.notes}
+                  </span>
+                )}
+                <span className="text-muted-foreground text-[10px]">
+                  ({(() => {
+                    const days = Math.floor((Date.now() - new Date(lastHistory[activeShipment.id]!.created_at).getTime()) / (1000 * 60 * 60 * 24));
+                    return days === 0 ? 'اليوم' : `منذ ${days} يوم`;
+                  })()})
+                </span>
+              </div>
+            )}
           </div>
+        </div>
         </div>
       )}
 
